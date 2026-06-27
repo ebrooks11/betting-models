@@ -85,8 +85,10 @@ def _build_prediction_row(
     for feat in ALL_FEATURES:
         if feat == "is_home":
             row.append(is_home)
-        elif feat == "rest_days":
-            row.append(team_latest.get("rest_days", 7))
+        elif feat == "rest_advantage":
+            team_rest = team_latest.get("rest_days", 7)
+            opp_rest = opp_latest.get("rest_days", 7)
+            row.append(team_rest - opp_rest)
         elif feat == "win_streak":
             row.append(team_latest.get("win_streak", 0))
         elif feat == "week":

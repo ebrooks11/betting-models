@@ -176,18 +176,19 @@ def build_rolling_features(df: pd.DataFrame, window: int = ROLLING_WINDOW) -> pd
 
 
 def add_opponent_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Merge in the opponent's rolling stats for each game."""
+    """Merge in the opponent's rolling stats and rest days for each game."""
     team_cols = (
         [c for c in df.columns if c.startswith("off_") or c.startswith("def_")]
     )
 
-    opp_stats = df[["season", "week", "team"] + team_cols].copy()
+    opp_stats = df[["season", "week", "team", "rest_days"] + team_cols].copy()
     opp_stats = opp_stats.rename(
         columns={c: f"opp_{c}" for c in team_cols}
     )
-    opp_stats = opp_stats.rename(columns={"team": "opponent"})
+    opp_stats = opp_stats.rename(columns={"team": "opponent", "rest_days": "opp_rest_days"})
 
     df = df.merge(opp_stats, on=["season", "week", "opponent"], how="left")
+    df["rest_advantage"] = df["rest_days"] - df["opp_rest_days"]
     return df
 
 

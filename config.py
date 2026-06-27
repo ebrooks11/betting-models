@@ -23,7 +23,7 @@ OPPONENT_FEATURES = [
 
 CONTEXTUAL_FEATURES = [
     "is_home",
-    "rest_days",
+    "rest_advantage",
     "win_streak",
     "week",
 ]
