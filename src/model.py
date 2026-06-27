@@ -112,7 +112,7 @@ def _compute_metrics(games: pd.DataFrame, mae: float) -> dict:
     ) | (
         (games["model_picks_home"] == False) & (games["book_margin"] > 0)
     )
-    disagree_games = non_push_ats[non_push_ats["model_disagrees"]]
+    disagree_games = games[(games["model_disagrees"]) & (games["actual_margin"] != games["book_margin"])]
     edge_correct = (disagree_games["model_picks_home"] == disagree_games["home_covers"]).sum()
     edge_total = len(disagree_games)
     edge_pct = edge_correct / edge_total if edge_total > 0 else 0
