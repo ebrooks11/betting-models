@@ -152,29 +152,29 @@ def build_rolling_features(df: pd.DataFrame, window: int = ROLLING_WINDOW) -> pd
         "def_takeaways",
     ]
 
-    rolled = (
-        df.groupby("team")[stat_cols]
-        .apply(lambda x: x.shift(1).rolling(window, min_periods=1).mean())
-    )
-    rolled.columns = [c.replace("off_turnovers", "off_turnovers_per_game")
-                       .replace("def_takeaways", "def_takeaways_per_game")
-                       for c in rolled.columns]
+    rename_map = {
+        "off_turnovers": "off_turnovers_per_game",
+        "def_takeaways": "def_takeaways_per_game",
+    }
 
-    # Points per game needs to come from score columns
-    points_rolled = (
-        df.groupby("team")["score"]
-        .apply(lambda x: x.shift(1).rolling(window, min_periods=1).mean())
-        .rename("off_points_per_game")
+    for col in stat_cols:
+        new_col = rename_map.get(col, col)
+        df[new_col] = df.groupby("team")[col].transform(
+            lambda x: x.shift(1).rolling(window, min_periods=1).mean()
+        )
+        if col in rename_map:
+            df = df.drop(columns=[col])
+
+    df["off_points_per_game"] = df.groupby("team")["score"].transform(
+        lambda x: x.shift(1).rolling(window, min_periods=1).mean()
     )
-    def_points_rolled = (
-        df.groupby("team")["opponent_score"]
-        .apply(lambda x: x.shift(1).rolling(window, min_periods=1).mean())
-        .rename("def_points_per_game")
+    df["def_points_per_game"] = df.groupby("team")["opponent_score"].transform(
+        lambda x: x.shift(1).rolling(window, min_periods=1).mean()
     )
 
-    # Drop raw stat columns before joining rolling versions
-    df = df.drop(columns=stat_cols)
-    df = df.join(rolled).join(points_rolled).join(def_points_rolled)
+    # Drop raw stat columns that weren't renamed
+    raw_to_drop = [c for c in stat_cols if c not in rename_map]
+    df = df.drop(columns=raw_to_drop, errors="ignore")
     return df
 
 
