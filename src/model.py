@@ -105,10 +105,25 @@ def _compute_metrics(games: pd.DataFrame, mae: float) -> dict:
     ou_total = len(non_push_ou)
     ou_pct = ou_correct / ou_total if ou_total > 0 else 0
 
+    # Edge picks: games where our model disagrees with the book's favorite
+    games["model_edge"] = games["pred_margin"] - games["book_margin"]
+    games["model_disagrees"] = (
+        (games["model_picks_home"] == True) & (games["book_margin"] < 0)
+    ) | (
+        (games["model_picks_home"] == False) & (games["book_margin"] > 0)
+    )
+    disagree_games = non_push_ats[non_push_ats["model_disagrees"]]
+    edge_correct = (disagree_games["model_picks_home"] == disagree_games["home_covers"]).sum()
+    edge_total = len(disagree_games)
+    edge_pct = edge_correct / edge_total if edge_total > 0 else 0
+
     return {
         "mae": round(mae, 2),
         "ats_record": f"{ats_correct}-{ats_total - ats_correct}",
         "ats_pct": round(ats_pct * 100, 1),
+        "edge_record": f"{edge_correct}-{edge_total - edge_correct}",
+        "edge_pct": round(edge_pct * 100, 1),
+        "edge_games": edge_total,
         "ou_record": f"{ou_correct}-{ou_total - ou_correct}",
         "ou_pct": round(ou_pct * 100, 1),
         "total_games": len(games),
@@ -141,6 +156,7 @@ def walk_forward_evaluate(df: pd.DataFrame) -> dict:
 
         print(f"  {val_season}: MAE={season_metrics['mae']}, "
               f"ATS={season_metrics['ats_pct']}% ({season_metrics['ats_record']}), "
+              f"Edge={season_metrics['edge_pct']}% ({season_metrics['edge_record']} in {season_metrics['edge_games']} contrarian picks), "
               f"O/U={season_metrics['ou_pct']}% ({season_metrics['ou_record']})")
 
     # Overall metrics across all validation seasons
@@ -151,6 +167,7 @@ def walk_forward_evaluate(df: pd.DataFrame) -> dict:
 
     print(f"\n  Overall: MAE={overall['mae']}, "
           f"ATS={overall['ats_pct']}% ({overall['ats_record']}), "
+          f"Edge={overall['edge_pct']}% ({overall['edge_record']} in {overall['edge_games']} contrarian picks), "
           f"O/U={overall['ou_pct']}% ({overall['ou_record']})")
 
     return {"per_season": all_results[:-1], "overall": all_results[-1]}
