@@ -46,31 +46,6 @@ def evaluate_predictions(
     # MAE on individual team scores
     mae = np.mean(np.abs(df["score"] - df["predicted_score"]))
 
-    # Build game-level predictions by pairing home and away rows
-    home = df[df["is_home"] == 1].set_index(["season", "week", "team"])
-    away = df[df["is_home"] == 0].set_index(["season", "week", "team"])
-
-    home = home.rename(columns={
-        "predicted_score": "home_pred",
-        "score": "home_actual",
-        "opponent_score": "away_actual",
-        "spread_line": "home_spread_line",
-    })
-    away = away.rename(columns={
-        "predicted_score": "away_pred",
-        "score": "away_actual",
-    })
-
-    games = home[["home_pred", "home_actual", "away_actual",
-                   "home_spread_line", "total_line"]].copy()
-    games = games.join(
-        away[["away_pred"]],
-        on=["season", "week"],
-        rsuffix="_away",
-    )
-
-    # Handle the join — away is indexed by away team, need to match by game
-    # Simpler approach: pivot from the full dataframe
     games = _build_game_pairs(df)
 
     return _compute_metrics(games, mae)
