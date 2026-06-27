@@ -172,6 +172,8 @@ def build_rolling_features(df: pd.DataFrame, window: int = ROLLING_WINDOW) -> pd
         .rename("def_points_per_game")
     )
 
+    # Drop raw stat columns before joining rolling versions
+    df = df.drop(columns=stat_cols)
     df = df.join(rolled).join(points_rolled).join(def_points_rolled)
     return df
 
