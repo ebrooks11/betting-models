@@ -78,14 +78,17 @@ def _compute_metrics(games: pd.DataFrame, mae: float) -> dict:
     """Calculate ATS and O/U accuracy from game pairs."""
     games = games.copy()
 
-    # Predicted spread (negative = home favored)
-    games["pred_spread"] = games["away_pred"] - games["home_pred"]
-    games["actual_spread"] = games["away_actual"] - games["home_actual"]
+    # Spread from home team perspective (positive = home favored)
+    games["pred_spread"] = games["home_pred"] - games["away_pred"]
+    games["actual_spread"] = games["home_actual"] - games["away_actual"]
 
-    # ATS accuracy: did we pick the right side vs the book's spread?
-    games["book_spread"] = games["spread_line"]
-    games["pred_covers"] = games["pred_spread"] < games["book_spread"]
-    games["actual_covers"] = games["actual_spread"] < games["book_spread"]
+    # spread_line is from home perspective in nflverse (negative = home favored)
+    # Convert so positive = home favored to match our convention
+    games["book_spread"] = -games["spread_line"]
+
+    # Home team covers if they win by more than the book expects
+    games["pred_covers"] = games["pred_spread"] > games["book_spread"]
+    games["actual_covers"] = games["actual_spread"] > games["book_spread"]
     # Exclude pushes
     non_push_ats = games[games["actual_spread"] != games["book_spread"]]
     ats_correct = (non_push_ats["pred_covers"] == non_push_ats["actual_covers"]).sum()
