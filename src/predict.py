@@ -40,8 +40,8 @@ def predict_upcoming(
         if home not in team_stats or away not in team_stats:
             continue
 
-        home_features = _build_prediction_row(team_stats[home], is_home=1, game=game)
-        away_features = _build_prediction_row(team_stats[away], is_home=0, game=game)
+        home_features = _build_prediction_row(team_stats[home], team_stats[away], is_home=1, game=game)
+        away_features = _build_prediction_row(team_stats[away], team_stats[home], is_home=0, game=game)
 
         if home_features is None or away_features is None:
             continue
@@ -78,7 +78,7 @@ def predict_upcoming(
 
 
 def _build_prediction_row(
-    team_latest: pd.Series, is_home: int, game: pd.Series
+    team_latest: pd.Series, opp_latest: pd.Series, is_home: int, game: pd.Series
 ) -> list[float] | None:
     """Build a feature vector for a single team in an upcoming game."""
     row = []
@@ -91,6 +91,12 @@ def _build_prediction_row(
             row.append(team_latest.get("win_streak", 0))
         elif feat == "week":
             row.append(game["week"])
+        elif feat.startswith("opp_"):
+            opp_feat = feat[4:]
+            val = opp_latest.get(opp_feat, np.nan)
+            if pd.isna(val):
+                return None
+            row.append(val)
         else:
             val = team_latest.get(feat, np.nan)
             if pd.isna(val):

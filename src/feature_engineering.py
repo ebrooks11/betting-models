@@ -175,6 +175,22 @@ def build_rolling_features(df: pd.DataFrame, window: int = ROLLING_WINDOW) -> pd
     return df
 
 
+def add_opponent_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Merge in the opponent's rolling stats for each game."""
+    team_cols = (
+        [c for c in df.columns if c.startswith("off_") or c.startswith("def_")]
+    )
+
+    opp_stats = df[["season", "week", "team"] + team_cols].copy()
+    opp_stats = opp_stats.rename(
+        columns={c: f"opp_{c}" for c in team_cols}
+    )
+    opp_stats = opp_stats.rename(columns={"team": "opponent"})
+
+    df = df.merge(opp_stats, on=["season", "week", "opponent"], how="left")
+    return df
+
+
 def build_feature_matrix(
     pbp: pd.DataFrame, schedules: pd.DataFrame
 ) -> pd.DataFrame:
@@ -182,6 +198,7 @@ def build_feature_matrix(
     game_stats = compute_game_stats(pbp)
     df = add_scores_and_context(game_stats, schedules)
     df = build_rolling_features(df)
+    df = add_opponent_features(df)
 
     # Drop rows with no rolling data (first games of a team's history)
     df = df.dropna(subset=ALL_FEATURES)

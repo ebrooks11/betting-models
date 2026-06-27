@@ -21,6 +21,20 @@ DEFENSIVE_FEATURES = [
     "def_takeaways_per_game",
 ]
 
+OPPONENT_FEATURES = [
+    "opp_off_epa_per_play",
+    "opp_off_success_rate",
+    "opp_off_yards_per_play",
+    "opp_off_points_per_game",
+    "opp_off_turnovers_per_game",
+    "opp_off_third_down_rate",
+    "opp_def_epa_per_play",
+    "opp_def_success_rate",
+    "opp_def_yards_per_play",
+    "opp_def_points_per_game",
+    "opp_def_takeaways_per_game",
+]
+
 CONTEXTUAL_FEATURES = [
     "is_home",
     "rest_days",
@@ -28,6 +42,6 @@ CONTEXTUAL_FEATURES = [
     "week",
 ]
 
-ALL_FEATURES = OFFENSIVE_FEATURES + DEFENSIVE_FEATURES + CONTEXTUAL_FEATURES
+ALL_FEATURES = OFFENSIVE_FEATURES + DEFENSIVE_FEATURES + OPPONENT_FEATURES + CONTEXTUAL_FEATURES
 
 RIDGE_ALPHA = 1.0
