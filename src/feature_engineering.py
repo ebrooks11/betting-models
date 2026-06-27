@@ -204,10 +204,6 @@ def build_feature_matrix(
     # Drop rows with no rolling data (first games of a team's history)
     df = df.dropna(subset=ALL_FEATURES)
 
-    # Drop early-season games where rolling features rely on prior-year data
-    from config import MIN_WEEK
-    df = df[df["week"] >= MIN_WEEK]
-
     return df
 
 

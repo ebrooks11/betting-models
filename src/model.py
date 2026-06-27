@@ -10,6 +10,7 @@ from sklearn.preprocessing import StandardScaler
 
 from config import (
     ALL_FEATURES,
+    MIN_WEEK,
     RIDGE_ALPHA,
     TRAIN_SEASONS,
     VALIDATION_SEASONS,
@@ -136,8 +137,8 @@ def walk_forward_evaluate(df: pd.DataFrame) -> dict:
     all_test_dfs = []
 
     for val_season in VALIDATION_SEASONS:
-        train_df = df[df["season"] < val_season]
-        test_df = df[df["season"] == val_season]
+        train_df = df[(df["season"] < val_season) & (df["week"] >= MIN_WEEK)]
+        test_df = df[(df["season"] == val_season) & (df["week"] >= MIN_WEEK)]
 
         if len(train_df) == 0 or len(test_df) == 0:
             continue
@@ -216,8 +217,8 @@ if __name__ == "__main__":
     print(f"\nWalk-forward evaluation ({VALIDATION_SEASONS[0]}-{VALIDATION_SEASONS[-1]}):")
     results = walk_forward_evaluate(df)
 
-    # Train final model on all data and save
+    # Train final model on all data and save (excluding early-season games)
     print("\nTraining final model on all data...")
-    model, scaler = train_model(df)
+    model, scaler = train_model(df[df["week"] >= MIN_WEEK])
     print_feature_importance(model)
     save_model(model, scaler)
