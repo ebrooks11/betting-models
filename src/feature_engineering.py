@@ -172,9 +172,6 @@ def build_rolling_features(df: pd.DataFrame, window: int = ROLLING_WINDOW) -> pd
         lambda x: x.shift(1).rolling(window, min_periods=1).mean()
     )
 
-    # Drop raw stat columns that weren't renamed
-    raw_to_drop = [c for c in stat_cols if c not in rename_map]
-    df = df.drop(columns=raw_to_drop, errors="ignore")
     return df
 
 
