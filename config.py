@@ -3,6 +3,7 @@ TRAIN_SEASONS = list(range(2015, 2020))
 VALIDATION_SEASONS = list(range(2020, 2025))
 
 ROLLING_WINDOW = 5
+MIN_WEEK = 4
 
 OFFENSIVE_FEATURES = [
     "off_epa_per_play",
