@@ -122,8 +122,10 @@ def walk_forward_evaluate(df: pd.DataFrame) -> dict:
     all_test_dfs = []
 
     for val_season in VALIDATION_SEASONS:
-        train_df = df[(df["season"] < val_season) & (df["week"] >= MIN_WEEK)]
-        test_df = df[(df["season"] == val_season) & (df["week"] >= MIN_WEEK)]
+        max_week = df[df["season"] == val_season]["week"].max()
+        train_max = df[df["season"] < val_season].groupby("season")["week"].transform("max")
+        train_df = df[(df["season"] < val_season) & (df["week"] >= MIN_WEEK) & (df["week"] < train_max)]
+        test_df = df[(df["season"] == val_season) & (df["week"] >= MIN_WEEK) & (df["week"] < max_week)]
 
         if len(train_df) == 0 or len(test_df) == 0:
             continue
@@ -202,6 +204,7 @@ if __name__ == "__main__":
 
     # Train final model on all data and save (excluding early-season games)
     print("\nTraining final model on all data...")
-    model, scaler = train_model(df[df["week"] >= MIN_WEEK])
+    final_max = df.groupby("season")["week"].transform("max")
+    model, scaler = train_model(df[(df["week"] >= MIN_WEEK) & (df["week"] < final_max)])
     print_feature_importance(model)
     save_model(model, scaler)
