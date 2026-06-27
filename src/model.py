@@ -81,8 +81,8 @@ def _compute_metrics(games: pd.DataFrame, mae: float) -> dict:
     # All spreads from home perspective: positive = home wins/favored
     games["pred_margin"] = games["home_pred"] - games["away_pred"]
     games["actual_margin"] = games["home_actual"] - games["away_actual"]
-    # nflverse spread_line: negative = home favored, so negate for our convention
-    games["book_margin"] = -games["spread_line"]
+    # nflverse spread_line: positive = home favored by that many points
+    games["book_margin"] = games["spread_line"]
 
     # ATS: does our model pick the correct side of the book's spread?
     # Home covers if actual margin exceeds the book's expected margin
