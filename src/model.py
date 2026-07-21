@@ -10,10 +10,9 @@ from sklearn.preprocessing import StandardScaler
 from xgboost import XGBRegressor
 
 from config import (
-    ALL_FEATURES,
+    GAME_FEATURES,
     MIN_WEEK,
     RIDGE_ALPHA,
-    TRAIN_SEASONS,
     VALIDATION_SEASONS,
 )
 
@@ -22,12 +21,12 @@ MODEL_DIR = Path(__file__).resolve().parent.parent / "models"
 
 def train_model(
     df: pd.DataFrame,
-    features: list[str] = ALL_FEATURES,
+    features: list[str] = GAME_FEATURES,
     alpha: float = RIDGE_ALPHA,
 ) -> tuple[Ridge, StandardScaler]:
-    """Train a Ridge regression model on the given data."""
+    """Train a Ridge regression model predicting home score margin."""
     X = df[features].values
-    y = df["score"].values
+    y = df["margin"].values
 
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
@@ -40,11 +39,11 @@ def train_model(
 
 def train_xgb_model(
     df: pd.DataFrame,
-    features: list[str] = ALL_FEATURES,
+    features: list[str] = GAME_FEATURES,
 ) -> tuple[XGBRegressor, None]:
-    """Train an XGBoost regression model on the given data."""
+    """Train an XGBoost regression model predicting home score margin."""
     X = df[features].values
-    y = df["score"].values
+    y = df["margin"].values
 
     model = XGBRegressor(
         n_estimators=300,
@@ -60,87 +59,32 @@ def train_xgb_model(
     return model, None
 
 
-def evaluate_predictions(
-    df: pd.DataFrame, predictions: np.ndarray
-) -> dict:
-    """Compute evaluation metrics from predicted team scores."""
+def evaluate_predictions(df: pd.DataFrame, predictions: np.ndarray) -> dict:
+    """Compute ATS accuracy from predicted margins on game-level rows."""
     df = df.copy()
-    df["predicted_score"] = predictions
+    df["pred_margin"] = predictions
 
-    # MAE on individual team scores
-    mae = np.mean(np.abs(df["score"] - df["predicted_score"]))
+    # spread_line positive = home favored; home covers if actual margin > spread
+    non_push = df[df["margin"] != df["spread_line"]]
+    home_covers = non_push["margin"] > non_push["spread_line"]
+    model_picks_home = non_push["pred_margin"] > non_push["spread_line"]
 
-    games = _build_game_pairs(df)
-
-    return _compute_metrics(games, mae)
-
-
-def _build_game_pairs(df: pd.DataFrame) -> pd.DataFrame:
-    """Pair home and away rows into single game rows."""
-    home = df[df["is_home"] == 1].copy()
-    away = df[df["is_home"] == 0].copy()
-
-    home = home.rename(columns={
-        "team": "home_team",
-        "opponent": "away_team",
-        "predicted_score": "home_pred",
-        "score": "home_actual",
-    })[["season", "week", "home_team", "away_team", "home_pred",
-        "home_actual", "spread_line", "total_line"]]
-
-    away = away.rename(columns={
-        "team": "away_team",
-        "predicted_score": "away_pred",
-        "score": "away_actual",
-    })[["season", "week", "away_team", "away_pred", "away_actual"]]
-
-    games = home.merge(away, on=["season", "week", "away_team"])
-    return games
-
-
-def _compute_metrics(games: pd.DataFrame, mae: float) -> dict:
-    """Calculate ATS and O/U accuracy from game pairs."""
-    games = games.copy()
-
-    # All spreads from home perspective: positive = home wins/favored
-    games["pred_margin"] = games["home_pred"] - games["away_pred"]
-    games["actual_margin"] = games["home_actual"] - games["away_actual"]
-    # nflverse spread_line: positive = home favored by that many points
-    games["book_margin"] = games["spread_line"]
-
-    # ATS: does our model pick the correct side of the book's spread?
-    # Home covers if actual margin exceeds the book's expected margin
-    games["home_covers"] = games["actual_margin"] > games["book_margin"]
-    games["model_picks_home"] = games["pred_margin"] > games["book_margin"]
-
-    # Exclude pushes
-    non_push_ats = games[games["actual_margin"] != games["book_margin"]]
-    ats_correct = (non_push_ats["model_picks_home"] == non_push_ats["home_covers"]).sum()
-    ats_total = len(non_push_ats)
+    ats_correct = (model_picks_home == home_covers).sum()
+    ats_total = len(non_push)
     ats_pct = ats_correct / ats_total if ats_total > 0 else 0
 
-    # O/U accuracy
-    games["pred_total"] = games["home_pred"] + games["away_pred"]
-    games["actual_total"] = games["home_actual"] + games["away_actual"]
-    games["pred_over"] = games["pred_total"] > games["total_line"]
-    games["actual_over"] = games["actual_total"] > games["total_line"]
-    non_push_ou = games[games["actual_total"] != games["total_line"]]
-    ou_correct = (non_push_ou["pred_over"] == non_push_ou["actual_over"]).sum()
-    ou_total = len(non_push_ou)
-    ou_pct = ou_correct / ou_total if ou_total > 0 else 0
+    mae = np.mean(np.abs(df["margin"] - df["pred_margin"]))
 
     return {
         "mae": round(mae, 2),
         "ats_record": f"{ats_correct}-{ats_total - ats_correct}",
         "ats_pct": round(ats_pct * 100, 1),
-        "ou_record": f"{ou_correct}-{ou_total - ou_correct}",
-        "ou_pct": round(ou_pct * 100, 1),
-        "total_games": len(games),
+        "total_games": len(df),
     }
 
 
 def _run_walk_forward(df: pd.DataFrame, use_xgb: bool = False) -> dict:
-    """Walk-forward validation for one algorithm. Returns per-season + overall results."""
+    """Walk-forward validation for one algorithm on game-level rows."""
     all_results = []
     all_test_dfs = []
 
@@ -152,16 +96,16 @@ def _run_walk_forward(df: pd.DataFrame, use_xgb: bool = False) -> dict:
             continue
 
         if use_xgb:
-            model, scaler = train_xgb_model(train_df)
-            X_test = test_df[ALL_FEATURES].values
+            model, _ = train_xgb_model(train_df)
+            X_test = test_df[GAME_FEATURES].values
         else:
             model, scaler = train_model(train_df)
-            X_test = scaler.transform(test_df[ALL_FEATURES].values)
+            X_test = scaler.transform(test_df[GAME_FEATURES].values)
 
         preds = model.predict(X_test)
 
         test_df = test_df.copy()
-        test_df["predicted_score"] = preds
+        test_df["pred_margin"] = preds
         all_test_dfs.append(test_df)
 
         season_metrics = evaluate_predictions(test_df, preds)
@@ -169,7 +113,7 @@ def _run_walk_forward(df: pd.DataFrame, use_xgb: bool = False) -> dict:
         all_results.append(season_metrics)
 
     combined = pd.concat(all_test_dfs, ignore_index=True)
-    overall = evaluate_predictions(combined, combined["predicted_score"].values)
+    overall = evaluate_predictions(combined, combined["pred_margin"].values)
     overall["season"] = "overall"
     all_results.append(overall)
 
@@ -178,8 +122,8 @@ def _run_walk_forward(df: pd.DataFrame, use_xgb: bool = False) -> dict:
 
 def walk_forward_evaluate(df: pd.DataFrame) -> dict:
     """Walk-forward validation comparing Ridge and XGBoost side-by-side."""
-    print("\n  Season       Ridge ATS%    XGB ATS%    Ridge O/U%   XGB O/U%    Ridge MAE  XGB MAE")
-    print("  " + "-" * 85)
+    print("\n  Season       Ridge ATS%    XGB ATS%    Ridge MAE   XGB MAE")
+    print("  " + "-" * 60)
 
     ridge_results = _run_walk_forward(df, use_xgb=False)
     xgb_results = _run_walk_forward(df, use_xgb=True)
@@ -191,21 +135,18 @@ def walk_forward_evaluate(df: pd.DataFrame) -> dict:
         r = ridge_by_season.get(season, {})
         x = xgb_by_season.get(season, {})
         print(
-            f"  {season}         {r.get('ats_pct', 'N/A'):>5}%       {x.get('ats_pct', 'N/A'):>5}%"
-            f"       {r.get('ou_pct', 'N/A'):>5}%      {x.get('ou_pct', 'N/A'):>5}%"
+            f"  {season}         {r.get('ats_pct', 'N/A'):>5}%        {x.get('ats_pct', 'N/A'):>5}%"
             f"       {r.get('mae', 'N/A'):>5}      {x.get('mae', 'N/A'):>5}"
         )
 
     ro = ridge_results["overall"]
     xo = xgb_results["overall"]
-    print("  " + "-" * 85)
+    print("  " + "-" * 60)
     print(
-        f"  Overall       {ro['ats_pct']:>5}%       {xo['ats_pct']:>5}%"
-        f"       {ro['ou_pct']:>5}%      {xo['ou_pct']:>5}%"
+        f"  Overall       {ro['ats_pct']:>5}%        {xo['ats_pct']:>5}%"
         f"       {ro['mae']:>5}      {xo['mae']:>5}"
     )
     print(f"\n  Ridge ATS record: {ro['ats_record']}  |  XGB ATS record: {xo['ats_record']}")
-    print(f"  Ridge O/U record: {ro['ou_record']}  |  XGB O/U record: {xo['ou_record']}")
 
     return {"ridge": ridge_results, "xgb": xgb_results}
 
@@ -228,7 +169,7 @@ def load_model() -> tuple[Ridge, StandardScaler]:
     return data["model"], data["scaler"]
 
 
-def print_feature_importance(model: Ridge, features: list[str] = ALL_FEATURES):
+def print_feature_importance(model: Ridge, features: list[str] = GAME_FEATURES):
     """Print model coefficients ranked by absolute value."""
     coefs = pd.Series(model.coef_, index=features)
     coefs = coefs.reindex(coefs.abs().sort_values(ascending=False).index)
@@ -241,19 +182,20 @@ def print_feature_importance(model: Ridge, features: list[str] = ALL_FEATURES):
 if __name__ == "__main__":
     from config import SEASONS
     from src.data_loader import get_pbp_data, get_schedule_data
-    from src.feature_engineering import build_feature_matrix
+    from src.feature_engineering import build_feature_matrix, build_game_matrix
 
     print("Loading data...")
     pbp = get_pbp_data(SEASONS)
     schedules = get_schedule_data(SEASONS)
 
     print("Building features...")
-    df = build_feature_matrix(pbp, schedules)
+    team_df = build_feature_matrix(pbp, schedules)
+    df = build_game_matrix(team_df)
+    print(f"Game matrix: {len(df):,} games")
 
     print(f"\nWalk-forward evaluation ({VALIDATION_SEASONS[0]}-{VALIDATION_SEASONS[-1]}):")
     results = walk_forward_evaluate(df)
 
-    # Train final Ridge model on all data and save
     print("\nTraining final Ridge model on all data...")
     model, scaler = train_model(df[df["week"] >= MIN_WEEK])
     print_feature_importance(model)

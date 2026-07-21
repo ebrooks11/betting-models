@@ -31,4 +31,7 @@ CONTEXTUAL_FEATURES = [
 
 ALL_FEATURES = OFFENSIVE_FEATURES + DEFENSIVE_FEATURES + OPPONENT_FEATURES + CONTEXTUAL_FEATURES
 
+# Game-level features (one row per game, home perspective, no is_home flag needed)
+GAME_FEATURES = [f for f in ALL_FEATURES if f != "is_home"]
+
 RIDGE_ALPHA = 1.0

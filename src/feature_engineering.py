@@ -3,7 +3,7 @@
 import pandas as pd
 import numpy as np
 
-from config import ROLLING_WINDOW, ALL_FEATURES
+from config import ROLLING_WINDOW, ALL_FEATURES, GAME_FEATURES
 
 
 def compute_game_stats(pbp: pd.DataFrame) -> pd.DataFrame:
@@ -197,16 +197,25 @@ def add_opponent_features(df: pd.DataFrame) -> pd.DataFrame:
 def build_feature_matrix(
     pbp: pd.DataFrame, schedules: pd.DataFrame
 ) -> pd.DataFrame:
-    """Full pipeline: pbp + schedules → feature matrix ready for modeling."""
+    """Full pipeline: pbp + schedules → team-level feature matrix."""
     game_stats = compute_game_stats(pbp)
     df = add_scores_and_context(game_stats, schedules)
     df = build_rolling_features(df)
     df = add_opponent_features(df)
-
-    # Drop rows with no rolling data (first games of a team's history)
     df = df.dropna(subset=ALL_FEATURES)
-
     return df
+
+
+def build_game_matrix(df: pd.DataFrame) -> pd.DataFrame:
+    """Collapse team-level rows to one row per game (home perspective).
+
+    Target is margin = home_score - away_score. Each row contains both
+    teams' rolling stats via the opp_* columns already present.
+    """
+    games = df[df["is_home"] == 1].copy()
+    games["margin"] = games["score"] - games["opponent_score"]
+    games = games.dropna(subset=GAME_FEATURES + ["margin", "spread_line"])
+    return games
 
 
 if __name__ == "__main__":
