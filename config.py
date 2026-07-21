@@ -15,7 +15,12 @@ DEFENSIVE_FEATURES = [
     "def_points_per_game",
 ]
 
-OPPONENT_FEATURES = []
+OPPONENT_FEATURES = [
+    "opp_off_epa_per_play",
+    "opp_off_points_per_game",
+    "opp_def_epa_per_play",
+    "opp_def_points_per_game",
+]
 
 CONTEXTUAL_FEATURES = [
     "is_home",
