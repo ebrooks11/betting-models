@@ -82,7 +82,7 @@ def get_pfr_advstats(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
     pfr_seasons = [s for s in seasons if s >= 2018]
     print(f"Downloading PFR weekly advanced stats for {pfr_seasons[0]}-{pfr_seasons[-1]}...")
     dfs = []
-    for stat_type in ["pass", "rush"]:
+    for stat_type in ["pass", "rush", "rec"]:
         try:
             df = nfl.import_weekly_pfr(stat_type, pfr_seasons)
             df["stat_type"] = stat_type
