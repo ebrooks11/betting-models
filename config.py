@@ -25,8 +25,6 @@ OPPONENT_FEATURES = [
 CONTEXTUAL_FEATURES = [
     "is_home",
     "rest_advantage",
-    "win_streak",
-    "week",
 ]
 
 ALL_FEATURES = OFFENSIVE_FEATURES + DEFENSIVE_FEATURES + OPPONENT_FEATURES + CONTEXTUAL_FEATURES
