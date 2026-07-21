@@ -206,6 +206,83 @@ def build_feature_matrix(
     return df
 
 
+def build_personnel_matrix(pbp: pd.DataFrame, schedules: pd.DataFrame) -> pd.DataFrame:
+    """Build a game-level matrix using only QB and coach identity as features.
+
+    For each game: identify which QB started (most pass attempts), pull the
+    head coaches from the schedule, compute rest advantage, and set margin as target.
+    """
+    games = schedules[schedules["game_type"] == "REG"].copy()
+
+    # Check coach columns exist
+    if "home_coach" not in games.columns or "away_coach" not in games.columns:
+        raise ValueError("Schedule data missing home_coach/away_coach columns")
+
+    # Starting QB = QB with most pass attempts in each game
+    pass_plays = pbp[pbp["play_type"] == "pass"].copy()
+    qb_attempts = (
+        pass_plays.groupby(["season", "week", "posteam", "passer_player_name"])
+        .size()
+        .reset_index(name="attempts")
+    )
+    starting_qbs = (
+        qb_attempts.sort_values("attempts", ascending=False)
+        .groupby(["season", "week", "posteam"])
+        .first()
+        .reset_index()[["season", "week", "posteam", "passer_player_name"]]
+    )
+
+    # Merge starting QB for home and away
+    games = games.merge(
+        starting_qbs.rename(columns={"posteam": "home_team", "passer_player_name": "home_qb"}),
+        on=["season", "week", "home_team"], how="left",
+    )
+    games = games.merge(
+        starting_qbs.rename(columns={"posteam": "away_team", "passer_player_name": "away_qb"}),
+        on=["season", "week", "away_team"], how="left",
+    )
+
+    # Rest advantage (home rest days - away rest days)
+    games["gameday"] = pd.to_datetime(games["gameday"])
+    games = games.sort_values(["season", "week"])
+    home_rest = (
+        games[["season", "week", "home_team", "gameday"]]
+        .rename(columns={"home_team": "team"})
+        .sort_values(["team", "season", "week"])
+    )
+    home_rest["rest_days"] = home_rest.groupby("team")["gameday"].diff().dt.days.fillna(7)
+
+    away_rest = (
+        games[["season", "week", "away_team", "gameday"]]
+        .rename(columns={"away_team": "team"})
+        .sort_values(["team", "season", "week"])
+    )
+    away_rest["rest_days"] = away_rest.groupby("team")["gameday"].diff().dt.days.fillna(7)
+
+    games = games.merge(
+        home_rest[["season", "week", "team", "rest_days"]].rename(
+            columns={"team": "home_team", "rest_days": "home_rest"}
+        ),
+        on=["season", "week", "home_team"], how="left",
+    )
+    games = games.merge(
+        away_rest[["season", "week", "team", "rest_days"]].rename(
+            columns={"team": "away_team", "rest_days": "away_rest"}
+        ),
+        on=["season", "week", "away_team"], how="left",
+    )
+    games["rest_advantage"] = games["home_rest"] - games["away_rest"]
+    games["margin"] = games["home_score"] - games["away_score"]
+
+    cols = [
+        "season", "week", "home_team", "away_team",
+        "home_qb", "away_qb", "home_coach", "away_coach",
+        "rest_advantage", "margin", "spread_line",
+    ]
+    result = games[cols].dropna(subset=["home_qb", "away_qb", "margin", "spread_line"])
+    return result.reset_index(drop=True)
+
+
 def build_game_matrix(df: pd.DataFrame) -> pd.DataFrame:
     """Collapse team-level rows to one row per game (home perspective).
 

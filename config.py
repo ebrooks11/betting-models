@@ -32,4 +32,6 @@ ALL_FEATURES = OFFENSIVE_FEATURES + DEFENSIVE_FEATURES + OPPONENT_FEATURES + CON
 # Game-level features (one row per game, home perspective, no is_home flag needed)
 GAME_FEATURES = [f for f in ALL_FEATURES if f != "is_home"]
 
+PERSONNEL_FEATURES = ["home_qb", "away_qb", "home_coach", "away_coach", "rest_advantage"]
+
 RIDGE_ALPHA = 1.0
