@@ -79,11 +79,12 @@ def get_pfr_advstats(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
     if cache_path.exists() and not refresh:
         return pd.read_parquet(cache_path)
 
-    print(f"Downloading PFR weekly advanced stats for {seasons[0]}-{seasons[-1]}...")
+    pfr_seasons = [s for s in seasons if s >= 2018]
+    print(f"Downloading PFR weekly advanced stats for {pfr_seasons[0]}-{pfr_seasons[-1]}...")
     dfs = []
-    for stat_type in ["pass", "rush", "def"]:
+    for stat_type in ["pass", "rush", "rec"]:
         try:
-            df = nfl.import_weekly_pfr(stat_type, seasons)
+            df = nfl.import_weekly_pfr(stat_type, pfr_seasons)
             df["stat_type"] = stat_type
             dfs.append(df)
             print(f"  {stat_type}: {len(df):,} rows")
