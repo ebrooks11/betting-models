@@ -37,25 +37,26 @@ def compute_game_stats(pbp: pd.DataFrame) -> pd.DataFrame:
     offense["off_turnovers"] = offense["off_turnovers"] + offense["fumbles_lost"]
     offense = offense.drop(columns=["fumbles_lost"])
 
-    # Third down conversion rate
-    third_downs = plays[plays["down"] == 3]
-    third_down_rate = (
-        third_downs.groupby(["season", "week", "posteam"])
-        .agg(
-            third_down_attempts=("play_id", "count"),
-            third_down_conversions=("third_down_converted", "sum"),
+    # Per-down success rates (1st, 2nd, 3rd)
+    for down_num, col_name in [(1, "off_first_down_rate"), (2, "off_second_down_rate"), (3, "off_third_down_rate")]:
+        down_plays = plays[plays["down"] == down_num]
+        down_rate = (
+            down_plays.groupby(["season", "week", "posteam"])["success"]
+            .mean()
+            .reset_index()
+            .rename(columns={"posteam": "team", "success": col_name})
         )
+        offense = offense.merge(down_rate, on=["season", "week", "team"], how="left")
+
+    # CPOE (completion percentage over expected) — QB efficiency metric
+    pass_plays = plays[(plays["play_type"] == "pass") & plays["cpoe"].notna()]
+    cpoe = (
+        pass_plays.groupby(["season", "week", "posteam"])["cpoe"]
+        .mean()
         .reset_index()
-        .rename(columns={"posteam": "team"})
+        .rename(columns={"posteam": "team", "cpoe": "off_cpoe"})
     )
-    third_down_rate["off_third_down_rate"] = (
-        third_down_rate["third_down_conversions"] / third_down_rate["third_down_attempts"]
-    )
-    offense = offense.merge(
-        third_down_rate[["season", "week", "team", "off_third_down_rate"]],
-        on=["season", "week", "team"],
-        how="left",
-    )
+    offense = offense.merge(cpoe, on=["season", "week", "team"], how="left")
 
     defense = (
         plays.groupby(["season", "week", "defteam"])
@@ -147,7 +148,8 @@ def build_rolling_features(df: pd.DataFrame, window: int = ROLLING_WINDOW) -> pd
 
     stat_cols = [
         "off_epa_per_play", "off_success_rate", "off_yards_per_play",
-        "off_turnovers", "off_third_down_rate",
+        "off_turnovers", "off_first_down_rate", "off_second_down_rate", "off_third_down_rate",
+        "off_cpoe",
         "def_epa_per_play", "def_success_rate", "def_yards_per_play",
         "def_takeaways",
     ]

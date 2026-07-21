@@ -8,6 +8,9 @@ MIN_WEEK = 4
 OFFENSIVE_FEATURES = [
     "off_epa_per_play",
     "off_points_per_game",
+    "off_first_down_rate",
+    "off_second_down_rate",
+    "off_cpoe",
 ]
 
 DEFENSIVE_FEATURES = [
@@ -18,6 +21,9 @@ DEFENSIVE_FEATURES = [
 OPPONENT_FEATURES = [
     "opp_off_epa_per_play",
     "opp_off_points_per_game",
+    "opp_off_first_down_rate",
+    "opp_off_second_down_rate",
+    "opp_off_cpoe",
     "opp_def_epa_per_play",
     "opp_def_points_per_game",
 ]
