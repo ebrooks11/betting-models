@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from sklearn.linear_model import Ridge
 from sklearn.preprocessing import StandardScaler
+from xgboost import XGBRegressor
 
 from config import (
     ALL_FEATURES,
@@ -35,6 +36,28 @@ def train_model(
     model.fit(X_scaled, y)
 
     return model, scaler
+
+
+def train_xgb_model(
+    df: pd.DataFrame,
+    features: list[str] = ALL_FEATURES,
+) -> tuple[XGBRegressor, None]:
+    """Train an XGBoost regression model on the given data."""
+    X = df[features].values
+    y = df["score"].values
+
+    model = XGBRegressor(
+        n_estimators=300,
+        max_depth=4,
+        learning_rate=0.05,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        random_state=42,
+        verbosity=0,
+    )
+    model.fit(X, y)
+
+    return model, None
 
 
 def evaluate_predictions(
@@ -116,8 +139,8 @@ def _compute_metrics(games: pd.DataFrame, mae: float) -> dict:
     }
 
 
-def walk_forward_evaluate(df: pd.DataFrame) -> dict:
-    """Walk-forward validation: train on prior seasons, test on each validation season."""
+def _run_walk_forward(df: pd.DataFrame, use_xgb: bool = False) -> dict:
+    """Walk-forward validation for one algorithm. Returns per-season + overall results."""
     all_results = []
     all_test_dfs = []
 
@@ -128,8 +151,13 @@ def walk_forward_evaluate(df: pd.DataFrame) -> dict:
         if len(train_df) == 0 or len(test_df) == 0:
             continue
 
-        model, scaler = train_model(train_df)
-        X_test = scaler.transform(test_df[ALL_FEATURES].values)
+        if use_xgb:
+            model, scaler = train_xgb_model(train_df)
+            X_test = test_df[ALL_FEATURES].values
+        else:
+            model, scaler = train_model(train_df)
+            X_test = scaler.transform(test_df[ALL_FEATURES].values)
+
         preds = model.predict(X_test)
 
         test_df = test_df.copy()
@@ -140,21 +168,46 @@ def walk_forward_evaluate(df: pd.DataFrame) -> dict:
         season_metrics["season"] = val_season
         all_results.append(season_metrics)
 
-        print(f"  {val_season}: MAE={season_metrics['mae']}, "
-              f"ATS={season_metrics['ats_pct']}% ({season_metrics['ats_record']}), "
-              f"O/U={season_metrics['ou_pct']}% ({season_metrics['ou_record']})")
-
-    # Overall metrics across all validation seasons
     combined = pd.concat(all_test_dfs, ignore_index=True)
     overall = evaluate_predictions(combined, combined["predicted_score"].values)
     overall["season"] = "overall"
     all_results.append(overall)
 
-    print(f"\n  Overall: MAE={overall['mae']}, "
-          f"ATS={overall['ats_pct']}% ({overall['ats_record']}), "
-          f"O/U={overall['ou_pct']}% ({overall['ou_record']})")
-
     return {"per_season": all_results[:-1], "overall": all_results[-1]}
+
+
+def walk_forward_evaluate(df: pd.DataFrame) -> dict:
+    """Walk-forward validation comparing Ridge and XGBoost side-by-side."""
+    print("\n  Season       Ridge ATS%    XGB ATS%    Ridge O/U%   XGB O/U%    Ridge MAE  XGB MAE")
+    print("  " + "-" * 85)
+
+    ridge_results = _run_walk_forward(df, use_xgb=False)
+    xgb_results = _run_walk_forward(df, use_xgb=True)
+
+    ridge_by_season = {r["season"]: r for r in ridge_results["per_season"]}
+    xgb_by_season = {r["season"]: r for r in xgb_results["per_season"]}
+
+    for season in VALIDATION_SEASONS:
+        r = ridge_by_season.get(season, {})
+        x = xgb_by_season.get(season, {})
+        print(
+            f"  {season}         {r.get('ats_pct', 'N/A'):>5}%       {x.get('ats_pct', 'N/A'):>5}%"
+            f"       {r.get('ou_pct', 'N/A'):>5}%      {x.get('ou_pct', 'N/A'):>5}%"
+            f"       {r.get('mae', 'N/A'):>5}      {x.get('mae', 'N/A'):>5}"
+        )
+
+    ro = ridge_results["overall"]
+    xo = xgb_results["overall"]
+    print("  " + "-" * 85)
+    print(
+        f"  Overall       {ro['ats_pct']:>5}%       {xo['ats_pct']:>5}%"
+        f"       {ro['ou_pct']:>5}%      {xo['ou_pct']:>5}%"
+        f"       {ro['mae']:>5}      {xo['mae']:>5}"
+    )
+    print(f"\n  Ridge ATS record: {ro['ats_record']}  |  XGB ATS record: {xo['ats_record']}")
+    print(f"  Ridge O/U record: {ro['ou_record']}  |  XGB O/U record: {xo['ou_record']}")
+
+    return {"ridge": ridge_results, "xgb": xgb_results}
 
 
 def save_model(model: Ridge, scaler: StandardScaler) -> Path:
@@ -200,8 +253,8 @@ if __name__ == "__main__":
     print(f"\nWalk-forward evaluation ({VALIDATION_SEASONS[0]}-{VALIDATION_SEASONS[-1]}):")
     results = walk_forward_evaluate(df)
 
-    # Train final model on all data and save (excluding early-season games)
-    print("\nTraining final model on all data...")
+    # Train final Ridge model on all data and save
+    print("\nTraining final Ridge model on all data...")
     model, scaler = train_model(df[df["week"] >= MIN_WEEK])
     print_feature_importance(model)
     save_model(model, scaler)
