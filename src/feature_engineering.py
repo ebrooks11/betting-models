@@ -244,33 +244,10 @@ def build_personnel_matrix(pbp: pd.DataFrame, schedules: pd.DataFrame) -> pd.Dat
 
     # Rest advantage (home rest days - away rest days)
     games["gameday"] = pd.to_datetime(games["gameday"])
-    games = games.sort_values(["season", "week"])
-    home_rest = (
-        games[["season", "week", "home_team", "gameday"]]
-        .rename(columns={"home_team": "team"})
-        .sort_values(["team", "season", "week"])
-    )
-    home_rest["rest_days"] = home_rest.groupby("team")["gameday"].diff().dt.days.fillna(7)
-
-    away_rest = (
-        games[["season", "week", "away_team", "gameday"]]
-        .rename(columns={"away_team": "team"})
-        .sort_values(["team", "season", "week"])
-    )
-    away_rest["rest_days"] = away_rest.groupby("team")["gameday"].diff().dt.days.fillna(7)
-
-    games = games.merge(
-        home_rest[["season", "week", "team", "rest_days"]].rename(
-            columns={"team": "home_team", "rest_days": "home_rest"}
-        ),
-        on=["season", "week", "home_team"], how="left",
-    )
-    games = games.merge(
-        away_rest[["season", "week", "team", "rest_days"]].rename(
-            columns={"team": "away_team", "rest_days": "away_rest"}
-        ),
-        on=["season", "week", "away_team"], how="left",
-    )
+    games = games.sort_values(["home_team", "season", "week"]).reset_index(drop=True)
+    games["home_rest"] = games.groupby("home_team")["gameday"].diff().dt.days.fillna(7)
+    games = games.sort_values(["away_team", "season", "week"]).reset_index(drop=True)
+    games["away_rest"] = games.groupby("away_team")["gameday"].diff().dt.days.fillna(7)
     games["rest_advantage"] = games["home_rest"] - games["away_rest"]
     games["margin"] = games["home_score"] - games["away_score"]
 
