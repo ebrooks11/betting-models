@@ -79,27 +79,18 @@ def get_pfr_advstats(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
     if cache_path.exists() and not refresh:
         return pd.read_parquet(cache_path)
 
-    print(f"Downloading PFR advanced stats for {seasons[0]}-{seasons[-1]}...")
+    print(f"Downloading PFR weekly advanced stats for {seasons[0]}-{seasons[-1]}...")
     dfs = []
-    # Try both known function names and stat_type variants
     for stat_type in ["pass", "rush", "def"]:
-        for fn_name in ["import_pfr_advstats", "import_advstats"]:
-            fn = getattr(nfl, fn_name, None)
-            if fn is None:
-                continue
-            try:
-                df = fn(seasons, stat_type=stat_type)
-                df["stat_type"] = stat_type
-                dfs.append(df)
-                print(f"  {stat_type}: {len(df):,} rows")
-                break
-            except Exception as e:
-                print(f"  {stat_type} via {fn_name}: skipped ({e})")
+        try:
+            df = nfl.import_weekly_pfr(stat_type, seasons)
+            df["stat_type"] = stat_type
+            dfs.append(df)
+            print(f"  {stat_type}: {len(df):,} rows")
+        except Exception as e:
+            print(f"  {stat_type}: skipped ({e})")
 
     if not dfs:
-        print("  No PFR advanced stats available in this version of nfl_data_py")
-        available = [x for x in dir(nfl) if "pfr" in x.lower() or "adv" in x.lower()]
-        print(f"  Related functions found: {available}")
         return pd.DataFrame()
 
     combined = pd.concat(dfs, ignore_index=True)
