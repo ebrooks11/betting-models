@@ -54,7 +54,7 @@ def get_roster_data(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
         return pd.read_parquet(cache_path)
 
     print(f"Downloading roster data for {seasons[0]}-{seasons[-1]}...")
-    rosters = nfl.import_rosters(seasons)
+    rosters = nfl.import_players()
     os.makedirs(DATA_DIR, exist_ok=True)
     rosters.to_parquet(cache_path, index=False)
     print(f"Cached {len(rosters):,} roster rows to {cache_path}")
