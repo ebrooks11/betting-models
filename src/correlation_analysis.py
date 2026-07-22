@@ -7,6 +7,21 @@ from config import SEASONS
 from src.data_loader import get_pbp_data, get_schedule_data, get_qbr_data, get_pfr_advstats
 
 
+def add_q3_stats(base: pd.DataFrame, pbp: pd.DataFrame) -> pd.DataFrame:
+    """Add Q1-Q3 EPA and success rate per team per game."""
+    plays = pbp[pbp["play_type"].isin(["pass", "run"]) & (pbp["qtr"] <= 3)].copy()
+    q3_stats = (
+        plays.groupby(["season", "week", "posteam"])
+        .agg(
+            epa_per_play_q3=("epa", "mean"),
+            success_rate_q3=("success", "mean"),
+        )
+        .reset_index()
+        .rename(columns={"posteam": "team"})
+    )
+    return base.merge(q3_stats, on=["season", "week", "team"], how="left")
+
+
 def build_team_game_scores(schedules: pd.DataFrame) -> pd.DataFrame:
     """One row per team per game with final score."""
     games = schedules[schedules["game_type"] == "REG"].copy()
@@ -142,7 +157,9 @@ def add_lagged_points(df: pd.DataFrame, window: int = 5) -> pd.DataFrame:
 
 def print_correlations(df: pd.DataFrame):
     feature_cols = [
-        "epa_per_play", "success_rate", "yards_per_play", "cpoe", "qb_epa",
+        "epa_per_play", "epa_per_play_q3",
+        "success_rate", "success_rate_q3",
+        "yards_per_play", "cpoe", "qb_epa",
         "air_yards", "pass_epa", "run_epa",
         "qbr_total", "pts_added",
         "times_pressured_pct", "passing_bad_throw_pct", "passing_drop_pct",
@@ -194,6 +211,7 @@ if __name__ == "__main__":
     df = add_qbr(df, qbr)
     df = add_pfr(df, pfr)
 
+    df = add_q3_stats(df, pbp)
     print(f"Dataset: {len(df):,} team-game rows, {df['points'].notna().sum():,} with scores")
     df = add_lagged_points(df)
     print_correlations(df)
