@@ -23,6 +23,7 @@ OPPONENT_FEATURES = [
 ]
 
 CONTEXTUAL_FEATURES = [
+    "is_home",
     "rest_advantage",
 ]
 
