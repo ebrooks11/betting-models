@@ -141,7 +141,9 @@ def add_lagged_points(df: pd.DataFrame, window: int = 5) -> pd.DataFrame:
 
     # Compute rolling averages for all numeric feature columns
     feature_cols = [
-        "epa_per_play", "success_rate", "yards_per_play", "cpoe", "qb_epa",
+        "epa_per_play", "epa_per_play_q3",
+        "success_rate", "success_rate_q3",
+        "yards_per_play", "cpoe", "qb_epa",
         "air_yards", "pass_epa", "run_epa", "qbr_total", "pts_added",
         "times_pressured_pct", "passing_bad_throw_pct", "passing_drop_pct",
         "rushing_yac_avg", "rushing_broken_tackles", "wind", "temp",
