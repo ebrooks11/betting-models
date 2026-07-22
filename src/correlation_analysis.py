@@ -9,7 +9,7 @@ from src.data_loader import get_pbp_data, get_schedule_data, get_qbr_data, get_p
 
 def add_q3_stats(base: pd.DataFrame, pbp: pd.DataFrame) -> pd.DataFrame:
     """Add Q1-Q3 EPA and success rate per team per game."""
-    plays = pbp[pbp["play_type"].isin(["pass", "run"]) & (pbp["qtr"] <= 3)].copy()
+    plays = pbp[pbp["play_type"].isin(["pass", "run"]) & (pbp["qtr"] <= 3) & (pbp["down"].isin([1, 2]))].copy()
     q3_stats = (
         plays.groupby(["season", "week", "posteam"])
         .agg(
