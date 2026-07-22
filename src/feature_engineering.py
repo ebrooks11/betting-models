@@ -10,7 +10,7 @@ def compute_game_stats(pbp: pd.DataFrame) -> pd.DataFrame:
     """Aggregate play-by-play data into per-team, per-game stats."""
     # Filter to real plays (exclude timeouts, penalties, etc.)
     plays = pbp[pbp["play_type"].isin(["pass", "run"])].copy()
-    regulation_plays = plays[plays["qtr"] <= 3].copy()
+    regulation_plays = plays[(plays["qtr"] <= 3) & (plays["down"].isin([1, 2]))].copy()
 
     offense = (
         plays.groupby(["season", "week", "posteam"])
