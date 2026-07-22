@@ -9,17 +9,23 @@ from src.data_loader import get_pbp_data, get_schedule_data, get_qbr_data, get_p
 
 def add_q3_stats(base: pd.DataFrame, pbp: pd.DataFrame) -> pd.DataFrame:
     """Add Q1-Q3 EPA and success rate per team per game."""
-    plays = pbp[pbp["play_type"].isin(["pass", "run"]) & (pbp["qtr"] <= 3) & (pbp["down"].isin([1, 2]))].copy()
+    plays = pbp[pbp["play_type"].isin(["pass", "run"])].copy()
+    q3_plays = plays[plays["qtr"] <= 3].copy()
+    early_plays = q3_plays[q3_plays["down"].isin([1, 2])].copy()
+
     q3_stats = (
-        plays.groupby(["season", "week", "posteam"])
-        .agg(
-            epa_per_play_q3=("epa", "mean"),
-            success_rate_q3=("success", "mean"),
-        )
-        .reset_index()
-        .rename(columns={"posteam": "team"})
+        q3_plays.groupby(["season", "week", "posteam"])
+        .agg(epa_per_play_q3=("epa", "mean"), success_rate_q3=("success", "mean"))
+        .reset_index().rename(columns={"posteam": "team"})
     )
-    return base.merge(q3_stats, on=["season", "week", "team"], how="left")
+    early_stats = (
+        early_plays.groupby(["season", "week", "posteam"])
+        .agg(epa_per_play_q3_early=("epa", "mean"), success_rate_q3_early=("success", "mean"))
+        .reset_index().rename(columns={"posteam": "team"})
+    )
+    base = base.merge(q3_stats, on=["season", "week", "team"], how="left")
+    base = base.merge(early_stats, on=["season", "week", "team"], how="left")
+    return base
 
 
 def build_team_game_scores(schedules: pd.DataFrame) -> pd.DataFrame:
@@ -141,8 +147,8 @@ def add_lagged_points(df: pd.DataFrame, window: int = 5) -> pd.DataFrame:
 
     # Compute rolling averages for all numeric feature columns
     feature_cols = [
-        "epa_per_play", "epa_per_play_q3",
-        "success_rate", "success_rate_q3",
+        "epa_per_play", "epa_per_play_q3", "epa_per_play_q3_early",
+        "success_rate", "success_rate_q3", "success_rate_q3_early",
         "yards_per_play", "cpoe", "qb_epa",
         "air_yards", "pass_epa", "run_epa", "qbr_total", "pts_added",
         "times_pressured_pct", "passing_bad_throw_pct", "passing_drop_pct",
@@ -159,8 +165,8 @@ def add_lagged_points(df: pd.DataFrame, window: int = 5) -> pd.DataFrame:
 
 def print_correlations(df: pd.DataFrame):
     feature_cols = [
-        "epa_per_play", "epa_per_play_q3",
-        "success_rate", "success_rate_q3",
+        "epa_per_play", "epa_per_play_q3", "epa_per_play_q3_early",
+        "success_rate", "success_rate_q3", "success_rate_q3_early",
         "yards_per_play", "cpoe", "qb_epa",
         "air_yards", "pass_epa", "run_epa",
         "qbr_total", "pts_added",
