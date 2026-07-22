@@ -109,14 +109,35 @@ def add_pfr(base: pd.DataFrame, pfr: pd.DataFrame) -> pd.DataFrame:
     return base
 
 
-def add_lagged_points(df: pd.DataFrame) -> pd.DataFrame:
-    """Add next_game_points: points scored in the following game for each team."""
+def add_lagged_points(df: pd.DataFrame, window: int = 5) -> pd.DataFrame:
+    """Add next_game_points and rolling feature averages for each team.
+
+    Each row gets:
+    - next_game_points: points scored in the following game
+    - rolling_{col}: average of the previous `window` games for each stat
+    """
     df = df.sort_values(["team", "season", "week"]).copy()
     df["next_game_points"] = df.groupby("team")["points"].shift(-1)
+
     # Drop rows where next game crosses a season boundary
     df["next_season"] = df.groupby("team")["season"].shift(-1)
     df.loc[df["next_season"] != df["season"], "next_game_points"] = None
-    return df.drop(columns=["next_season"])
+    df = df.drop(columns=["next_season"])
+
+    # Compute rolling averages for all numeric feature columns
+    feature_cols = [
+        "epa_per_play", "success_rate", "yards_per_play", "cpoe", "qb_epa",
+        "air_yards", "pass_epa", "run_epa", "qbr_total", "pts_added",
+        "times_pressured_pct", "passing_bad_throw_pct", "passing_drop_pct",
+        "rushing_yac_avg", "rushing_broken_tackles", "wind", "temp",
+    ]
+    available = [c for c in feature_cols if c in df.columns]
+    for col in available:
+        df[f"rolling_{col}"] = df.groupby("team")[col].transform(
+            lambda x: x.shift(1).rolling(window, min_periods=3).mean()
+        )
+
+    return df
 
 
 def print_correlations(df: pd.DataFrame):
@@ -131,27 +152,33 @@ def print_correlations(df: pd.DataFrame):
 
     available = [c for c in feature_cols if c in df.columns]
 
-    print(f"\n{'Feature':<30} {'Same game':>10}  {'Next game':>10}  {'Strength (next)'}")
-    print("-" * 75)
+    print(f"\n{'Feature':<30} {'Same game':>10}  {'Lag 1 game':>10}  {'Lag 5 avg':>10}  {'Strength (5-game)'}")
+    print("-" * 90)
 
     rows = []
     for col in available:
         same = df[["points", col]].dropna()
-        lagged = df[["next_game_points", col]].dropna()
-        if len(same) > 100 and len(lagged) > 100:
-            rows.append((
-                col,
-                same["points"].corr(same[col]),
-                lagged["next_game_points"].corr(lagged[col]),
-            ))
+        lagged1 = df[["next_game_points", col]].dropna()
+        lagged5 = df[["next_game_points", f"rolling_{col}"]].dropna() if f"rolling_{col}" in df.columns else pd.DataFrame()
 
-    rows.sort(key=lambda x: abs(x[2]), reverse=True)
+        if len(same) < 100:
+            continue
 
-    for feat, same_corr, lag_corr in rows:
-        bar = "█" * int(abs(lag_corr) * 20)
-        direction = "+" if lag_corr > 0 else "-"
-        strength = "strong" if abs(lag_corr) > 0.3 else "moderate" if abs(lag_corr) > 0.15 else "weak"
-        print(f"{feat:<30} {same_corr:>+10.3f}  {direction}{abs(lag_corr):>9.3f}  {bar} {strength}")
+        same_corr = same["points"].corr(same[col])
+        lag1_corr = lagged1["next_game_points"].corr(lagged1[col]) if len(lagged1) > 100 else float("nan")
+        lag5_corr = lagged5["next_game_points"].corr(lagged5[f"rolling_{col}"]) if len(lagged5) > 100 else float("nan")
+
+        rows.append((col, same_corr, lag1_corr, lag5_corr))
+
+    rows.sort(key=lambda x: abs(x[3]) if not np.isnan(x[3]) else 0, reverse=True)
+
+    for feat, same_corr, lag1_corr, lag5_corr in rows:
+        bar = "█" * int(abs(lag5_corr) * 20) if not np.isnan(lag5_corr) else ""
+        direction = "+" if lag5_corr > 0 else "-"
+        strength = "strong" if abs(lag5_corr) > 0.3 else "moderate" if abs(lag5_corr) > 0.15 else "weak"
+        lag1_str = f"{lag1_corr:>+10.3f}" if not np.isnan(lag1_corr) else "       N/A"
+        lag5_str = f"{direction}{abs(lag5_corr):>9.3f}" if not np.isnan(lag5_corr) else "       N/A"
+        print(f"{feat:<30} {same_corr:>+10.3f}  {lag1_str}  {lag5_str}  {bar} {strength}")
 
 
 if __name__ == "__main__":
