@@ -10,6 +10,7 @@ def compute_game_stats(pbp: pd.DataFrame) -> pd.DataFrame:
     """Aggregate play-by-play data into per-team, per-game stats."""
     # Filter to real plays (exclude timeouts, penalties, etc.)
     plays = pbp[pbp["play_type"].isin(["pass", "run"])].copy()
+    regulation_plays = plays[plays["qtr"] <= 3].copy()
 
     offense = (
         plays.groupby(["season", "week", "posteam"])
@@ -23,6 +24,18 @@ def compute_game_stats(pbp: pd.DataFrame) -> pd.DataFrame:
         .reset_index()
         .rename(columns={"posteam": "team"})
     )
+
+    # First 3 quarters only — removes garbage time distortion
+    offense_q3 = (
+        regulation_plays.groupby(["season", "week", "posteam"])
+        .agg(
+            off_epa_per_play_q3=("epa", "mean"),
+            off_success_rate_q3=("success", "mean"),
+        )
+        .reset_index()
+        .rename(columns={"posteam": "team"})
+    )
+    offense = offense.merge(offense_q3, on=["season", "week", "team"], how="left")
 
     # Add fumbles lost to turnovers
     fumbles = (
@@ -82,6 +95,17 @@ def compute_game_stats(pbp: pd.DataFrame) -> pd.DataFrame:
     defense["fumbles_recovered"] = defense["fumbles_recovered"].fillna(0)
     defense["def_takeaways"] = defense["def_takeaways"] + defense["fumbles_recovered"]
     defense = defense.drop(columns=["fumbles_recovered"])
+
+    defense_q3 = (
+        regulation_plays.groupby(["season", "week", "defteam"])
+        .agg(
+            def_epa_per_play_q3=("epa", "mean"),
+            def_success_rate_q3=("success", "mean"),
+        )
+        .reset_index()
+        .rename(columns={"defteam": "team"})
+    )
+    defense = defense.merge(defense_q3, on=["season", "week", "team"], how="left")
 
     game_stats = offense.merge(defense, on=["season", "week", "team"], how="outer")
     return game_stats
@@ -149,9 +173,9 @@ def build_rolling_features(df: pd.DataFrame, window: int = ROLLING_WINDOW) -> pd
     stat_cols = [
         "off_epa_per_play", "off_success_rate", "off_yards_per_play",
         "off_turnovers", "off_first_down_rate", "off_second_down_rate", "off_third_down_rate",
-        "off_cpoe",
+        "off_cpoe", "off_epa_per_play_q3", "off_success_rate_q3",
         "def_epa_per_play", "def_success_rate", "def_yards_per_play",
-        "def_takeaways",
+        "def_takeaways", "def_epa_per_play_q3", "def_success_rate_q3",
     ]
 
     rename_map = {

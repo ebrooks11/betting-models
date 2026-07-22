@@ -7,18 +7,26 @@ MIN_WEEK = 4
 
 OFFENSIVE_FEATURES = [
     "off_epa_per_play",
+    "off_epa_per_play_q3",
+    "off_success_rate_q3",
     "off_points_per_game",
 ]
 
 DEFENSIVE_FEATURES = [
     "def_epa_per_play",
+    "def_epa_per_play_q3",
+    "def_success_rate_q3",
     "def_points_per_game",
 ]
 
 OPPONENT_FEATURES = [
     "opp_off_epa_per_play",
+    "opp_off_epa_per_play_q3",
+    "opp_off_success_rate_q3",
     "opp_off_points_per_game",
     "opp_def_epa_per_play",
+    "opp_def_epa_per_play_q3",
+    "opp_def_success_rate_q3",
     "opp_def_points_per_game",
 ]
 
