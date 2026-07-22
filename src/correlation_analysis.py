@@ -109,6 +109,16 @@ def add_pfr(base: pd.DataFrame, pfr: pd.DataFrame) -> pd.DataFrame:
     return base
 
 
+def add_lagged_points(df: pd.DataFrame) -> pd.DataFrame:
+    """Add next_game_points: points scored in the following game for each team."""
+    df = df.sort_values(["team", "season", "week"]).copy()
+    df["next_game_points"] = df.groupby("team")["points"].shift(-1)
+    # Drop rows where next game crosses a season boundary
+    df["next_season"] = df.groupby("team")["season"].shift(-1)
+    df.loc[df["next_season"] != df["season"], "next_game_points"] = None
+    return df.drop(columns=["next_season"])
+
+
 def print_correlations(df: pd.DataFrame):
     feature_cols = [
         "epa_per_play", "success_rate", "yards_per_play", "cpoe", "qb_epa",
@@ -120,21 +130,28 @@ def print_correlations(df: pd.DataFrame):
     ]
 
     available = [c for c in feature_cols if c in df.columns]
-    correlations = {}
+
+    print(f"\n{'Feature':<30} {'Same game':>10}  {'Next game':>10}  {'Strength (next)'}")
+    print("-" * 75)
+
+    rows = []
     for col in available:
-        valid = df[["points", col]].dropna()
-        if len(valid) > 100:
-            correlations[col] = valid["points"].corr(valid[col])
+        same = df[["points", col]].dropna()
+        lagged = df[["next_game_points", col]].dropna()
+        if len(same) > 100 and len(lagged) > 100:
+            rows.append((
+                col,
+                same["points"].corr(same[col]),
+                lagged["next_game_points"].corr(lagged[col]),
+            ))
 
-    ranked = sorted(correlations.items(), key=lambda x: abs(x[1]), reverse=True)
+    rows.sort(key=lambda x: abs(x[2]), reverse=True)
 
-    print(f"\n{'Feature':<30} {'Correlation':>12}  {'Strength'}")
-    print("-" * 60)
-    for feat, corr in ranked:
-        bar = "█" * int(abs(corr) * 20)
-        direction = "+" if corr > 0 else "-"
-        strength = "strong" if abs(corr) > 0.4 else "moderate" if abs(corr) > 0.2 else "weak"
-        print(f"{feat:<30} {direction}{abs(corr):>10.3f}  {bar} {strength}")
+    for feat, same_corr, lag_corr in rows:
+        bar = "█" * int(abs(lag_corr) * 20)
+        direction = "+" if lag_corr > 0 else "-"
+        strength = "strong" if abs(lag_corr) > 0.3 else "moderate" if abs(lag_corr) > 0.15 else "weak"
+        print(f"{feat:<30} {same_corr:>+10.3f}  {direction}{abs(lag_corr):>9.3f}  {bar} {strength}")
 
 
 if __name__ == "__main__":
@@ -151,4 +168,5 @@ if __name__ == "__main__":
     df = add_pfr(df, pfr)
 
     print(f"Dataset: {len(df):,} team-game rows, {df['points'].notna().sum():,} with scores")
+    df = add_lagged_points(df)
     print_correlations(df)
