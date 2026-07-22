@@ -23,12 +23,12 @@ MODEL_DIR = Path(__file__).resolve().parent.parent / "models"
 
 def train_model(
     df: pd.DataFrame,
-    features: list[str] = ALL_FEATURES,
+    features: list[str] = GAME_FEATURES,
     alpha: float = RIDGE_ALPHA,
 ) -> tuple[Ridge, StandardScaler]:
-    """Train a Ridge regression model predicting individual team score."""
+    """Train a Ridge regression model predicting home score margin."""
     X = df[features].values
-    y = df["score"].values
+    y = df["margin"].values
 
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
