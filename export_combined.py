@@ -8,9 +8,17 @@ from config import SEASONS
 OUTPUT_DIR = Path("exports")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
+TEAM_MAP = {
+    "OAK": "LV",
+    "SD":  "LAC",
+    "STL": "LA",
+}
+
 print("Loading data...")
 schedules = get_schedule_data(SEASONS)
 rolling_epa = pd.read_parquet(OUTPUT_DIR / "rolling_epa.parquet")
+
+rolling_epa["team"] = rolling_epa["team"].replace(TEAM_MAP)
 
 games = schedules[schedules["game_type"] == "REG"][
     ["season", "week", "home_team", "away_team", "home_score", "away_score", "spread_line"]

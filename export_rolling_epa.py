@@ -30,7 +30,14 @@ defense = (
     .rename(columns={"defteam": "team"})
 )
 
+TEAM_MAP = {
+    "OAK": "LV",
+    "SD":  "LAC",
+    "STL": "LA",
+}
+
 game_epa = offense.merge(defense, on=["season", "week", "team"], how="outer")
+game_epa["team"] = game_epa["team"].replace(TEAM_MAP)
 game_epa = game_epa.sort_values(["team", "season", "week"]).reset_index(drop=True)
 
 game_epa["off_epa_rolling"] = (
