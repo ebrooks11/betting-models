@@ -34,11 +34,11 @@ game_epa = offense.merge(defense, on=["season", "week", "team"], how="outer")
 game_epa = game_epa.sort_values(["team", "season", "week"]).reset_index(drop=True)
 
 game_epa["off_epa_rolling"] = (
-    game_epa.groupby("team")["off_epa_per_play"]
+    game_epa.groupby(["team", "season"])["off_epa_per_play"]
     .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
 )
 game_epa["def_epa_rolling"] = (
-    game_epa.groupby("team")["def_epa_per_play"]
+    game_epa.groupby(["team", "season"])["def_epa_per_play"]
     .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
 )
 
