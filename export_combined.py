@@ -18,8 +18,6 @@ print("Loading data...")
 schedules = get_schedule_data(SEASONS)
 rolling_epa = pd.read_parquet(OUTPUT_DIR / "rolling_epa.parquet")
 
-rolling_epa["team"] = rolling_epa["team"].replace(TEAM_MAP)
-
 games = schedules[schedules["game_type"] == "REG"][
     ["season", "week", "home_team", "away_team", "home_score", "away_score", "spread_line"]
 ].copy()
@@ -36,6 +34,8 @@ away = games.rename(columns={
 away["spread_line"] = -away["spread_line"]
 
 team_games = pd.concat([home, away], ignore_index=True)
+team_games["team"] = team_games["team"].replace(TEAM_MAP)
+team_games["opponent"] = team_games["opponent"].replace(TEAM_MAP)
 
 # Merge team's own rolling EPA
 team_games = team_games.merge(rolling_epa, on=["season", "week", "team"], how="left")
