@@ -27,11 +27,14 @@ home = games.rename(columns={
     "home_team": "team", "away_team": "opponent",
     "home_score": "score", "away_score": "opponent_score",
 })
+home["is_home"] = 1
+
 away = games.rename(columns={
     "away_team": "team", "home_team": "opponent",
     "away_score": "score", "home_score": "opponent_score",
 })
 away["spread_line"] = -away["spread_line"]
+away["is_home"] = 0
 
 team_games = pd.concat([home, away], ignore_index=True)
 team_games["team"] = team_games["team"].replace(TEAM_MAP)
@@ -49,7 +52,7 @@ opp_epa = rolling_epa.rename(columns={
 team_games = team_games.merge(opp_epa, on=["season", "week", "opponent"], how="left")
 
 cols = [
-    "season", "week", "team", "opponent", "spread_line",
+    "season", "week", "team", "opponent", "is_home", "spread_line",
     "score", "opponent_score",
     "off_epa_rolling", "def_epa_rolling",
     "opp_off_epa_rolling", "opp_def_epa_rolling",
