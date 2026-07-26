@@ -31,19 +31,17 @@ betting-models/
 
 ### Features
 
-**Offensive efficiency (rolling 5-game window):**
-- EPA/play (Expected Points Added per play)
-- Success rate (% of plays with positive EPA)
-- Yards/play, Points/game
-- Turnover rate, 3rd down conversion rate
+The core features are rolling averages of EPA (Expected Points Added per play) from each team's **previous 3 games**. EPA values come pre-calculated from nflverse and are averaged at the game level, then rolled — so each game's features reflect raw per-game EPA averages, not averages of averages.
 
-**Defensive efficiency (rolling 5-game window):**
-- EPA/play allowed, Defensive success rate
-- Yards/play allowed, Points/game allowed
-- Takeaway rate
+- **off_epa_rolling** — team's offensive EPA/play, avg of prior 3 games
+- **def_epa_rolling** — team's defensive EPA/play allowed, avg of prior 3 games
+- **opp_off_epa_rolling** — opponent's offensive EPA/play, avg of their prior 3 games
+- **opp_def_epa_rolling** — opponent's defensive EPA/play allowed, avg of their prior 3 games
+
+For early-season games the window is smaller: week 2 uses 1 prior game, week 3 uses 2, week 4+ uses 3. The window resets at the start of each season.
 
 **Contextual:**
-- Home/away, rest days, win streak, week number
+- Home/away indicator
 
 ### Model Design
 - **Predicts each team's score independently** — spread and total derived from the same prediction
