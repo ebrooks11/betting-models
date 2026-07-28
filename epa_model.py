@@ -86,8 +86,10 @@ def ats_accuracy(df, pred_col="predicted_margin"):
     spread = df["spread_line"]
     pred = df[pred_col]
 
-    covered = margin + spread
-    model_pick = pred + spread
+    # nflverse spread_line is positive when home is favored
+    # home covers when margin > spread_line
+    covered = margin - spread
+    model_pick = pred - spread
 
     push = covered == 0
     hit = (model_pick > 0) == (covered > 0)
