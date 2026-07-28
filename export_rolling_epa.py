@@ -54,6 +54,13 @@ defense_no_to = (
     .rename(columns={"defteam": "team"})
 )
 
+plays_per_game = (
+    plays.groupby(["season", "week", "posteam"])
+    .size()
+    .reset_index(name="plays")
+    .rename(columns={"posteam": "team"})
+)
+
 TEAM_MAP = {
     "OAK": "LV",
     "SD":  "LAC",
@@ -64,6 +71,7 @@ game_epa = offense.merge(defense, on=["season", "week", "team"], how="outer")
 game_epa = game_epa.merge(cpoe, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(offense_no_to, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(defense_no_to, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(plays_per_game, on=["season", "week", "team"], how="left")
 game_epa["team"] = game_epa["team"].replace(TEAM_MAP)
 game_epa = game_epa.sort_values(["team", "season", "week"]).reset_index(drop=True)
 
@@ -85,6 +93,10 @@ game_epa["off_epa_no_to_rolling"] = (
 )
 game_epa["def_epa_no_to_rolling"] = (
     game_epa.groupby(["team", "season"])["def_epa_no_to"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
+game_epa["plays_per_game_rolling"] = (
+    game_epa.groupby(["team", "season"])["plays"]
     .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
 )
 
@@ -149,6 +161,7 @@ result = game_epa[["season", "week", "team",
                     "cpoe_per_game", "cpoe_rolling",
                     "off_epa_no_to", "off_epa_no_to_rolling",
                     "def_epa_no_to", "def_epa_no_to_rolling",
+                    "plays", "plays_per_game_rolling",
                     "rest_days", "rest_advantage"]].copy()
 result = result.sort_values(["season", "week", "team"]).reset_index(drop=True)
 
