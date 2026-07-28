@@ -54,6 +54,22 @@ defense_no_to = (
     .rename(columns={"defteam": "team"})
 )
 
+early_down_plays = plays[plays["down"].isin([1, 2])].copy()
+
+offense_early = (
+    early_down_plays.groupby(["season", "week", "posteam"])
+    .agg(off_epa_early_down=("epa", "mean"))
+    .reset_index()
+    .rename(columns={"posteam": "team"})
+)
+
+defense_early = (
+    early_down_plays.groupby(["season", "week", "defteam"])
+    .agg(def_epa_early_down=("epa", "mean"))
+    .reset_index()
+    .rename(columns={"defteam": "team"})
+)
+
 plays_per_game = (
     plays.groupby(["season", "week", "posteam"])
     .size()
@@ -87,6 +103,8 @@ game_epa = offense.merge(defense, on=["season", "week", "team"], how="outer")
 game_epa = game_epa.merge(cpoe, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(offense_no_to, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(defense_no_to, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(offense_early, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(defense_early, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(plays_per_game, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(top, on=["season", "week", "team"], how="left")
 game_epa["team"] = game_epa["team"].replace(TEAM_MAP)
@@ -114,6 +132,14 @@ game_epa["def_epa_no_to_rolling"] = (
 )
 game_epa["plays_per_game_rolling"] = (
     game_epa.groupby(["team", "season"])["plays"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
+game_epa["off_epa_early_down_rolling"] = (
+    game_epa.groupby(["team", "season"])["off_epa_early_down"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
+game_epa["def_epa_early_down_rolling"] = (
+    game_epa.groupby(["team", "season"])["def_epa_early_down"]
     .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
 )
 game_epa["top_rolling"] = (
@@ -182,6 +208,8 @@ result = game_epa[["season", "week", "team",
                     "cpoe_per_game", "cpoe_rolling",
                     "off_epa_no_to", "off_epa_no_to_rolling",
                     "def_epa_no_to", "def_epa_no_to_rolling",
+                    "off_epa_early_down", "off_epa_early_down_rolling",
+                    "def_epa_early_down", "def_epa_early_down_rolling",
                     "plays", "plays_per_game_rolling",
                     "top_seconds_per_game", "top_rolling",
                     "rest_days", "rest_advantage"]].copy()
