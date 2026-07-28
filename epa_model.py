@@ -15,7 +15,7 @@ WINDOW = 3
 TEAM_MAP = {"OAK": "LV", "SD": "LAC", "STL": "LA"}
 TRAIN_SEASONS = range(2015, 2022)
 TEST_SEASONS = range(2022, 2025)
-FEATURES = ["off_epa_rolling", "def_epa_rolling", "opp_off_epa_rolling", "opp_def_epa_rolling", "is_home"]
+FEATURES = ["off_epa_rolling", "def_epa_rolling", "opp_off_epa_rolling", "opp_def_epa_rolling"]
 
 
 def build_game_epa(pbp):
@@ -56,14 +56,7 @@ def build_dataset(schedules, game_epa):
                                  "home_score": "score", "away_score": "opp_score"})
     home["is_home"] = 1
 
-    away = games[["season", "week", "home_team", "away_team",
-                   "home_score", "away_score", "spread_line"]].copy()
-    away = away.rename(columns={"away_team": "team", "home_team": "opponent",
-                                 "away_score": "score", "home_score": "opp_score"})
-    away["is_home"] = 0
-    away["spread_line"] = -away["spread_line"]
-
-    team_games = pd.concat([home, away], ignore_index=True)
+    team_games = home.copy()
     team_games["team"] = team_games["team"].replace(TEAM_MAP)
     team_games["opponent"] = team_games["opponent"].replace(TEAM_MAP)
     team_games["margin"] = team_games["score"] - team_games["opp_score"]
@@ -117,8 +110,8 @@ df = build_dataset(schedules, game_epa)
 train = df[df["season"].isin(TRAIN_SEASONS)]
 test = df[df["season"].isin(TEST_SEASONS)]
 
-print(f"\nTrain: {len(train)} rows ({train['season'].min()}-{train['season'].max()}, home+away)")
-print(f"Test:  {len(test)} rows ({test['season'].min()}-{test['season'].max()}, home+away)")
+print(f"\nTrain: {len(train)} games ({train['season'].min()}-{train['season'].max()})")
+print(f"Test:  {len(test)} games ({test['season'].min()}-{test['season'].max()})")
 
 model = LinearRegression()
 model.fit(train[FEATURES], train["margin"])
@@ -137,33 +130,29 @@ train_mae = mean_absolute_error(train["margin"], train["predicted_margin"])
 test_mae = mean_absolute_error(test["margin"], test["predicted_margin"])
 print(f"\nMAE — Train: {train_mae:.2f} pts, Test: {test_mae:.2f} pts")
 
-train_home = train[train["is_home"] == 1]
-test_home = test[test["is_home"] == 1]
-
-train_ats, train_n, train_push = ats_accuracy(train_home)
-test_ats, test_n, test_push = ats_accuracy(test_home)
-test_home = test_home.copy()
-test_home["hit"] = ((test_home["predicted_margin"] - test_home["spread_line"] > 0) == (test_home["margin"] - test_home["spread_line"] > 0)) & (test_home["margin"] - test_home["spread_line"] != 0)
-test_hits = test_home["hit"]
-test_home[["season", "week", "team", "opponent"] + FEATURES + ["spread_line", "margin", "predicted_margin", "hit"]].to_csv("exports/test_predictions.csv", index=False)
+train_ats, train_n, train_push = ats_accuracy(train)
+test_ats, test_n, test_push = ats_accuracy(test)
+test["hit"] = ((test["predicted_margin"] - test["spread_line"] > 0) == (test["margin"] - test["spread_line"] > 0)) & (test["margin"] - test["spread_line"] != 0)
+test_hits = test["hit"]
+test[["season", "week", "team", "opponent"] + FEATURES + ["spread_line", "margin", "predicted_margin", "hit"]].to_csv("exports/test_predictions.csv", index=False)
 print(f"\nATS accuracy:")
 print(f"  Train: {train_ats:.1%}  ({train_n} non-push, {train_push} push)")
 print(f"  Test:  {test_ats:.1%}  ({test_n} non-push, {test_push} push, {test_hits.sum()} hits)")
 
 # Sanity check 1: naive baseline — always predict home wins by 3
-test_home = test_home.copy()
-test_home["naive_margin"] = 3.0
-naive_ats, _, _ = ats_accuracy(test_home, pred_col="naive_margin")
-print(f"\nSanity checks (test set, home rows only):")
+test = test.copy()
+test["naive_margin"] = 3.0
+naive_ats, _, _ = ats_accuracy(test, pred_col="naive_margin")
+print(f"\nSanity checks (test set):")
 print(f"  Naive (always home +3): {naive_ats:.1%}")
 
 # Sanity check 2: shuffled predictions
 rng = np.random.default_rng(42)
-test_home["shuffled_margin"] = rng.permutation(test_home["predicted_margin"].values)
-shuffled_ats, _, _ = ats_accuracy(test_home, pred_col="shuffled_margin")
+test["shuffled_margin"] = rng.permutation(test["predicted_margin"].values)
+shuffled_ats, _, _ = ats_accuracy(test, pred_col="shuffled_margin")
 print(f"  Shuffled predictions:   {shuffled_ats:.1%}")
 
 # Sanity check 3: spread distribution
-print(f"\nSpread distribution (test set, home rows):")
-print(test_home["spread_line"].describe().to_string())
-print(f"  Games with |spread| <= 3: {(test_home['spread_line'].abs() <= 3).sum()} ({(test_home['spread_line'].abs() <= 3).mean():.1%})")
+print(f"\nSpread distribution (test set):")
+print(test["spread_line"].describe().to_string())
+print(f"  Games with |spread| <= 3: {(test['spread_line'].abs() <= 3).sum()} ({(test['spread_line'].abs() <= 3).mean():.1%})")
