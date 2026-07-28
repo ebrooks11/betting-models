@@ -132,3 +132,21 @@ test_ats, test_n, test_push = ats_accuracy(test)
 print(f"\nATS accuracy:")
 print(f"  Train: {train_ats:.1%}  ({train_n} non-push, {train_push} push)")
 print(f"  Test:  {test_ats:.1%}  ({test_n} non-push, {test_push} push)")
+
+# Sanity check 1: naive baseline — always predict home wins by 3
+test = test.copy()
+test["naive_margin"] = 3.0
+naive_ats, _, _ = ats_accuracy(test, pred_col="naive_margin")
+print(f"\nSanity checks (test set):")
+print(f"  Naive (always home +3): {naive_ats:.1%}")
+
+# Sanity check 2: shuffled predictions
+rng = np.random.default_rng(42)
+test["shuffled_margin"] = rng.permutation(test["predicted_margin"].values)
+shuffled_ats, _, _ = ats_accuracy(test, pred_col="shuffled_margin")
+print(f"  Shuffled predictions:   {shuffled_ats:.1%}")
+
+# Sanity check 3: spread distribution
+print(f"\nSpread distribution (test set):")
+print(test["spread_line"].describe().to_string())
+print(f"  Games with |spread| <= 3: {(test['spread_line'].abs() <= 3).sum()} ({(test['spread_line'].abs() <= 3).mean():.1%})")
