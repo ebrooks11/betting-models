@@ -17,6 +17,7 @@ schedules = get_schedule_data(SEASONS)
 
 plays = pbp[pbp["play_type"].isin(["pass", "run"])].copy()
 pass_plays = plays[(plays["play_type"] == "pass") & plays["cpoe"].notna()].copy()
+non_to_plays = plays[(plays["interception"] == 0) & (plays["fumble_lost"] == 0)].copy()
 
 offense = (
     plays.groupby(["season", "week", "posteam"])
@@ -39,6 +40,20 @@ cpoe = (
     .rename(columns={"posteam": "team"})
 )
 
+offense_no_to = (
+    non_to_plays.groupby(["season", "week", "posteam"])
+    .agg(off_epa_no_to=("epa", "mean"))
+    .reset_index()
+    .rename(columns={"posteam": "team"})
+)
+
+defense_no_to = (
+    non_to_plays.groupby(["season", "week", "defteam"])
+    .agg(def_epa_no_to=("epa", "mean"))
+    .reset_index()
+    .rename(columns={"defteam": "team"})
+)
+
 TEAM_MAP = {
     "OAK": "LV",
     "SD":  "LAC",
@@ -47,6 +62,8 @@ TEAM_MAP = {
 
 game_epa = offense.merge(defense, on=["season", "week", "team"], how="outer")
 game_epa = game_epa.merge(cpoe, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(offense_no_to, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(defense_no_to, on=["season", "week", "team"], how="left")
 game_epa["team"] = game_epa["team"].replace(TEAM_MAP)
 game_epa = game_epa.sort_values(["team", "season", "week"]).reset_index(drop=True)
 
@@ -60,6 +77,14 @@ game_epa["def_epa_rolling"] = (
 )
 game_epa["cpoe_rolling"] = (
     game_epa.groupby(["team", "season"])["cpoe_per_game"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
+game_epa["off_epa_no_to_rolling"] = (
+    game_epa.groupby(["team", "season"])["off_epa_no_to"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
+game_epa["def_epa_no_to_rolling"] = (
+    game_epa.groupby(["team", "season"])["def_epa_no_to"]
     .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
 )
 
@@ -122,6 +147,8 @@ result = game_epa[["season", "week", "team",
                     "off_epa_per_play", "off_epa_rolling",
                     "def_epa_per_play", "def_epa_rolling",
                     "cpoe_per_game", "cpoe_rolling",
+                    "off_epa_no_to", "off_epa_no_to_rolling",
+                    "def_epa_no_to", "def_epa_no_to_rolling",
                     "rest_days", "rest_advantage"]].copy()
 result = result.sort_values(["season", "week", "team"]).reset_index(drop=True)
 
