@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_absolute_error
 
@@ -86,12 +85,3 @@ def evaluate(train: pd.DataFrame, test: pd.DataFrame, model, feature_cols: list[
     print(f"  Train: {train_ats:.1%}  ({train_n} non-push, {train_push} push)")
     print(f"  Test:  {test_ats:.1%}  ({test_n} non-push, {test_push} push)")
 
-    test = test.copy()
-    test["naive_margin"] = 3.0
-    naive_ats, _, _ = ats_accuracy(test, pred_col="naive_margin")
-    rng = np.random.default_rng(42)
-    test["shuffled_margin"] = rng.permutation(test["predicted_margin"].values)
-    shuffled_ats, _, _ = ats_accuracy(test, pred_col="shuffled_margin")
-    print(f"\nSanity checks (test set):")
-    print(f"  Naive (always home +3): {naive_ats:.1%}")
-    print(f"  Shuffled predictions:   {shuffled_ats:.1%}")
