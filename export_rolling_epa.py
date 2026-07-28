@@ -74,7 +74,7 @@ else:
 result = game_epa[["season", "week", "team", "off_epa_per_play", "off_epa_rolling", "def_epa_per_play", "def_epa_rolling"]].copy()
 result = result.sort_values(["season", "week", "team"]).reset_index(drop=True)
 
-out_path = Path("exports/rolling_epa.parquet")
+out_path = Path("exports/features.parquet")
 out_path.parent.mkdir(exist_ok=True)
 result.to_parquet(out_path, index=False)
 

@@ -18,7 +18,7 @@ TEAM_MAP = {"OAK": "LV", "SD": "LAC", "STL": "LA"}
 TRAIN_SEASONS = range(2015, 2022)
 TEST_SEASONS = range(2022, 2025)
 FEATURES = ["off_epa_rolling", "def_epa_rolling", "opp_off_epa_rolling", "opp_def_epa_rolling"]
-ROLLING_EPA_PATH = Path("exports/rolling_epa.parquet")
+ROLLING_EPA_PATH = Path("exports/features.parquet")
 
 
 def build_dataset(schedules, game_epa):
