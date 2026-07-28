@@ -55,6 +55,7 @@ defense_no_to = (
 )
 
 early_down_plays = plays[plays["down"].isin([1, 2])].copy()
+first_down_plays = plays[plays["down"] == 1].copy()
 
 offense_early = (
     early_down_plays.groupby(["season", "week", "posteam"])
@@ -66,6 +67,20 @@ offense_early = (
 defense_early = (
     early_down_plays.groupby(["season", "week", "defteam"])
     .agg(def_epa_early_down=("epa", "mean"))
+    .reset_index()
+    .rename(columns={"defteam": "team"})
+)
+
+offense_first = (
+    first_down_plays.groupby(["season", "week", "posteam"])
+    .agg(off_epa_first_down=("epa", "mean"))
+    .reset_index()
+    .rename(columns={"posteam": "team"})
+)
+
+defense_first = (
+    first_down_plays.groupby(["season", "week", "defteam"])
+    .agg(def_epa_first_down=("epa", "mean"))
     .reset_index()
     .rename(columns={"defteam": "team"})
 )
@@ -105,6 +120,8 @@ game_epa = game_epa.merge(offense_no_to, on=["season", "week", "team"], how="lef
 game_epa = game_epa.merge(defense_no_to, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(offense_early, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(defense_early, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(offense_first, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(defense_first, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(plays_per_game, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(top, on=["season", "week", "team"], how="left")
 game_epa["team"] = game_epa["team"].replace(TEAM_MAP)
@@ -140,6 +157,14 @@ game_epa["off_epa_early_down_rolling"] = (
 )
 game_epa["def_epa_early_down_rolling"] = (
     game_epa.groupby(["team", "season"])["def_epa_early_down"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
+game_epa["off_epa_first_down_rolling"] = (
+    game_epa.groupby(["team", "season"])["off_epa_first_down"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
+game_epa["def_epa_first_down_rolling"] = (
+    game_epa.groupby(["team", "season"])["def_epa_first_down"]
     .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
 )
 game_epa["top_rolling"] = (
@@ -210,6 +235,8 @@ result = game_epa[["season", "week", "team",
                     "def_epa_no_to", "def_epa_no_to_rolling",
                     "off_epa_early_down", "off_epa_early_down_rolling",
                     "def_epa_early_down", "def_epa_early_down_rolling",
+                    "off_epa_first_down", "off_epa_first_down_rolling",
+                    "def_epa_first_down", "def_epa_first_down_rolling",
                     "plays", "plays_per_game_rolling",
                     "top_seconds_per_game", "top_rolling",
                     "rest_days", "rest_advantage"]].copy()
