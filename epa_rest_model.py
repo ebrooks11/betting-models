@@ -1,5 +1,5 @@
 """
-Baseline EPA model: 3-game rolling offensive and defensive EPA.
+EPA + rest advantage model: 3-game rolling EPA plus rest advantage.
 Train 2015-2021, test 2022-2024.
 """
 
@@ -12,7 +12,7 @@ from src.model_utils import (
 )
 from config import SEASONS
 
-FEATURE_COLS = ["off_epa_rolling", "def_epa_rolling"]
+FEATURE_COLS = ["off_epa_rolling", "def_epa_rolling", "rest_advantage"]
 
 print("Loading data...")
 features = load_features()

@@ -75,11 +75,16 @@ else:
 # Rest days (within season only)
 games = schedules[schedules["game_type"] == "REG"].copy()
 games["gameday"] = pd.to_datetime(games["gameday"])
+games["home_team"] = games["home_team"].replace(TEAM_MAP)
+games["away_team"] = games["away_team"].replace(TEAM_MAP)
 
-home = games[["season", "week", "home_team", "gameday"]].rename(columns={"home_team": "team"})
-away = games[["season", "week", "away_team", "gameday"]].rename(columns={"away_team": "team"})
+home = games[["season", "week", "home_team", "away_team", "gameday"]].rename(
+    columns={"home_team": "team", "away_team": "opponent"}
+)
+away = games[["season", "week", "away_team", "home_team", "gameday"]].rename(
+    columns={"away_team": "team", "home_team": "opponent"}
+)
 team_games = pd.concat([home, away], ignore_index=True)
-team_games["team"] = team_games["team"].replace(TEAM_MAP)
 team_games = team_games.sort_values(["team", "season", "week"]).reset_index(drop=True)
 
 team_games["rest_days"] = (
@@ -89,22 +94,6 @@ team_games["rest_days"] = (
 
 # Merge opponent rest days and compute rest advantage
 opp_rest = team_games[["season", "week", "team", "rest_days"]].copy()
-team_games = team_games.merge(
-    games[["season", "week", "home_team", "away_team"]].rename(
-        columns={"home_team": "team", "away_team": "opponent"}
-    ),
-    on=["season", "week", "team"], how="left"
-)
-away_as_home = games[["season", "week", "home_team", "away_team"]].rename(
-    columns={"away_team": "team", "home_team": "opponent"}
-)
-team_games = team_games.merge(
-    away_as_home, on=["season", "week", "team"], how="left", suffixes=("", "_away")
-)
-team_games["opponent"] = team_games["opponent"].fillna(team_games["opponent_away"])
-team_games = team_games.drop(columns=["opponent_away"])
-team_games["opponent"] = team_games["opponent"].replace(TEAM_MAP)
-
 team_games = team_games.merge(
     opp_rest.rename(columns={"team": "opponent", "rest_days": "opp_rest_days"}),
     on=["season", "week", "opponent"], how="left"
