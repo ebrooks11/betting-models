@@ -77,6 +77,7 @@ def build_dataset(schedules, game_epa):
     team_games = team_games.merge(opp_epa, on=["season", "week", "opponent"], how="left")
 
     team_games = team_games.dropna(subset=FEATURES + ["margin", "spread_line"])
+    team_games = team_games[team_games["week"] >= 4]
     return team_games
 
 
