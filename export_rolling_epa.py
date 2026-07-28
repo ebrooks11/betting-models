@@ -17,7 +17,7 @@ schedules = get_schedule_data(SEASONS)
 
 plays = pbp[pbp["play_type"].isin(["pass", "run"])].copy()
 pass_plays = plays[(plays["play_type"] == "pass") & plays["cpoe"].notna()].copy()
-non_to_plays = plays[(plays["interception"] == 0) & (plays["fumble_lost"] == 0)].copy()
+non_to_plays = plays[plays["fumble_lost"] == 0].copy()
 
 offense = (
     plays.groupby(["season", "week", "posteam"])
