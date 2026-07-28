@@ -61,6 +61,22 @@ plays_per_game = (
     .rename(columns={"posteam": "team"})
 )
 
+# Time of possession: sum drive_time_of_possession (MM:SS) per team per game
+drives = pbp[pbp["drive_time_of_possession"].notna() & pbp["posteam"].notna()].copy()
+drives = drives[["season", "week", "posteam", "fixed_drive", "drive_time_of_possession"]].drop_duplicates()
+
+def parse_mmss(s):
+    parts = str(s).split(":")
+    return int(parts[0]) * 60 + int(parts[1])
+
+drives["top_seconds"] = drives["drive_time_of_possession"].apply(parse_mmss)
+top = (
+    drives.groupby(["season", "week", "posteam"])["top_seconds"]
+    .sum()
+    .reset_index()
+    .rename(columns={"posteam": "team", "top_seconds": "top_seconds_per_game"})
+)
+
 TEAM_MAP = {
     "OAK": "LV",
     "SD":  "LAC",
@@ -72,6 +88,7 @@ game_epa = game_epa.merge(cpoe, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(offense_no_to, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(defense_no_to, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(plays_per_game, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(top, on=["season", "week", "team"], how="left")
 game_epa["team"] = game_epa["team"].replace(TEAM_MAP)
 game_epa = game_epa.sort_values(["team", "season", "week"]).reset_index(drop=True)
 
@@ -97,6 +114,10 @@ game_epa["def_epa_no_to_rolling"] = (
 )
 game_epa["plays_per_game_rolling"] = (
     game_epa.groupby(["team", "season"])["plays"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
+game_epa["top_rolling"] = (
+    game_epa.groupby(["team", "season"])["top_seconds_per_game"]
     .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
 )
 
@@ -162,6 +183,7 @@ result = game_epa[["season", "week", "team",
                     "off_epa_no_to", "off_epa_no_to_rolling",
                     "def_epa_no_to", "def_epa_no_to_rolling",
                     "plays", "plays_per_game_rolling",
+                    "top_seconds_per_game", "top_rolling",
                     "rest_days", "rest_advantage"]].copy()
 result = result.sort_values(["season", "week", "team"]).reset_index(drop=True)
 
