@@ -132,9 +132,10 @@ print(f"\nMAE — Train: {train_mae:.2f} pts, Test: {test_mae:.2f} pts")
 
 train_ats, train_n, train_push = ats_accuracy(train)
 test_ats, test_n, test_push = ats_accuracy(test)
+test_hits = ((test["predicted_margin"] - test["spread_line"] > 0) == (test["margin"] - test["spread_line"] > 0)) & (test["margin"] - test["spread_line"] != 0)
 print(f"\nATS accuracy:")
 print(f"  Train: {train_ats:.1%}  ({train_n} non-push, {train_push} push)")
-print(f"  Test:  {test_ats:.1%}  ({test_n} non-push, {test_push} push)")
+print(f"  Test:  {test_ats:.1%}  ({test_n} non-push, {test_push} push, {test_hits.sum()} hits)")
 
 # Sanity check 1: naive baseline — always predict home wins by 3
 test = test.copy()
