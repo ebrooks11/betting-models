@@ -244,6 +244,25 @@ starting_qb["team"] = starting_qb["team"].replace(TEAM_MAP)
 
 game_epa = game_epa.merge(starting_qb, on=["season", "week", "team"], how="left")
 
+# Rolling QBR: join QBR onto starting QB, then compute 3-game rolling average
+qbr_reg = qbr[qbr["season_type"] == "Regular"].copy()
+qbr_reg["team_abb"] = qbr_reg["team_abb"].replace(TEAM_MAP)
+qbr_reg["name_normalized"] = qbr_reg["name_short"].str.replace(". ", ".", regex=False)
+qbr_reg = qbr_reg.drop(columns=["team"]).rename(columns={"week_num": "week", "team_abb": "team"})
+
+# Join QBR to game_epa on season/week/team/starting_qb
+qbr_game = qbr_reg[["season", "week", "team", "name_normalized", "qbr_total"]].copy()
+game_epa = game_epa.merge(
+    qbr_game.rename(columns={"name_normalized": "starting_qb", "qbr_total": "qbr"}),
+    on=["season", "week", "team", "starting_qb"], how="left"
+)
+
+game_epa = game_epa.sort_values(["team", "season", "week"]).reset_index(drop=True)
+game_epa["qbr_rolling"] = (
+    game_epa.groupby(["team", "season"])["qbr"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
+
 result = game_epa[["season", "week", "team",
                     "off_epa_per_play", "off_epa_rolling",
                     "def_epa_per_play", "def_epa_rolling",
@@ -257,7 +276,7 @@ result = game_epa[["season", "week", "team",
                     "plays", "plays_per_game_rolling",
                     "top_seconds_per_game", "top_rolling",
                     "rest_days", "rest_advantage",
-                    "starting_qb"]].copy()
+                    "starting_qb", "qbr", "qbr_rolling"]].copy()
 result = result.sort_values(["season", "week", "team"]).reset_index(drop=True)
 
 out_path = Path("exports/features.parquet")
