@@ -3,12 +3,13 @@ Fetch weekly QBR data from ESPN for 2024 and 2025 seasons.
 Run this locally and upload the output to data/qbr_2024_2025.parquet.
 
 Usage:
-    pip install requests pandas pyarrow
     python scripts/fetch_qbr_2024_2025.py
 """
 
 import time
-import requests
+import urllib.request
+import urllib.error
+import json
 import pandas as pd
 
 SEASONS = [2024, 2025]
@@ -16,16 +17,18 @@ WEEKS = range(1, 23)  # covers regular season + any extra weeks
 SEASON_TYPE = 2       # 2 = regular season
 
 
-def fetch_qbr_week(session, season, week):
+def fetch_qbr_week(season, week):
     url = (
         f"https://site.web.api.espn.com/apis/fitt/v3/sports/football/nfl/qbr"
         f"?season={season}&seasontype={SEASON_TYPE}&week={week}&limit=100"
     )
-    resp = session.get(url, timeout=15)
-    if resp.status_code != 200:
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            data = json.loads(r.read())
+    except urllib.error.HTTPError:
         return []
 
-    data = resp.json()
     athletes = data.get("athletes", [])
     if not athletes:
         return []
@@ -71,13 +74,10 @@ def fetch_qbr_week(session, season, week):
 
 
 def main():
-    session = requests.Session()
-    session.headers.update({"User-Agent": "Mozilla/5.0"})
-
     all_rows = []
     for season in SEASONS:
         for week in WEEKS:
-            rows = fetch_qbr_week(session, season, week)
+            rows = fetch_qbr_week(season, week)
             if rows:
                 print(f"  {season} week {week:2d}: {len(rows)} QBs")
                 all_rows.extend(rows)
