@@ -20,62 +20,56 @@ SEASON_TYPE = 2       # 2 = regular season
 def fetch_qbr_week(season, week):
     url = (
         f"https://site.web.api.espn.com/apis/fitt/v3/sports/football/nfl/qbr"
-        f"?season={season}&seasontype={SEASON_TYPE}&week={week}&limit=100"
+        f"?qbrType=weeks&seasontype={SEASON_TYPE}&isqualified=false"
+        f"&season={season}&week={week}"
     )
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     try:
         with urllib.request.urlopen(req, timeout=15) as r:
-            raw = r.read()
-            data = json.loads(raw)
+            data = json.loads(r.read())
     except urllib.error.HTTPError as e:
         print(f"    HTTP {e.code}: {url}")
         return []
-
-    # Debug: print top-level keys and first 500 chars on first call
-    if season == SEASONS[0] and week == 1:
-        print(f"    DEBUG keys: {list(data.keys())}")
-        print(f"    DEBUG raw[:500]: {raw[:500]}")
 
     athletes = data.get("athletes", [])
     if not athletes:
         return []
 
+    # Stats are in categories[0]["totals"] as an ordered list matching these names
+    STAT_NAMES = ["qbr_total", "pts_added", "qb_plays", "epa_total", "pass",
+                  "run", "exp_sack", "penalty", "qbr_raw", "sack"]
+
     rows = []
     for entry in athletes:
         a = entry.get("athlete", {})
-        team = entry.get("team", {})
+        game = entry.get("game", {})
+        opp = game.get("teamOpponent", {})
         cats = entry.get("categories", [])
-
-        # ESPN returns categories in a fixed order — grab by label to be safe
-        stat_map = {}
-        for cat in cats:
-            label = cat.get("name", "")
-            totals = cat.get("totals", [None])
-            stat_map[label] = totals[0] if totals else None
+        totals = cats[0]["totals"] if cats else []
+        stats = dict(zip(STAT_NAMES, totals))
 
         rows.append({
             "season": season,
             "season_type": "Regular",
-            "game_week": f"Week {week}",
-            "week_num": week,
-            "team_abb": team.get("abbreviation"),
+            "game_id": game.get("id"),
+            "game_week": week,
+            "week_text": game.get("weekText"),
+            "week_num": game.get("weekNumber", week),
+            "team_abb": a.get("teamShortName"),
             "player_id": a.get("id"),
             "name_short": a.get("shortName"),
             "name_first": a.get("firstName"),
             "name_last": a.get("lastName"),
             "name_display": a.get("displayName"),
-            "qbr_total": stat_map.get("qbr"),
-            "pts_added": stat_map.get("ptsAdded"),
-            "qb_plays": stat_map.get("plays"),
-            "epa_total": stat_map.get("epa"),
-            "pass": stat_map.get("pass"),
-            "run": stat_map.get("run"),
-            "exp_sack": stat_map.get("expSack"),
-            "penalty": stat_map.get("penalty"),
-            "qbr_raw": stat_map.get("qbrRaw"),
-            "sack": stat_map.get("sack"),
-            "qualified": entry.get("qualified"),
+            "headshot_href": (a.get("headshot") or {}).get("href"),
+            "team": a.get("teamName"),
+            "opp_id": opp.get("id"),
+            "opp_abb": opp.get("abbreviation"),
+            "opp_team": opp.get("displayName"),
+            "opp_name": opp.get("name"),
             "rank": entry.get("rank"),
+            "qualified": entry.get("qualified"),
+            **{k: float(v) if v is not None else None for k, v in stats.items()},
         })
     return rows
 
