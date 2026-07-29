@@ -8,7 +8,7 @@ from sklearn.metrics import mean_absolute_error
 FEATURES_PATH = Path("exports/features.parquet")
 TEAM_MAP = {"OAK": "LV", "SD": "LAC", "STL": "LA"}
 TRAIN_SEASONS = range(2015, 2022)
-TEST_SEASONS = range(2022, 2025)
+TEST_SEASONS = range(2022, 2026)
 
 
 def load_features() -> pd.DataFrame:

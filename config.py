@@ -1,6 +1,6 @@
-SEASONS = list(range(2015, 2025))
+SEASONS = list(range(2015, 2026))
 TRAIN_SEASONS = list(range(2015, 2022))
-VALIDATION_SEASONS = list(range(2022, 2025))
+VALIDATION_SEASONS = list(range(2022, 2026))
 
 ROLLING_WINDOW = 5
 MIN_WEEK = 4
