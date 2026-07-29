@@ -7,7 +7,7 @@ from sklearn.metrics import mean_absolute_error
 
 FEATURES_PATH = Path("exports/features.parquet")
 TEAM_MAP = {"OAK": "LV", "SD": "LAC", "STL": "LA"}
-TRAIN_SEASONS = range(2010, 2020)
+TRAIN_SEASONS = range(2006, 2020)
 TEST_SEASONS = range(2020, 2024)
 
 
