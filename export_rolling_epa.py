@@ -113,6 +113,8 @@ TEAM_MAP = {
     "OAK": "LV",
     "SD":  "LAC",
     "STL": "LA",
+    "LAR": "LA",
+    "WSH": "WAS",
 }
 
 game_epa = offense.merge(defense, on=["season", "week", "team"], how="outer")
