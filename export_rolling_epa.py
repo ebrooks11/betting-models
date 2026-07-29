@@ -6,7 +6,7 @@ raw EPA values from the prior 1-3 games (not averages of averages).
 
 from pathlib import Path
 import pandas as pd
-from src.data_loader import get_pbp_data, get_schedule_data
+from src.data_loader import get_pbp_data, get_schedule_data, get_qbr_data
 from config import SEASONS
 
 WINDOW = 3
@@ -14,6 +14,7 @@ WINDOW = 3
 print("Loading data...")
 pbp = get_pbp_data(SEASONS)
 schedules = get_schedule_data(SEASONS)
+qbr = get_qbr_data(SEASONS)
 
 plays = pbp[pbp["play_type"].isin(["pass", "run"])].copy()
 pass_plays = plays[(plays["play_type"] == "pass") & plays["cpoe"].notna()].copy()
@@ -227,6 +228,22 @@ game_epa = game_epa.merge(
     on=["season", "week", "team"], how="left"
 )
 
+# Starting QB = QB with most pass attempts per team per game
+pass_attempts = pbp[pbp["play_type"] == "pass"].copy()
+starting_qb = (
+    pass_attempts.groupby(["season", "week", "posteam", "passer_player_name"])
+    .size()
+    .reset_index(name="attempts")
+    .sort_values("attempts", ascending=False)
+    .groupby(["season", "week", "posteam"])
+    .first()
+    .reset_index()[["season", "week", "posteam", "passer_player_name"]]
+    .rename(columns={"posteam": "team", "passer_player_name": "starting_qb"})
+)
+starting_qb["team"] = starting_qb["team"].replace(TEAM_MAP)
+
+game_epa = game_epa.merge(starting_qb, on=["season", "week", "team"], how="left")
+
 result = game_epa[["season", "week", "team",
                     "off_epa_per_play", "off_epa_rolling",
                     "def_epa_per_play", "def_epa_rolling",
@@ -239,7 +256,8 @@ result = game_epa[["season", "week", "team",
                     "def_epa_first_down", "def_epa_first_down_rolling",
                     "plays", "plays_per_game_rolling",
                     "top_seconds_per_game", "top_rolling",
-                    "rest_days", "rest_advantage"]].copy()
+                    "rest_days", "rest_advantage",
+                    "starting_qb"]].copy()
 result = result.sort_values(["season", "week", "team"]).reset_index(drop=True)
 
 out_path = Path("exports/features.parquet")
