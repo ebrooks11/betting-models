@@ -25,9 +25,16 @@ def fetch_qbr_week(season, week):
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     try:
         with urllib.request.urlopen(req, timeout=15) as r:
-            data = json.loads(r.read())
-    except urllib.error.HTTPError:
+            raw = r.read()
+            data = json.loads(raw)
+    except urllib.error.HTTPError as e:
+        print(f"    HTTP {e.code}: {url}")
         return []
+
+    # Debug: print top-level keys and first 500 chars on first call
+    if season == SEASONS[0] and week == 1:
+        print(f"    DEBUG keys: {list(data.keys())}")
+        print(f"    DEBUG raw[:500]: {raw[:500]}")
 
     athletes = data.get("athletes", [])
     if not athletes:
