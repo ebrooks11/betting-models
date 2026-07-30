@@ -19,6 +19,7 @@ PBP_COLS = [
     "sack", "qb_hit", "yards_gained",
     "drive_time_of_possession", "fixed_drive",
     "passer_player_name",
+    "offense_personnel", "defense_personnel",
 ]
 pbp = get_pbp_data(SEASONS)[PBP_COLS]
 schedules = get_schedule_data(SEASONS)
@@ -101,6 +102,90 @@ plays_per_game = (
     .rename(columns={"posteam": "team"})
 )
 
+# Personnel package metrics (2016+ only)
+import re
+
+def parse_off_personnel(s):
+    if pd.isna(s):
+        return None
+    rb = int(m.group(1)) if (m := re.search(r'(\d+) RB', s)) else 0
+    te = int(m.group(1)) if (m := re.search(r'(\d+) TE', s)) else 0
+    wr = int(m.group(1)) if (m := re.search(r'(\d+) WR', s)) else 0
+    if rb == 1 and te == 1 and wr == 3:
+        return "11"
+    if rb == 1 and te == 2 and wr == 2:
+        return "12"
+    if rb == 2 and te == 1 and wr == 2:
+        return "21"
+    return "other"
+
+def parse_def_personnel(s):
+    if pd.isna(s):
+        return None
+    db = int(m.group(1)) if (m := re.search(r'(\d+) DB', s)) else None
+    if db is None:
+        # Try summing CB + S + FS + SS
+        cbs = int(m.group(1)) if (m := re.search(r'(\d+) CB', s)) else 0
+        fs  = int(m.group(1)) if (m := re.search(r'(\d+) FS', s)) else 0
+        ss  = int(m.group(1)) if (m := re.search(r'(\d+) SS', s)) else 0
+        db = cbs + fs + ss
+    if db == 4:
+        return "base"
+    if db == 5:
+        return "nickel"
+    if db == 6:
+        return "dime"
+    return "other"
+
+personnel_plays = plays[plays["offense_personnel"].notna()].copy()
+personnel_plays["off_pkg"] = personnel_plays["offense_personnel"].map(parse_off_personnel)
+personnel_plays["def_pkg"] = personnel_plays["defense_personnel"].map(parse_def_personnel)
+
+# Offensive personnel rates (posteam perspective)
+def pkg_rate(df, team_col, pkg_col, pkg_val, out_col):
+    total = df.groupby(["season", "week", team_col]).size().reset_index(name="total")
+    pkg   = df[df[pkg_col] == pkg_val].groupby(["season", "week", team_col]).size().reset_index(name="pkg")
+    merged = total.merge(pkg, on=["season", "week", team_col], how="left").fillna({"pkg": 0})
+    merged[out_col] = merged["pkg"] / merged["total"]
+    return merged[["season", "week", team_col, out_col]].rename(columns={team_col: "team"})
+
+off_11_rate = pkg_rate(personnel_plays, "posteam", "off_pkg", "11", "off_11_rate")
+off_12_rate = pkg_rate(personnel_plays, "posteam", "off_pkg", "12", "off_12_rate")
+off_21_rate = pkg_rate(personnel_plays, "posteam", "off_pkg", "21", "off_21_rate")
+
+# Offensive EPA by defensive package faced
+def epa_vs_def_pkg(df, pkg_val, out_col):
+    return (
+        df[df["def_pkg"] == pkg_val]
+        .groupby(["season", "week", "posteam"])
+        .agg(**{out_col: ("epa", "mean")})
+        .reset_index()
+        .rename(columns={"posteam": "team"})
+    )
+
+off_vs_nickel_epa = epa_vs_def_pkg(personnel_plays, "nickel", "off_vs_nickel_epa")
+off_vs_base_epa   = epa_vs_def_pkg(personnel_plays, "base",   "off_vs_base_epa")
+off_vs_dime_epa   = epa_vs_def_pkg(personnel_plays, "dime",   "off_vs_dime_epa")
+
+# Defensive personnel rates (defteam perspective)
+def_nickel_rate = pkg_rate(personnel_plays, "defteam", "def_pkg", "nickel", "def_nickel_rate")
+def_base_rate   = pkg_rate(personnel_plays, "defteam", "def_pkg", "base",   "def_base_rate")
+def_dime_rate   = pkg_rate(personnel_plays, "defteam", "def_pkg", "dime",   "def_dime_rate")
+
+# Defensive EPA allowed by offensive package faced (epa is offense-perspective, so higher = worse defense)
+def epa_vs_off_pkg(df, pkg_val, out_col):
+    return (
+        df[df["off_pkg"] == pkg_val]
+        .groupby(["season", "week", "defteam"])
+        .agg(**{out_col: ("epa", "mean")})
+        .reset_index()
+        .rename(columns={"defteam": "team"})
+    )
+
+def_vs_11_epa = epa_vs_off_pkg(personnel_plays, "11", "def_vs_11_epa")
+def_vs_12_epa = epa_vs_off_pkg(personnel_plays, "12", "def_vs_12_epa")
+def_vs_21_epa = epa_vs_off_pkg(personnel_plays, "21", "def_vs_21_epa")
+
 # OL metrics: sack rate and QB hit rate (pass protection), stuff rate (run blocking)
 pass_plays_ol = pbp[(pbp["play_type"] == "pass") & pbp["sack"].notna()].copy()
 sack_rate = (
@@ -165,6 +250,18 @@ game_epa = game_epa.merge(top, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(sack_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(qb_hit_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(stuff_rate, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(off_11_rate, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(off_12_rate, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(off_21_rate, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(off_vs_nickel_epa, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(off_vs_base_epa, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(off_vs_dime_epa, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(def_nickel_rate, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(def_base_rate, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(def_dime_rate, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(def_vs_11_epa, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(def_vs_12_epa, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(def_vs_21_epa, on=["season", "week", "team"], how="left")
 game_epa["team"] = game_epa["team"].replace(TEAM_MAP)
 game_epa = game_epa.sort_values(["team", "season", "week"]).reset_index(drop=True)
 
@@ -224,6 +321,18 @@ game_epa["stuff_rate_rolling"] = (
     game_epa.groupby(["team", "season"])["stuff_rate"]
     .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
 )
+
+PERSONNEL_COLS = [
+    "off_11_rate", "off_12_rate", "off_21_rate",
+    "off_vs_nickel_epa", "off_vs_base_epa", "off_vs_dime_epa",
+    "def_nickel_rate", "def_base_rate", "def_dime_rate",
+    "def_vs_11_epa", "def_vs_12_epa", "def_vs_21_epa",
+]
+for col in PERSONNEL_COLS:
+    game_epa[f"{col}_rolling"] = (
+        game_epa.groupby(["team", "season"])[col]
+        .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+    )
 
 # 5-game rolling window versions
 W5_STATS = {
@@ -390,6 +499,18 @@ result = game_epa[["season", "week", "team",
                     "sack_rate", "sack_rate_rolling",
                     "qb_hit_rate", "qb_hit_rate_rolling",
                     "stuff_rate", "stuff_rate_rolling",
+                    "off_11_rate", "off_11_rate_rolling",
+                    "off_12_rate", "off_12_rate_rolling",
+                    "off_21_rate", "off_21_rate_rolling",
+                    "off_vs_nickel_epa", "off_vs_nickel_epa_rolling",
+                    "off_vs_base_epa", "off_vs_base_epa_rolling",
+                    "off_vs_dime_epa", "off_vs_dime_epa_rolling",
+                    "def_nickel_rate", "def_nickel_rate_rolling",
+                    "def_base_rate", "def_base_rate_rolling",
+                    "def_dime_rate", "def_dime_rate_rolling",
+                    "def_vs_11_epa", "def_vs_11_epa_rolling",
+                    "def_vs_12_epa", "def_vs_12_epa_rolling",
+                    "def_vs_21_epa", "def_vs_21_epa_rolling",
                     "off_epa_rolling_w5", "def_epa_rolling_w5",
                     "cpoe_rolling_w5", "off_epa_no_to_rolling_w5", "def_epa_no_to_rolling_w5",
                     "plays_per_game_rolling_w5",
