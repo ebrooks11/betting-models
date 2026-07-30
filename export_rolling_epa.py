@@ -10,6 +10,7 @@ from src.data_loader import get_pbp_data, get_schedule_data, get_qbr_data
 from config import SEASONS
 
 WINDOW = 3
+WINDOW5 = 5
 
 print("Loading data...")
 PBP_COLS = [
@@ -224,6 +225,29 @@ game_epa["stuff_rate_rolling"] = (
     .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
 )
 
+# 5-game rolling window versions
+W5_STATS = {
+    "off_epa_rolling_w5": "off_epa_per_play",
+    "def_epa_rolling_w5": "def_epa_per_play",
+    "cpoe_rolling_w5": "cpoe_per_game",
+    "off_epa_no_to_rolling_w5": "off_epa_no_to",
+    "def_epa_no_to_rolling_w5": "def_epa_no_to",
+    "plays_per_game_rolling_w5": "plays",
+    "off_epa_early_down_rolling_w5": "off_epa_early_down",
+    "def_epa_early_down_rolling_w5": "def_epa_early_down",
+    "off_epa_first_down_rolling_w5": "off_epa_first_down",
+    "def_epa_first_down_rolling_w5": "def_epa_first_down",
+    "top_rolling_w5": "top_seconds_per_game",
+    "sack_rate_rolling_w5": "sack_rate",
+    "qb_hit_rate_rolling_w5": "qb_hit_rate",
+    "stuff_rate_rolling_w5": "stuff_rate",
+}
+for col_out, col_in in W5_STATS.items():
+    game_epa[col_out] = (
+        game_epa.groupby(["team", "season"])[col_in]
+        .transform(lambda x: x.shift(1).rolling(WINDOW5, min_periods=1).mean())
+    )
+
 # Verification: spot-check that week 4+ rolling = mean of prior 3 raw EPAs
 print("\nVerifying rolling values (checking week 4 of each team/season)...")
 errors = 0
@@ -343,6 +367,10 @@ game_epa["qbr_rolling"] = (
     game_epa.groupby(["team", "season"])["qbr"]
     .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
 )
+game_epa["qbr_rolling_w5"] = (
+    game_epa.groupby(["team", "season"])["qbr"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW5, min_periods=1).mean())
+)
 
 result = game_epa[["season", "week", "team",
                     "off_epa_per_play", "off_epa_rolling",
@@ -361,7 +389,15 @@ result = game_epa[["season", "week", "team",
                     "starting_qb", "qbr", "qbr_rolling",
                     "sack_rate", "sack_rate_rolling",
                     "qb_hit_rate", "qb_hit_rate_rolling",
-                    "stuff_rate", "stuff_rate_rolling"]].copy()
+                    "stuff_rate", "stuff_rate_rolling",
+                    "off_epa_rolling_w5", "def_epa_rolling_w5",
+                    "cpoe_rolling_w5", "off_epa_no_to_rolling_w5", "def_epa_no_to_rolling_w5",
+                    "plays_per_game_rolling_w5",
+                    "off_epa_early_down_rolling_w5", "def_epa_early_down_rolling_w5",
+                    "off_epa_first_down_rolling_w5", "def_epa_first_down_rolling_w5",
+                    "top_rolling_w5", "sack_rate_rolling_w5",
+                    "qb_hit_rate_rolling_w5", "stuff_rate_rolling_w5",
+                    "qbr_rolling_w5"]].copy()
 result = result.sort_values(["season", "week", "team"]).reset_index(drop=True)
 
 out_path = Path("exports/features.parquet")
