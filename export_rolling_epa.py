@@ -12,7 +12,14 @@ from config import SEASONS
 WINDOW = 3
 
 print("Loading data...")
-pbp = get_pbp_data(SEASONS)
+PBP_COLS = [
+    "season", "week", "play_type", "posteam", "defteam",
+    "epa", "cpoe", "fumble_lost", "down",
+    "sack", "qb_hit", "yards_gained",
+    "drive_time_of_possession", "fixed_drive",
+    "passer_player_name",
+]
+pbp = get_pbp_data(SEASONS)[PBP_COLS]
 schedules = get_schedule_data(SEASONS)
 qbr = get_qbr_data(SEASONS)
 
@@ -93,6 +100,33 @@ plays_per_game = (
     .rename(columns={"posteam": "team"})
 )
 
+# OL metrics: sack rate and QB hit rate (pass protection), stuff rate (run blocking)
+pass_plays_ol = pbp[(pbp["play_type"] == "pass") & pbp["sack"].notna()].copy()
+sack_rate = (
+    pass_plays_ol.groupby(["season", "week", "posteam"])
+    .agg(sacks=("sack", "sum"), pass_attempts_ol=("sack", "count"))
+    .assign(sack_rate=lambda d: d["sacks"] / d["pass_attempts_ol"])
+    .reset_index()[["season", "week", "posteam", "sack_rate"]]
+    .rename(columns={"posteam": "team"})
+)
+
+qb_hit_rate = (
+    pass_plays_ol.groupby(["season", "week", "posteam"])
+    .agg(qb_hits=("qb_hit", "sum"), pass_attempts_ol=("qb_hit", "count"))
+    .assign(qb_hit_rate=lambda d: d["qb_hits"] / d["pass_attempts_ol"])
+    .reset_index()[["season", "week", "posteam", "qb_hit_rate"]]
+    .rename(columns={"posteam": "team"})
+)
+
+run_plays_ol = pbp[(pbp["play_type"] == "run") & pbp["yards_gained"].notna()].copy()
+stuff_rate = (
+    run_plays_ol.groupby(["season", "week", "posteam"])
+    .agg(stuffed=("yards_gained", lambda x: (x <= 0).sum()), rush_attempts=("yards_gained", "count"))
+    .assign(stuff_rate=lambda d: d["stuffed"] / d["rush_attempts"])
+    .reset_index()[["season", "week", "posteam", "stuff_rate"]]
+    .rename(columns={"posteam": "team"})
+)
+
 # Time of possession: sum drive_time_of_possession (MM:SS) per team per game
 drives = pbp[pbp["drive_time_of_possession"].notna() & pbp["posteam"].notna()].copy()
 drives = drives[["season", "week", "posteam", "fixed_drive", "drive_time_of_possession"]].drop_duplicates()
@@ -127,6 +161,9 @@ game_epa = game_epa.merge(offense_first, on=["season", "week", "team"], how="lef
 game_epa = game_epa.merge(defense_first, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(plays_per_game, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(top, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(sack_rate, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(qb_hit_rate, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(stuff_rate, on=["season", "week", "team"], how="left")
 game_epa["team"] = game_epa["team"].replace(TEAM_MAP)
 game_epa = game_epa.sort_values(["team", "season", "week"]).reset_index(drop=True)
 
@@ -172,6 +209,18 @@ game_epa["def_epa_first_down_rolling"] = (
 )
 game_epa["top_rolling"] = (
     game_epa.groupby(["team", "season"])["top_seconds_per_game"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
+game_epa["sack_rate_rolling"] = (
+    game_epa.groupby(["team", "season"])["sack_rate"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
+game_epa["qb_hit_rate_rolling"] = (
+    game_epa.groupby(["team", "season"])["qb_hit_rate"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
+game_epa["stuff_rate_rolling"] = (
+    game_epa.groupby(["team", "season"])["stuff_rate"]
     .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
 )
 
@@ -278,7 +327,10 @@ result = game_epa[["season", "week", "team",
                     "plays", "plays_per_game_rolling",
                     "top_seconds_per_game", "top_rolling",
                     "rest_days", "rest_advantage",
-                    "starting_qb", "qbr", "qbr_rolling"]].copy()
+                    "starting_qb", "qbr", "qbr_rolling",
+                    "sack_rate", "sack_rate_rolling",
+                    "qb_hit_rate", "qb_hit_rate_rolling",
+                    "stuff_rate", "stuff_rate_rolling"]].copy()
 result = result.sort_values(["season", "week", "team"]).reset_index(drop=True)
 
 out_path = Path("exports/features.parquet")
