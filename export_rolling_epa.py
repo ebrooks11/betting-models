@@ -279,6 +279,36 @@ game_epa = game_epa.merge(
     on=["season", "week", "team"], how="left"
 )
 
+# Coach ATS rolling: how many pts/game does a coach beat the spread on average
+# Rolls across seasons (coach tendency is career-level, not season-level)
+# Uses a 10-game window to capture stable signal
+COACH_WINDOW = 10
+
+games_with_spread = games[games["spread_line"].notna() & games["home_score"].notna()].copy()
+games_with_spread["margin"] = games_with_spread["home_score"] - games_with_spread["away_score"]
+games_with_spread["ats_margin"] = games_with_spread["margin"] - games_with_spread["spread_line"]
+
+home_coach = games_with_spread[["season", "week", "home_team", "home_coach", "ats_margin"]].rename(
+    columns={"home_team": "team", "home_coach": "coach"}
+)
+away_coach = games_with_spread[["season", "week", "away_team", "away_coach", "ats_margin"]].copy()
+away_coach["ats_margin"] = -away_coach["ats_margin"]
+away_coach = away_coach.rename(columns={"away_team": "team", "away_coach": "coach"})
+
+coach_games = pd.concat([home_coach, away_coach], ignore_index=True)
+coach_games = coach_games.sort_values(["coach", "season", "week"]).reset_index(drop=True)
+
+# Rolling across seasons (no groupby season reset)
+coach_games["coach_ats_rolling"] = (
+    coach_games.groupby("coach")["ats_margin"]
+    .transform(lambda x: x.shift(1).rolling(COACH_WINDOW, min_periods=1).mean())
+)
+
+game_epa = game_epa.merge(
+    coach_games[["season", "week", "team", "coach", "coach_ats_rolling"]],
+    on=["season", "week", "team"], how="left"
+)
+
 # Starting QB = QB with most pass attempts per team per game
 pass_attempts = pbp[pbp["play_type"] == "pass"].copy()
 starting_qb = (
@@ -327,6 +357,7 @@ result = game_epa[["season", "week", "team",
                     "plays", "plays_per_game_rolling",
                     "top_seconds_per_game", "top_rolling",
                     "rest_days", "rest_advantage",
+                    "coach", "coach_ats_rolling",
                     "starting_qb", "qbr", "qbr_rolling",
                     "sack_rate", "sack_rate_rolling",
                     "qb_hit_rate", "qb_hit_rate_rolling",
