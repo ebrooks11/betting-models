@@ -462,6 +462,18 @@ game_epa["point_diff_rolling"] = (
     game_epa.groupby(["team", "season"])["point_diff"]
     .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
 )
+game_epa["point_diff_rolling_w5"] = (
+    game_epa.groupby(["team", "season"])["point_diff"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW5, min_periods=1).mean())
+)
+game_epa["off_11_epa_rolling_w5"] = (
+    game_epa.groupby(["team", "season"])["off_11_epa"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW5, min_periods=1).mean())
+)
+game_epa["off_12_epa_rolling_w5"] = (
+    game_epa.groupby(["team", "season"])["off_12_epa"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW5, min_periods=1).mean())
+)
 
 # Season-to-date expanding window (all prior games this season)
 EXPANDING_STATS = {
@@ -608,14 +620,14 @@ result = game_epa[["season", "week", "team",
                     "first_down_rate", "first_down_rate_rolling",
                     "top_seconds_per_game", "top_rolling",
                     "rest_days", "rest_advantage",
-                    "point_diff", "point_diff_rolling",
+                    "point_diff", "point_diff_rolling", "point_diff_rolling_w5",
                     "coach", "coach_ats_rolling",
                     "starting_qb", "qbr", "qbr_rolling",
                     "sack_rate", "sack_rate_rolling",
                     "qb_hit_rate", "qb_hit_rate_rolling",
                     "stuff_rate", "stuff_rate_rolling",
-                    "off_11_epa", "off_11_epa_rolling",
-                    "off_12_epa", "off_12_epa_rolling",
+                    "off_11_epa", "off_11_epa_rolling", "off_11_epa_rolling_w5",
+                    "off_12_epa", "off_12_epa_rolling", "off_12_epa_rolling_w5",
                     "off_11_weighted_epa", "off_11_weighted_epa_rolling",
                     "off_12_weighted_epa", "off_12_weighted_epa_rolling",
                     "off_11_rate", "off_11_rate_rolling",
@@ -634,6 +646,7 @@ result = game_epa[["season", "week", "team",
                     "off_epa_expanding", "def_epa_expanding",
                     "cpoe_expanding", "off_epa_first_down_expanding", "def_epa_first_down_expanding",
                     "point_diff_expanding", "plays_per_game_expanding", "qb_hit_rate_expanding",
+                    "off_11_epa_expanding", "off_12_epa_expanding",
                     "off_11_rate_expanding", "off_12_rate_expanding",
                     "off_vs_nickel_epa_expanding", "off_vs_base_epa_expanding",
                     "def_nickel_rate_expanding", "def_base_rate_expanding",
