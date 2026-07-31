@@ -478,6 +478,18 @@ for col in PERSONNEL_EXPANDING:
         .transform(lambda x: x.shift(1).expanding(min_periods=1).mean())
     )
 
+# Rate-weighted formation EPA: off_11_epa * off_11_rate, off_12_epa * off_12_rate
+game_epa["off_11_weighted_epa"] = game_epa["off_11_epa"] * game_epa["off_11_rate"]
+game_epa["off_12_weighted_epa"] = game_epa["off_12_epa"] * game_epa["off_12_rate"]
+personnel_mask = game_epa["off_11_rate"].isna()
+game_epa.loc[personnel_mask, ["off_11_weighted_epa", "off_12_weighted_epa"]] = float("nan")
+
+for col in ["off_11_weighted_epa", "off_12_weighted_epa"]:
+    game_epa[f"{col}_rolling"] = (
+        game_epa.groupby(["team", "season"])[col]
+        .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+    )
+
 # Formation composite: net formation edge weighted by usage rate
 # (off_11_epa - def_vs_11_epa) * off_11_rate captures how much better the offense
 # is in 11 personnel than the defense is at stopping it, scaled by usage
@@ -588,6 +600,8 @@ result = game_epa[["season", "week", "team",
                     "stuff_rate", "stuff_rate_rolling",
                     "off_11_epa", "off_11_epa_rolling",
                     "off_12_epa", "off_12_epa_rolling",
+                    "off_11_weighted_epa", "off_11_weighted_epa_rolling",
+                    "off_12_weighted_epa", "off_12_weighted_epa_rolling",
                     "off_11_rate", "off_11_rate_rolling",
                     "off_12_rate", "off_12_rate_rolling",
                     "off_21_rate", "off_21_rate_rolling",
