@@ -8,20 +8,20 @@ All models evaluated on home-team perspective only (one row per game), week 4+, 
 
 All models evaluated on home-team perspective only (one row per game), weeks 4–16/17, test set 2022–2025. Final week of each season is excluded (week 18 from 2021+, week 17 pre-2021) — resting starters and meaningless games break model signal.
 
-| Rank | Model | Features | ATS | n | E>3 ATS | E>3 n | Train |
-|------|-------|----------|-----|---|---------|-------|-------|
-| 1 | weighted+raw + pd + qbr | off_11/12_epa_rolling + off_11/12_weighted_epa_rolling, point_diff_rolling, qbr_rolling | **55.0%** | 687 | 52.0% | 346 | 2016–2021 |
-| 2 | off_11/12 + def_vs_11/12 + pd + qbr | off_11/12_epa_rolling, def_vs_11/12_epa_rolling, point_diff_rolling, qbr_rolling | 54.7% | 687 | 54.0% | 337 | 2016–2021 |
-| 3 | `off_formation_point_diff_qbr_model.py` | off_11/12_epa_rolling, point_diff_rolling, qbr_rolling | 54.6% | 687 | 53.2% | 348 | 2016–2021 |
-| 4 | off_11/12 + def_vs_11/12 + pd + qbr + cpoe | off_11/12_epa_rolling, def_vs_11/12_epa_rolling, point_diff_rolling, qbr_rolling, cpoe_rolling | 54.4% | 687 | **55.1%** | 334 | 2016–2021 |
-| 5 | off_11/12 + def_vs_11/12 + pd | off_11/12_epa_rolling, def_vs_11/12_epa_rolling, point_diff_rolling | 53.8% | 796 | 53.3% | 398 | 2016–2021 |
-| 6 | off_11/12_w5 + pd + qbr | off_11/12_epa_rolling_w5, point_diff_rolling, qbr_rolling | 53.4% | 697 | 54.2% | 334 | 2016–2021 |
-| 7 | off_11/12 + def_vs_11/12 + cpoe | off_11/12_epa_rolling, def_vs_11/12_epa_rolling, cpoe_rolling | 53.3% | 796 | 53.0% | 419 | 2016–2021 |
-| 8 | `point_diff_cpoe_qbr_model.py` | point_diff_rolling, cpoe_rolling, qbr_rolling | 52.7% | 698 | 52.9% | 340 | 2006–2021 |
-| 9 | first_down_rate + pd + qbr | first_down_rate_rolling, point_diff_rolling, qbr_rolling | 52.4% | 698 | **55.1%** | 334 | 2016–2021 |
-| 10 | off_11/12 + def_vs_11/12 | off_11/12_epa_rolling, def_vs_11/12_epa_rolling | 52.4% | 796 | 52.7% | 438 | 2016–2021 |
+| Rank | Model | ATS | N | Units | E>3 ATS | E>3 N | E>3 Units | Train |
+|------|-------|-----|---|-------|---------|-------|-----------|-------|
+| 1 | weighted+raw + pd + qbr | **55.0%** | 687 | **+34.6** | 52.0% | 346 | −2.4 | 2016–2021 |
+| 2 | off_11/12 + def + pd + qbr | 54.7% | 687 | +30.8 | 54.0% | 337 | +10.5 | 2016–2021 |
+| 3 | `off_formation_point_diff_qbr_model.py` | 54.6% | 687 | +28.9 | 53.2% | 348 | +5.2 | 2016–2021 |
+| 4 | off_11/12 + def + pd + qbr + cpoe | 54.4% | 687 | +27.0 | **55.1%** | 334 | **+17.3** | 2016–2021 |
+| 5 | off_11/12 + def + pd | 53.8% | 796 | +21.1 | 53.3% | 398 | +6.7 | 2016–2021 |
+| 6 | off_11/12_w5 + pd + qbr | 53.4% | 697 | +13.2 | 54.2% | 334 | +11.5 | 2016–2021 |
+| 7 | off_11/12 + def + cpoe | 53.3% | 796 | +13.5 | 53.0% | 419 | +4.8 | 2016–2021 |
+| 8 | `point_diff_cpoe_qbr_model.py` | 52.7% | 698 | +4.5 | 52.9% | 340 | +3.6 | 2006–2021 |
+| 9 | first_down + pd + qbr | 52.4% | 698 | +0.7 | **55.1%** | 334 | **+17.3** | 2016–2021 |
+| 10 | off_11/12 + def | 52.4% | 796 | +0.1 | 52.7% | 438 | +3.0 | 2016–2021 |
 
-**E>3** = games where `|predicted_margin − spread_line| ≥ 3` (high-conviction bets only).
+Units at −110 juice: `wins × (1/1.1) − losses`. **E>3** = games where `|predicted_margin − spread_line| ≥ 3`.
 
 ### ATS by Week (best model, test 2022–2025)
 
