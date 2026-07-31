@@ -50,6 +50,11 @@ def build_dataset(schedules: pd.DataFrame, features: pd.DataFrame, feature_cols:
     home = home.dropna(subset=feature_cols + opp_cols + ["margin", "spread_line"])
     home = home[home["week"] >= 4]
 
+    # Drop the final week of each season (week 17 pre-2021, week 18 from 2021 onward)
+    # — resting starters and meaningless games break model signal
+    final_week = home["season"].map(lambda s: 18 if s >= 2021 else 17)
+    home = home[home["week"] < final_week]
+
     # Matchup formation score: how well the home offense's personnel packages match up
     # against the opponent's defensive tendencies, weighted by usage rate.
     # (off_11_epa - opp_def_vs_11_epa) * off_11_rate + (off_12_epa - opp_def_vs_12_epa) * off_12_rate

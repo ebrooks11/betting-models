@@ -6,24 +6,38 @@ An NFL prediction model focused on ATS (against the spread) prediction. Uses pla
 
 All models evaluated on home-team perspective only (one row per game), week 4+, test set 2022–2025. Break-even at standard −110 juice is 52.38%.
 
+All models evaluated on home-team perspective only (one row per game), weeks 4–16/17, test set 2022–2025. Final week of each season is excluded (week 18 from 2021+, week 17 pre-2021) — resting starters and meaningless games break model signal.
+
 | Rank | Model | Features | ATS | n | E>3 ATS | E>3 n | Train |
 |------|-------|----------|-----|---|---------|-------|-------|
-| 1 | `off_formation_point_diff_qbr_model.py` | off_11_epa_rolling, off_12_epa_rolling, point_diff_rolling, qbr_rolling | **54.0%** | 745 | 52.1% | 380 | 2016–2021 |
-| 2 | weighted+raw + pd + qbr | off_11/12_epa_rolling + off_11/12_weighted_epa_rolling, point_diff_rolling, qbr_rolling | 53.8% | 745 | 53.4% | 380 | 2016–2021 |
-| 3 | `formation_point_diff_qbr_model.py` | off_11/12_epa_rolling, def_vs_11/12_epa_rolling, point_diff_rolling, qbr_rolling | 53.6% | 745 | 52.8% | 373 | 2016–2021 |
-| 4 | off_11/12 + def_vs_11/12 + pd | off_11/12_epa_rolling, def_vs_11/12_epa_rolling, point_diff_rolling | 53.5% | 858 | 52.1% | 434 | 2016–2021 |
-| 5 | off_11/12_w5 + pd + qbr | off_11/12_epa_rolling_w5, point_diff_rolling, qbr_rolling | 53.1% | 755 | 53.4% | 371 | 2016–2021 |
-| 6 | off_11/12 + def_vs_11/12 + pd + qbr + cpoe | off_11/12_epa_rolling, def_vs_11/12_epa_rolling, point_diff_rolling, qbr_rolling, cpoe_rolling | 53.0% | 745 | **53.5%** | 372 | 2016–2021 |
-| 7 | off_11/12 + def_vs_11/12 + cpoe | off_11/12_epa_rolling, def_vs_11/12_epa_rolling, cpoe_rolling | 53.0% | 858 | 52.3% | 465 | 2016–2021 |
-| 8 | `point_diff_cpoe_qbr_model.py` | point_diff_rolling, cpoe_rolling, qbr_rolling | 53.0% | 757 | 52.3% | 375 | 2006–2021 |
-| 9 | off_11/12 + def_vs_11/12 | off_11/12_epa_rolling, def_vs_11/12_epa_rolling | 52.9% | 858 | 53.2% | 470 | 2016–2021 |
-| 10 | first_down_rate + pd + qbr | first_down_rate_rolling, point_diff_rolling, qbr_rolling | 51.9% | 757 | 52.4% | 368 | 2016–2021 |
+| 1 | weighted+raw + pd + qbr | off_11/12_epa_rolling + off_11/12_weighted_epa_rolling, point_diff_rolling, qbr_rolling | **55.0%** | 687 | 52.0% | 346 | 2016–2021 |
+| 2 | off_11/12 + def_vs_11/12 + pd + qbr | off_11/12_epa_rolling, def_vs_11/12_epa_rolling, point_diff_rolling, qbr_rolling | 54.7% | 687 | 54.0% | 337 | 2016–2021 |
+| 3 | `off_formation_point_diff_qbr_model.py` | off_11/12_epa_rolling, point_diff_rolling, qbr_rolling | 54.6% | 687 | 53.2% | 348 | 2016–2021 |
+| 4 | off_11/12 + def_vs_11/12 + pd + qbr + cpoe | off_11/12_epa_rolling, def_vs_11/12_epa_rolling, point_diff_rolling, qbr_rolling, cpoe_rolling | 54.4% | 687 | **55.1%** | 334 | 2016–2021 |
+| 5 | off_11/12 + def_vs_11/12 + pd | off_11/12_epa_rolling, def_vs_11/12_epa_rolling, point_diff_rolling | 53.8% | 796 | 53.3% | 398 | 2016–2021 |
+| 6 | off_11/12_w5 + pd + qbr | off_11/12_epa_rolling_w5, point_diff_rolling, qbr_rolling | 53.4% | 697 | 54.2% | 334 | 2016–2021 |
+| 7 | off_11/12 + def_vs_11/12 + cpoe | off_11/12_epa_rolling, def_vs_11/12_epa_rolling, cpoe_rolling | 53.3% | 796 | 53.0% | 419 | 2016–2021 |
+| 8 | `point_diff_cpoe_qbr_model.py` | point_diff_rolling, cpoe_rolling, qbr_rolling | 52.7% | 698 | 52.9% | 340 | 2006–2021 |
+| 9 | first_down_rate + pd + qbr | first_down_rate_rolling, point_diff_rolling, qbr_rolling | 52.4% | 698 | **55.1%** | 334 | 2016–2021 |
+| 10 | off_11/12 + def_vs_11/12 | off_11/12_epa_rolling, def_vs_11/12_epa_rolling | 52.4% | 796 | 52.7% | 438 | 2016–2021 |
 
 **E>3** = games where `|predicted_margin − spread_line| ≥ 3` (high-conviction bets only).
 
+### ATS by Week (best model, test 2022–2025)
+
+| Weeks | ATS | n | E>3 ATS | E>3 n |
+|-------|-----|---|---------|-------|
+| Wk 4–6 | 53.3% | 137 | 51.4% | 74 |
+| Wk 7–9 | 50.4% | 139 | 51.6% | 64 |
+| Wk 10–12 | 55.5% | 146 | 52.3% | 65 |
+| Wk 13–15 | 55.8% | 154 | 53.6% | 84 |
+| Wk 16–17 | **61.3%** | 111 | 50.8% | 59 |
+
 **Key insights:**
+- Model improves meaningfully mid-to-late season — weeks 10–17 are substantially stronger than weeks 4–9
+- Weeks 16–17 hit 61.3% — rolling averages are most informative once teams have 10+ games of data
+- Final week excluded: week 18 (2021+) and week 17 (pre-2021) destroyed signal due to resting starters
 - Offensive formation EPA (11/12 personnel) is the strongest signal — captures scheme efficiency beyond raw EPA
-- Point differential + QBR round out the best model; adding defensive mirrors hurts rather than helps
 - 3-game rolling window consistently beats expanding or 5-game windows for overall ATS
 - Personnel data available from 2016 onward, limiting the training window for formation models
 
