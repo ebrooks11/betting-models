@@ -432,6 +432,59 @@ game_epa["point_diff_rolling"] = (
     .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
 )
 
+# Season-to-date expanding window (all prior games this season)
+EXPANDING_STATS = {
+    "off_epa_expanding": "off_epa_per_play",
+    "def_epa_expanding": "def_epa_per_play",
+    "cpoe_expanding": "cpoe_per_game",
+    "off_epa_first_down_expanding": "off_epa_first_down",
+    "def_epa_first_down_expanding": "def_epa_first_down",
+    "point_diff_expanding": "point_diff",
+    "plays_per_game_expanding": "plays",
+    "qb_hit_rate_expanding": "qb_hit_rate",
+}
+for col_out, col_in in EXPANDING_STATS.items():
+    game_epa[col_out] = (
+        game_epa.groupby(["team", "season"])[col_in]
+        .transform(lambda x: x.shift(1).expanding(min_periods=1).mean())
+    )
+
+PERSONNEL_EXPANDING = [
+    "off_11_rate", "off_12_rate",
+    "off_vs_nickel_epa", "off_vs_base_epa",
+    "def_nickel_rate", "def_base_rate",
+    "def_vs_11_epa", "def_vs_12_epa",
+]
+for col in PERSONNEL_EXPANDING:
+    game_epa[f"{col}_expanding"] = (
+        game_epa.groupby(["team", "season"])[col]
+        .transform(lambda x: x.shift(1).expanding(min_periods=1).mean())
+    )
+
+# Formation composite: rate-weighted EPA per team
+# off_formation_score = off_11_rate * off_vs_nickel_epa + off_12_rate * off_vs_base_epa
+# def_formation_score = def_nickel_rate * def_vs_11_epa + def_base_rate * def_vs_12_epa
+game_epa["off_formation_score"] = (
+    game_epa["off_11_rate"].fillna(0) * game_epa["off_vs_nickel_epa"].fillna(0) +
+    game_epa["off_12_rate"].fillna(0) * game_epa["off_vs_base_epa"].fillna(0)
+)
+game_epa["def_formation_score"] = (
+    game_epa["def_nickel_rate"].fillna(0) * game_epa["def_vs_11_epa"].fillna(0) +
+    game_epa["def_base_rate"].fillna(0) * game_epa["def_vs_12_epa"].fillna(0)
+)
+personnel_mask = game_epa["off_11_rate"].isna()
+game_epa.loc[personnel_mask, ["off_formation_score", "def_formation_score"]] = float("nan")
+
+for col in ["off_formation_score", "def_formation_score"]:
+    game_epa[f"{col}_rolling"] = (
+        game_epa.groupby(["team", "season"])[col]
+        .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+    )
+    game_epa[f"{col}_expanding"] = (
+        game_epa.groupby(["team", "season"])[col]
+        .transform(lambda x: x.shift(1).expanding(min_periods=1).mean())
+    )
+
 # Coach ATS rolling: how many pts/game does a coach beat the spread on average
 # Rolls across seasons (coach tendency is career-level, not season-level)
 # Uses a 10-game window to capture stable signal
@@ -532,6 +585,15 @@ result = game_epa[["season", "week", "team",
                     "def_vs_11_epa", "def_vs_11_epa_rolling",
                     "def_vs_12_epa", "def_vs_12_epa_rolling",
                     "def_vs_21_epa", "def_vs_21_epa_rolling",
+                    "off_formation_score", "off_formation_score_rolling", "off_formation_score_expanding",
+                    "def_formation_score", "def_formation_score_rolling", "def_formation_score_expanding",
+                    "off_epa_expanding", "def_epa_expanding",
+                    "cpoe_expanding", "off_epa_first_down_expanding", "def_epa_first_down_expanding",
+                    "point_diff_expanding", "plays_per_game_expanding", "qb_hit_rate_expanding",
+                    "off_11_rate_expanding", "off_12_rate_expanding",
+                    "off_vs_nickel_epa_expanding", "off_vs_base_epa_expanding",
+                    "def_nickel_rate_expanding", "def_base_rate_expanding",
+                    "def_vs_11_epa_expanding", "def_vs_12_epa_expanding",
                     "off_epa_rolling_w5", "def_epa_rolling_w5",
                     "cpoe_rolling_w5", "off_epa_no_to_rolling_w5", "def_epa_no_to_rolling_w5",
                     "plays_per_game_rolling_w5",

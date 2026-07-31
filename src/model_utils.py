@@ -52,14 +52,19 @@ def build_dataset(schedules: pd.DataFrame, features: pd.DataFrame, feature_cols:
     return home
 
 
-def ats_accuracy(df: pd.DataFrame, pred_col: str = "predicted_margin"):
+def ats_accuracy(df: pd.DataFrame, pred_col: str = "predicted_margin", min_edge: float = 0.0):
     """Fraction of games where model picks the correct ATS side (pushes excluded).
 
     nflverse spread_line is positive when home is favored.
     Home covers when margin > spread_line.
+    min_edge: only evaluate games where abs(predicted_margin - spread_line) >= min_edge.
     """
     covered = df["margin"] - df["spread_line"]
     model_pick = df[pred_col] - df["spread_line"]
+    if min_edge > 0:
+        mask = model_pick.abs() >= min_edge
+        covered = covered[mask]
+        model_pick = model_pick[mask]
     push = covered == 0
     hit = (model_pick > 0) == (covered > 0)
     non_push = ~push
@@ -67,7 +72,7 @@ def ats_accuracy(df: pd.DataFrame, pred_col: str = "predicted_margin"):
 
 
 def evaluate(train: pd.DataFrame, test: pd.DataFrame, model, feature_cols: list[str]):
-    """Print coefficients, MAE, ATS accuracy, and sanity checks."""
+    """Print coefficients, MAE, ATS accuracy, and edge-filtered ATS accuracy."""
     all_cols = feature_cols + [f"opp_{c}" for c in feature_cols]
 
     print("\nCoefficients:")
@@ -81,7 +86,13 @@ def evaluate(train: pd.DataFrame, test: pd.DataFrame, model, feature_cols: list[
 
     train_ats, train_n, train_push = ats_accuracy(train)
     test_ats, test_n, test_push = ats_accuracy(test)
-    print(f"\nATS accuracy:")
+    print(f"\nATS accuracy (all games):")
     print(f"  Train: {train_ats:.1%}  ({train_n} non-push, {train_push} push)")
     print(f"  Test:  {test_ats:.1%}  ({test_n} non-push, {test_push} push)")
+
+    train_e3, train_n3, train_p3 = ats_accuracy(train, min_edge=3.0)
+    test_e3, test_n3, test_p3 = ats_accuracy(test, min_edge=3.0)
+    print(f"\nATS accuracy (edge > 3 pts):")
+    print(f"  Train: {train_e3:.1%}  ({train_n3} non-push, {train_p3} push)")
+    print(f"  Test:  {test_e3:.1%}  ({test_n3} non-push, {test_p3} push)")
 
