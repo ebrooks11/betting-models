@@ -1,6 +1,27 @@
 # NFL Prediction Model
 
-An NFL prediction model that predicts individual team scores for each game, enabling both **spread** and **totals (over/under)** betting predictions. Uses 10 seasons of historical data (2015–2024) from nflverse via `nfl_data_py`, with scikit-learn for modeling.
+An NFL prediction model focused on ATS (against the spread) prediction. Uses play-by-play data from nflverse (2006–2025) via `nfl_data_py`, with scikit-learn for modeling. Train set: 2006–2021, test set: 2022–2025.
+
+## Model Leaderboard
+
+All models evaluated on home-team perspective only (one row per game), week 4+, test set 2022–2025.
+
+| Rank | Model | Features | ATS | n | Train Window |
+|------|-------|----------|-----|---|--------------|
+| 1 | `epa_formation_first_down_model.py` | Formation matchup EPA (nickel/base/11/12) + off 1st down EPA | 52.5% | 871 | 2016–2021 |
+| 2 | Formation + CPOE | Formation matchup EPA (nickel/base/11/12) + CPOE | 52.6%* | 871 | 2016–2021 |
+| 3 | `epa_qbr_first_down_pace_model.py` | EPA + QBR + off 1st down EPA + pace | 51.8% | 757 | 2006–2021 |
+| 4 | EPA + 1st down + pace + QBR | EPA + off/def 1st down EPA + pace + QBR | 51.9% | 757 | 2006–2021 |
+| 5 | CPOE only | CPOE rolling | 51.3% | 872 | 2006–2021 |
+| 6 | EPA + QBR | EPA + QBR rolling | 50.9% | 757 | 2006–2021 |
+| 7 | EPA + TOP | EPA + time of possession | 50.8% | 872 | 2006–2021 |
+| 8 | EPA + rest | EPA + rest days | 50.6% | 872 | 2006–2021 |
+| 9 | EPA + 1st down + pace | EPA + off/def 1st down EPA + pace | 50.6% | 872 | 2006–2021 |
+| 10 | `epa_model.py` | EPA only (baseline) | 50.3% | 872 | 2006–2021 |
+
+*Formation + CPOE not yet saved as a formal model file.
+
+**Key insight**: Formation matchup features (how a team's offense performs against specific defensive packages, and vice versa) provide the strongest signal beyond raw EPA. Personnel data is only available from 2016 onward, which limits the training window for these models.
 
 ## Project Structure
 
