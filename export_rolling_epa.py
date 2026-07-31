@@ -141,6 +141,19 @@ personnel_plays = plays[plays["offense_personnel"].notna()].copy()
 personnel_plays["off_pkg"] = personnel_plays["offense_personnel"].map(parse_off_personnel)
 personnel_plays["def_pkg"] = personnel_plays["defense_personnel"].map(parse_def_personnel)
 
+# Offensive EPA by own personnel package
+def epa_by_off_pkg(df, pkg_val, out_col):
+    return (
+        df[df["off_pkg"] == pkg_val]
+        .groupby(["season", "week", "posteam"])
+        .agg(**{out_col: ("epa", "mean")})
+        .reset_index()
+        .rename(columns={"posteam": "team"})
+    )
+
+off_11_epa = epa_by_off_pkg(personnel_plays, "11", "off_11_epa")
+off_12_epa = epa_by_off_pkg(personnel_plays, "12", "off_12_epa")
+
 # Offensive personnel rates (posteam perspective)
 def pkg_rate(df, team_col, pkg_col, pkg_val, out_col):
     total = df.groupby(["season", "week", team_col]).size().reset_index(name="total")
@@ -250,6 +263,8 @@ game_epa = game_epa.merge(top, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(sack_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(qb_hit_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(stuff_rate, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(off_11_epa, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(off_12_epa, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(off_11_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(off_12_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(off_21_rate, on=["season", "week", "team"], how="left")
@@ -323,6 +338,7 @@ game_epa["stuff_rate_rolling"] = (
 )
 
 PERSONNEL_COLS = [
+    "off_11_epa", "off_12_epa",
     "off_11_rate", "off_12_rate", "off_21_rate",
     "off_vs_nickel_epa", "off_vs_base_epa", "off_vs_dime_epa",
     "def_nickel_rate", "def_base_rate", "def_dime_rate",
@@ -450,6 +466,7 @@ for col_out, col_in in EXPANDING_STATS.items():
     )
 
 PERSONNEL_EXPANDING = [
+    "off_11_epa", "off_12_epa",
     "off_11_rate", "off_12_rate",
     "off_vs_nickel_epa", "off_vs_base_epa",
     "def_nickel_rate", "def_base_rate",
@@ -573,6 +590,8 @@ result = game_epa[["season", "week", "team",
                     "sack_rate", "sack_rate_rolling",
                     "qb_hit_rate", "qb_hit_rate_rolling",
                     "stuff_rate", "stuff_rate_rolling",
+                    "off_11_epa", "off_11_epa_rolling",
+                    "off_12_epa", "off_12_epa_rolling",
                     "off_11_rate", "off_11_rate_rolling",
                     "off_12_rate", "off_12_rate_rolling",
                     "off_21_rate", "off_21_rate_rolling",
