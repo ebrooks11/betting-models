@@ -20,6 +20,7 @@ PBP_COLS = [
     "drive_time_of_possession", "fixed_drive",
     "passer_player_name",
     "offense_personnel", "defense_personnel",
+    "first_down",
 ]
 pbp = get_pbp_data(SEASONS)[PBP_COLS]
 schedules = get_schedule_data(SEASONS)
@@ -99,6 +100,15 @@ plays_per_game = (
     plays.groupby(["season", "week", "posteam"])
     .size()
     .reset_index(name="plays")
+    .rename(columns={"posteam": "team"})
+)
+
+first_down_rate = (
+    plays[plays["first_down"].notna()]
+    .groupby(["season", "week", "posteam"])
+    .agg(first_downs=("first_down", "sum"), total_plays=("first_down", "count"))
+    .assign(first_down_rate=lambda d: d["first_downs"] / d["total_plays"])
+    .reset_index()[["season", "week", "posteam", "first_down_rate"]]
     .rename(columns={"posteam": "team"})
 )
 
@@ -259,6 +269,7 @@ game_epa = game_epa.merge(defense_early, on=["season", "week", "team"], how="lef
 game_epa = game_epa.merge(offense_first, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(defense_first, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(plays_per_game, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(first_down_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(top, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(sack_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(qb_hit_rate, on=["season", "week", "team"], how="left")
@@ -302,6 +313,10 @@ game_epa["def_epa_no_to_rolling"] = (
 )
 game_epa["plays_per_game_rolling"] = (
     game_epa.groupby(["team", "season"])["plays"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
+game_epa["first_down_rate_rolling"] = (
+    game_epa.groupby(["team", "season"])["first_down_rate"]
     .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
 )
 game_epa["off_epa_early_down_rolling"] = (
@@ -590,6 +605,7 @@ result = game_epa[["season", "week", "team",
                     "off_epa_first_down", "off_epa_first_down_rolling",
                     "def_epa_first_down", "def_epa_first_down_rolling",
                     "plays", "plays_per_game_rolling",
+                    "first_down_rate", "first_down_rate_rolling",
                     "top_seconds_per_game", "top_rolling",
                     "rest_days", "rest_advantage",
                     "point_diff", "point_diff_rolling",
