@@ -478,21 +478,17 @@ for col in PERSONNEL_EXPANDING:
         .transform(lambda x: x.shift(1).expanding(min_periods=1).mean())
     )
 
-# Formation composite: rate-weighted EPA per team
-# off_formation_score = off_11_rate * off_vs_nickel_epa + off_12_rate * off_vs_base_epa
-# def_formation_score = def_nickel_rate * def_vs_11_epa + def_base_rate * def_vs_12_epa
-game_epa["off_formation_score"] = (
-    game_epa["off_11_rate"].fillna(0) * game_epa["off_vs_nickel_epa"].fillna(0) +
-    game_epa["off_12_rate"].fillna(0) * game_epa["off_vs_base_epa"].fillna(0)
-)
-game_epa["def_formation_score"] = (
-    game_epa["def_nickel_rate"].fillna(0) * game_epa["def_vs_11_epa"].fillna(0) +
-    game_epa["def_base_rate"].fillna(0) * game_epa["def_vs_12_epa"].fillna(0)
+# Formation composite: net formation edge weighted by usage rate
+# (off_11_epa - def_vs_11_epa) * off_11_rate captures how much better the offense
+# is in 11 personnel than the defense is at stopping it, scaled by usage
+game_epa["formation_score"] = (
+    (game_epa["off_11_epa"].fillna(0) - game_epa["def_vs_11_epa"].fillna(0)) * game_epa["off_11_rate"].fillna(0) +
+    (game_epa["off_12_epa"].fillna(0) - game_epa["def_vs_12_epa"].fillna(0)) * game_epa["off_12_rate"].fillna(0)
 )
 personnel_mask = game_epa["off_11_rate"].isna()
-game_epa.loc[personnel_mask, ["off_formation_score", "def_formation_score"]] = float("nan")
+game_epa.loc[personnel_mask, "formation_score"] = float("nan")
 
-for col in ["off_formation_score", "def_formation_score"]:
+for col in ["formation_score"]:
     game_epa[f"{col}_rolling"] = (
         game_epa.groupby(["team", "season"])[col]
         .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
@@ -604,8 +600,7 @@ result = game_epa[["season", "week", "team",
                     "def_vs_11_epa", "def_vs_11_epa_rolling",
                     "def_vs_12_epa", "def_vs_12_epa_rolling",
                     "def_vs_21_epa", "def_vs_21_epa_rolling",
-                    "off_formation_score", "off_formation_score_rolling", "off_formation_score_expanding",
-                    "def_formation_score", "def_formation_score_rolling", "def_formation_score_expanding",
+                    "formation_score", "formation_score_rolling", "formation_score_expanding",
                     "off_epa_expanding", "def_epa_expanding",
                     "cpoe_expanding", "off_epa_first_down_expanding", "def_epa_first_down_expanding",
                     "point_diff_expanding", "plays_per_game_expanding", "qb_hit_rate_expanding",
