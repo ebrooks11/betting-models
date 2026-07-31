@@ -4,24 +4,28 @@ An NFL prediction model focused on ATS (against the spread) prediction. Uses pla
 
 ## Model Leaderboard
 
-All models evaluated on home-team perspective only (one row per game), week 4+, test set 2022–2025.
+All models evaluated on home-team perspective only (one row per game), week 4+, test set 2022–2025. Break-even at standard −110 juice is 52.38%.
 
-| Rank | Model | Features | ATS | n | Train Window |
-|------|-------|----------|-----|---|--------------|
-| 1 | `epa_formation_first_down_model.py` | Formation matchup EPA (nickel/base/11/12) + off 1st down EPA | 52.5% | 871 | 2016–2021 |
-| 2 | Formation + CPOE | Formation matchup EPA (nickel/base/11/12) + CPOE | 52.6%* | 871 | 2016–2021 |
-| 3 | `epa_qbr_first_down_pace_model.py` | EPA + QBR + off 1st down EPA + pace | 51.8% | 757 | 2006–2021 |
-| 4 | EPA + 1st down + pace + QBR | EPA + off/def 1st down EPA + pace + QBR | 51.9% | 757 | 2006–2021 |
-| 5 | CPOE only | CPOE rolling | 51.3% | 872 | 2006–2021 |
-| 6 | EPA + QBR | EPA + QBR rolling | 50.9% | 757 | 2006–2021 |
-| 7 | EPA + TOP | EPA + time of possession | 50.8% | 872 | 2006–2021 |
-| 8 | EPA + rest | EPA + rest days | 50.6% | 872 | 2006–2021 |
-| 9 | EPA + 1st down + pace | EPA + off/def 1st down EPA + pace | 50.6% | 872 | 2006–2021 |
-| 10 | `epa_model.py` | EPA only (baseline) | 50.3% | 872 | 2006–2021 |
+| Rank | Model | Features | ATS | n | E>3 ATS | E>3 n | Train |
+|------|-------|----------|-----|---|---------|-------|-------|
+| 1 | `off_formation_point_diff_qbr_model.py` | off_11_epa_rolling, off_12_epa_rolling, point_diff_rolling, qbr_rolling | **54.0%** | 745 | 52.1% | 380 | 2016–2021 |
+| 2 | weighted+raw + pd + qbr | off_11/12_epa_rolling + off_11/12_weighted_epa_rolling, point_diff_rolling, qbr_rolling | 53.8% | 745 | 53.4% | 380 | 2016–2021 |
+| 3 | `formation_point_diff_qbr_model.py` | off_11/12_epa_rolling, def_vs_11/12_epa_rolling, point_diff_rolling, qbr_rolling | 53.6% | 745 | 52.8% | 373 | 2016–2021 |
+| 4 | off_11/12 + def_vs_11/12 + pd | off_11/12_epa_rolling, def_vs_11/12_epa_rolling, point_diff_rolling | 53.5% | 858 | 52.1% | 434 | 2016–2021 |
+| 5 | off_11/12_w5 + pd + qbr | off_11/12_epa_rolling_w5, point_diff_rolling, qbr_rolling | 53.1% | 755 | 53.4% | 371 | 2016–2021 |
+| 6 | off_11/12 + def_vs_11/12 + pd + qbr + cpoe | off_11/12_epa_rolling, def_vs_11/12_epa_rolling, point_diff_rolling, qbr_rolling, cpoe_rolling | 53.0% | 745 | **53.5%** | 372 | 2016–2021 |
+| 7 | off_11/12 + def_vs_11/12 + cpoe | off_11/12_epa_rolling, def_vs_11/12_epa_rolling, cpoe_rolling | 53.0% | 858 | 52.3% | 465 | 2016–2021 |
+| 8 | `point_diff_cpoe_qbr_model.py` | point_diff_rolling, cpoe_rolling, qbr_rolling | 53.0% | 757 | 52.3% | 375 | 2006–2021 |
+| 9 | off_11/12 + def_vs_11/12 | off_11/12_epa_rolling, def_vs_11/12_epa_rolling | 52.9% | 858 | 53.2% | 470 | 2016–2021 |
+| 10 | first_down_rate + pd + qbr | first_down_rate_rolling, point_diff_rolling, qbr_rolling | 51.9% | 757 | 52.4% | 368 | 2016–2021 |
 
-*Formation + CPOE not yet saved as a formal model file.
+**E>3** = games where `|predicted_margin − spread_line| ≥ 3` (high-conviction bets only).
 
-**Key insight**: Formation matchup features (how a team's offense performs against specific defensive packages, and vice versa) provide the strongest signal beyond raw EPA. Personnel data is only available from 2016 onward, which limits the training window for these models.
+**Key insights:**
+- Offensive formation EPA (11/12 personnel) is the strongest signal — captures scheme efficiency beyond raw EPA
+- Point differential + QBR round out the best model; adding defensive mirrors hurts rather than helps
+- 3-game rolling window consistently beats expanding or 5-game windows for overall ATS
+- Personnel data available from 2016 onward, limiting the training window for formation models
 
 ## Project Structure
 
