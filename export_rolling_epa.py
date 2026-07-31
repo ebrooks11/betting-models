@@ -412,6 +412,26 @@ game_epa = game_epa.merge(
     on=["season", "week", "team"], how="left"
 )
 
+# Point differential: score margin from each team's perspective
+home_scores = games[["season", "week", "home_team", "away_team", "home_score", "away_score"]].copy()
+home_scores = home_scores[home_scores["home_score"].notna() & home_scores["away_score"].notna()]
+home_pd = home_scores.rename(columns={"home_team": "team"}).copy()
+home_pd["point_diff"] = home_pd["home_score"] - home_pd["away_score"]
+away_pd = home_scores.rename(columns={"away_team": "team"}).copy()
+away_pd["point_diff"] = away_pd["away_score"] - away_pd["home_score"]
+team_pd = pd.concat([
+    home_pd[["season", "week", "team", "point_diff"]],
+    away_pd[["season", "week", "team", "point_diff"]],
+], ignore_index=True)
+team_pd["team"] = team_pd["team"].replace(TEAM_MAP)
+
+game_epa = game_epa.merge(team_pd, on=["season", "week", "team"], how="left")
+game_epa = game_epa.sort_values(["team", "season", "week"]).reset_index(drop=True)
+game_epa["point_diff_rolling"] = (
+    game_epa.groupby(["team", "season"])["point_diff"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
+
 # Coach ATS rolling: how many pts/game does a coach beat the spread on average
 # Rolls across seasons (coach tendency is career-level, not season-level)
 # Uses a 10-game window to capture stable signal
@@ -494,6 +514,7 @@ result = game_epa[["season", "week", "team",
                     "plays", "plays_per_game_rolling",
                     "top_seconds_per_game", "top_rolling",
                     "rest_days", "rest_advantage",
+                    "point_diff", "point_diff_rolling",
                     "coach", "coach_ats_rolling",
                     "starting_qb", "qbr", "qbr_rolling",
                     "sack_rate", "sack_rate_rolling",
