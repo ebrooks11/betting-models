@@ -49,6 +49,24 @@ def build_dataset(schedules: pd.DataFrame, features: pd.DataFrame, feature_cols:
     opp_cols = [f"opp_{c}" for c in feature_cols]
     home = home.dropna(subset=feature_cols + opp_cols + ["margin", "spread_line"])
     home = home[home["week"] >= 4]
+
+    # Matchup formation score: how well the home offense's personnel packages match up
+    # against the opponent's defensive tendencies, weighted by usage rate.
+    # (off_11_epa - opp_def_vs_11_epa) * off_11_rate + (off_12_epa - opp_def_vs_12_epa) * off_12_rate
+    formation_cols = ["off_11_epa_rolling", "off_12_epa_rolling",
+                      "off_11_rate_rolling", "off_12_rate_rolling",
+                      "opp_def_vs_11_epa_rolling", "opp_def_vs_12_epa_rolling"]
+    if all(c in home.columns for c in formation_cols):
+        home["matchup_formation_score"] = (
+            (home["off_11_epa_rolling"] - home["opp_def_vs_11_epa_rolling"]) * home["off_11_rate_rolling"] +
+            (home["off_12_epa_rolling"] - home["opp_def_vs_12_epa_rolling"]) * home["off_12_rate_rolling"]
+        )
+        # Opponent's matchup score (their offense vs our defense)
+        home["opp_matchup_formation_score"] = (
+            (home["opp_off_11_epa_rolling"] - home["def_vs_11_epa_rolling"]) * home["opp_off_11_rate_rolling"] +
+            (home["opp_off_12_epa_rolling"] - home["def_vs_12_epa_rolling"]) * home["opp_off_12_rate_rolling"]
+        )
+
     return home
 
 
