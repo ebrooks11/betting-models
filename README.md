@@ -41,6 +41,50 @@ Units at −110 juice: `wins × (1/1.1) − losses`. **E>3** = games where `|pre
 - 3-game rolling window consistently beats expanding or 5-game windows for overall ATS
 - Personnel data available from 2016 onward, limiting the training window for formation models
 
+## Diagnostic Findings
+
+### Where the model wins and loses (best model, test 2022–2025)
+
+**Model vs line agreement (ATS pick direction):**
+
+| Situation | N | ATS | Units |
+|-----------|---|-----|-------|
+| Model bets same ATS side as line | 159 | **62.3%** | **+30.0** |
+| Model fades line (bets opposite ATS side) | 528 | 52.8% | +4.6 |
+
+Within fades, there are two very different sub-groups:
+
+| Fade type | N | ATS | Units |
+|-----------|---|-----|-------|
+| Same outright winner, model under the spread (e.g. line −7, model −5 → bet underdog) | 338 | 55.0% | +17.1 |
+| Model picks a **different outright winner** than the line | 190 | 48.9% | −12.5 |
+
+The model loses money specifically when it disagrees with the line on *who wins outright* — those contrarian picks are wrong more than right. Games where the model agrees on the winner but thinks the spread is too large are still profitable. **Untested idea: filter out games where `sign(predicted_margin) ≠ sign(spread_line)`.**
+
+**By spread size:**
+
+| Spread | N | ATS | Units |
+|--------|---|-----|-------|
+| Big dog >7 | 42 | 61.9% | +7.6 |
+| Dog 3–7 | 104 | 58.7% | +12.5 |
+| Dog <3 | 131 | 51.1% | −3.1 |
+| Fav <3 | 91 | 59.3% | +12.1 |
+| Fav 3–7 | 197 | 51.8% | −2.3 |
+| Big fav >7 | 122 | 55.7% | +7.8 |
+
+Near pick-em games (spread within 3 in either direction) are net losers — the model has less signal when the line is tight. **Untested idea: filter out spreads between −3 and +3.**
+
+**By season:**
+
+| Season | N | ATS | Units |
+|--------|---|-----|-------|
+| 2022 | 189 | 57.7% | +19.1 |
+| 2023 | 177 | 53.1% | +2.5 |
+| 2024 | 174 | 53.4% | +3.5 |
+| 2025 | 147 | 55.8% | +9.5 |
+
+**Worst teams (by units lost, test 2022–2025):** NE −9.5u (28.6% ATS), CIN −7.5u (31.6%), LV −6.5u (31.2%). These teams appear to have drifted significantly from their historical profiles in the training data.
+
 ## Project Structure
 
 ```
