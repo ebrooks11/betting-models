@@ -583,6 +583,68 @@ starting_qb["team"] = starting_qb["team"].replace(TEAM_MAP)
 
 game_epa = game_epa.merge(starting_qb, on=["season", "week", "team"], how="left")
 
+# Per-QB rolling stats (across team/season boundaries — no reset per season).
+# Keyed on passer_player_name so they follow the QB regardless of team or year.
+# This correctly handles returning starters (Murray back from ACL) and QB
+# controversies (Fields/Wilson) by using the actual starter's own recent history.
+qb_epa_game = (
+    plays[plays["passer_player_name"].notna() & (plays["play_type"] == "pass")]
+    .groupby(["season", "week", "passer_player_name"])
+    .agg(qb_epa=("epa", "mean"))
+    .reset_index()
+)
+qb_cpoe_game = (
+    pass_plays[pass_plays["passer_player_name"].notna()]
+    .groupby(["season", "week", "passer_player_name"])
+    .agg(qb_cpoe=("cpoe", "mean"))
+    .reset_index()
+)
+qb_off_11_game = (
+    personnel_plays[
+        (personnel_plays["off_pkg"] == "11") & personnel_plays["passer_player_name"].notna()
+    ]
+    .groupby(["season", "week", "passer_player_name"])
+    .agg(qb_off_11_epa=("epa", "mean"))
+    .reset_index()
+)
+qb_off_12_game = (
+    personnel_plays[
+        (personnel_plays["off_pkg"] == "12") & personnel_plays["passer_player_name"].notna()
+    ]
+    .groupby(["season", "week", "passer_player_name"])
+    .agg(qb_off_12_epa=("epa", "mean"))
+    .reset_index()
+)
+
+qb_stats = (
+    qb_epa_game
+    .merge(qb_cpoe_game, on=["season", "week", "passer_player_name"], how="outer")
+    .merge(qb_off_11_game, on=["season", "week", "passer_player_name"], how="left")
+    .merge(qb_off_12_game, on=["season", "week", "passer_player_name"], how="left")
+    .sort_values(["passer_player_name", "season", "week"])
+    .reset_index(drop=True)
+)
+
+for raw_col, roll_col in [
+    ("qb_epa",        "qb_epa_rolling"),
+    ("qb_cpoe",       "qb_cpoe_rolling"),
+    ("qb_off_11_epa", "qb_off_11_epa_rolling"),
+    ("qb_off_12_epa", "qb_off_12_epa_rolling"),
+]:
+    qb_stats[roll_col] = (
+        qb_stats.groupby("passer_player_name")[raw_col]
+        .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+    )
+
+game_epa = game_epa.merge(
+    qb_stats[["season", "week", "passer_player_name",
+              "qb_epa_rolling", "qb_cpoe_rolling",
+              "qb_off_11_epa_rolling", "qb_off_12_epa_rolling"]]
+    .rename(columns={"passer_player_name": "starting_qb"}),
+    on=["season", "week", "starting_qb"],
+    how="left",
+)
+
 # Rolling QBR: join QBR onto starting QB, then compute 3-game rolling average
 qbr_reg = qbr[qbr["season_type"] == "Regular"].copy()
 qbr_reg["team_abb"] = qbr_reg["team_abb"].replace(TEAM_MAP)
@@ -623,6 +685,8 @@ result = game_epa[["season", "week", "team",
                     "point_diff", "point_diff_rolling", "point_diff_rolling_w5",
                     "coach", "coach_ats_rolling",
                     "starting_qb", "qbr", "qbr_rolling",
+                    "qb_epa_rolling", "qb_cpoe_rolling",
+                    "qb_off_11_epa_rolling", "qb_off_12_epa_rolling",
                     "sack_rate", "sack_rate_rolling",
                     "qb_hit_rate", "qb_hit_rate_rolling",
                     "stuff_rate", "stuff_rate_rolling",
