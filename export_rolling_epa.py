@@ -15,7 +15,7 @@ WINDOW5 = 5
 print("Loading data...")
 PBP_COLS = [
     "season", "week", "play_type", "posteam", "defteam",
-    "epa", "cpoe", "fumble_lost", "interception", "down",
+    "epa", "cpoe", "fumble_lost", "interception", "down", "ydstogo",
     "sack", "qb_hit", "yards_gained",
     "drive_time_of_possession", "fixed_drive",
     "passer_player_name",
@@ -67,6 +67,8 @@ defense_no_to = (
 
 early_down_plays = plays[plays["down"].isin([1, 2])].copy()
 first_down_plays = plays[plays["down"] == 1].copy()
+second_down_plays = plays[plays["down"] == 2].copy()
+second_long_plays = plays[(plays["down"] == 2) & (plays["ydstogo"] >= 7)].copy()
 
 offense_early = (
     early_down_plays.groupby(["season", "week", "posteam"])
@@ -92,6 +94,34 @@ offense_first = (
 defense_first = (
     first_down_plays.groupby(["season", "week", "defteam"])
     .agg(def_epa_first_down=("epa", "mean"))
+    .reset_index()
+    .rename(columns={"defteam": "team"})
+)
+
+offense_second = (
+    second_down_plays.groupby(["season", "week", "posteam"])
+    .agg(off_epa_second_down=("epa", "mean"))
+    .reset_index()
+    .rename(columns={"posteam": "team"})
+)
+
+defense_second = (
+    second_down_plays.groupby(["season", "week", "defteam"])
+    .agg(def_epa_second_down=("epa", "mean"))
+    .reset_index()
+    .rename(columns={"defteam": "team"})
+)
+
+offense_second_long = (
+    second_long_plays.groupby(["season", "week", "posteam"])
+    .agg(off_epa_second_long=("epa", "mean"))
+    .reset_index()
+    .rename(columns={"posteam": "team"})
+)
+
+defense_second_long = (
+    second_long_plays.groupby(["season", "week", "defteam"])
+    .agg(def_epa_second_long=("epa", "mean"))
     .reset_index()
     .rename(columns={"defteam": "team"})
 )
@@ -286,6 +316,10 @@ game_epa = game_epa.merge(offense_early, on=["season", "week", "team"], how="lef
 game_epa = game_epa.merge(defense_early, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(offense_first, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(defense_first, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(offense_second, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(defense_second, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(offense_second_long, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(defense_second_long, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(plays_per_game, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(first_down_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(top, on=["season", "week", "team"], how="left")
@@ -353,6 +387,22 @@ game_epa["off_epa_first_down_rolling"] = (
 )
 game_epa["def_epa_first_down_rolling"] = (
     game_epa.groupby(["team", "season"])["def_epa_first_down"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
+game_epa["off_epa_second_down_rolling"] = (
+    game_epa.groupby(["team", "season"])["off_epa_second_down"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
+game_epa["def_epa_second_down_rolling"] = (
+    game_epa.groupby(["team", "season"])["def_epa_second_down"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
+game_epa["off_epa_second_long_rolling"] = (
+    game_epa.groupby(["team", "season"])["off_epa_second_long"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
+game_epa["def_epa_second_long_rolling"] = (
+    game_epa.groupby(["team", "season"])["def_epa_second_long"]
     .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
 )
 game_epa["top_rolling"] = (
@@ -726,6 +776,10 @@ result = game_epa[["season", "week", "team",
                     "def_epa_early_down", "def_epa_early_down_rolling",
                     "off_epa_first_down", "off_epa_first_down_rolling",
                     "def_epa_first_down", "def_epa_first_down_rolling",
+                    "off_epa_second_down", "off_epa_second_down_rolling",
+                    "def_epa_second_down", "def_epa_second_down_rolling",
+                    "off_epa_second_long", "off_epa_second_long_rolling",
+                    "def_epa_second_long", "def_epa_second_long_rolling",
                     "plays", "plays_per_game_rolling",
                     "first_down_rate", "first_down_rate_rolling",
                     "top_seconds_per_game", "top_rolling",
