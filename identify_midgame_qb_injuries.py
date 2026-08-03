@@ -112,8 +112,12 @@ changes = changes.merge(backup_first_play, on=["season", "week", "posteam"], how
 changes["margin_at_entry"] = changes["margin_at_entry"].fillna(0)
 changes["abs_margin_at_entry"] = changes["margin_at_entry"].abs()
 
-# Flag as garbage time if blowout when backup entered
-changes["garbage_time"] = changes["abs_margin_at_entry"] >= BLOWOUT_MARGIN
+# Flag as garbage time if blowout when backup entered OR backup first appeared in Q4/OT
+# (Q4/OT entry = game_seconds_remaining ≤ 900, i.e. 15 minutes left or less)
+changes["garbage_time"] = (
+    (changes["abs_margin_at_entry"] >= BLOWOUT_MARGIN) |
+    (changes["seconds_remaining_at_entry"] <= 900)
+)
 
 # --- Remove games already in backup_qb_games.csv as starter-level exclusions ---
 BACKUP_PATH = Path("exports/backup_qb_games.csv")
