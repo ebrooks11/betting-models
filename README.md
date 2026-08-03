@@ -20,31 +20,31 @@ Three model types have been tested: **Team** (team-level rolling EPA only), **QB
 
 | Rank | Model | Type | N | ATS | Units | E>3 ATS | E>3 N | E>3 Units | Train |
 |------|-------|------|---|-----|-------|---------|-------|-----------|-------|
-| 1 | off_11/12 + qb_off + def + pd + qbr | Combined | 513 | **56.3%** | **+38.7** | 55.3% | 262 | +14.8 | 2016–2021 |
-| 2 | off_11/12 + pd + qbr | Team | 528 | 55.5% | +31.4 | 53.4% | 262 | +5.3 | 2016–2021 |
-| 3 | off_11/12 + qb_off_11/12 + pd + qbr | Combined | 513 | 55.0% | +25.4 | 54.4% | 261 | +10.1 | 2016–2021 |
-| 4 | off_11/12 + qb_off + def + pd + qbr + cpoe | Combined | 513 | 54.8% | +23.5 | **57.0%** | 256 | **+22.7** | 2016–2021 |
-| 5 | off_11/12 + def + pd + qbr | Team | 528 | 54.4% | +19.9 | 54.8% | 261 | +12.0 | 2016–2021 |
-| 6 | off_11/12 + qb_off + def + pd | Combined | 597 | 54.1% | +19.6 | 53.6% | 291 | +6.8 | 2016–2021 |
-| 7 | QB: first_down + pd + qbr | QB | 534 | 54.1% | +17.7 | 53.4% | 264 | +5.2 | 2016–2021 |
-| 8 | off_11/12 + def | Team | 615 | 53.8% | +16.9 | 51.2% | 334 | −7.5 | 2016–2021 |
-| 9 | off_11/12 + qb_off + def + cpoe | Combined | 597 | 53.8% | +15.8 | 54.4% | 318 | +12.3 | 2016–2021 |
-| 10 | QB: off_11/12 + def + pd | QB | 597 | 53.6% | +13.9 | 54.2% | 301 | +10.2 | 2016–2021 |
+| 1 | off_11/12 + qb_off + def + pd + qbr<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | Combined | 513 | **56.3%** | **+38.7** | 55.3% | 262 | +14.8 | 2016–2021 |
+| 2 | off_11/12 + pd + qbr<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | Team | 528 | 55.5% | +31.4 | 53.4% | 262 | +5.3 | 2016–2021 |
+| 3 | off_11/12 + qb_off_11/12 + pd + qbr<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | Combined | 513 | 55.0% | +25.4 | 54.4% | 261 | +10.1 | 2016–2021 |
+| 4 | off_11/12 + qb_off + def + pd + qbr + cpoe<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`, `cpoe_rolling`</sub> | Combined | 513 | 54.8% | +23.5 | **57.0%** | 256 | **+22.7** | 2016–2021 |
+| 5 | off_11/12 + def + pd + qbr<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | Team | 528 | 54.4% | +19.9 | 54.8% | 261 | +12.0 | 2016–2021 |
+| 6 | off_11/12 + qb_off + def + pd<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`</sub> | Combined | 597 | 54.1% | +19.6 | 53.6% | 291 | +6.8 | 2016–2021 |
+| 7 | QB: first_down + pd + qbr<br><sub>`qb_epa_rolling`, `def_epa_first_down_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | QB | 534 | 54.1% | +17.7 | 53.4% | 264 | +5.2 | 2016–2021 |
+| 8 | off_11/12 + def<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `def_epa_rolling`</sub> | Team | 615 | 53.8% | +16.9 | 51.2% | 334 | −7.5 | 2016–2021 |
+| 9 | off_11/12 + qb_off + def + cpoe<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `cpoe_rolling`</sub> | Combined | 597 | 53.8% | +15.8 | 54.4% | 318 | +12.3 | 2016–2021 |
+| 10 | QB: off_11/12 + def + pd<br><sub>`qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`</sub> | QB | 597 | 53.6% | +13.9 | 54.2% | 301 | +10.2 | 2016–2021 |
 
 ### Top 10 by E>3 ATS (selective high-confidence bets)
 
 | Rank | Model | Type | N | ATS | Units | E>3 ATS | E>3 N | E>3 Units | Train |
 |------|-------|------|---|-----|-------|---------|-------|-----------|-------|
-| 1 | QB: off_11/12 + def + pd + qbr + cpoe | QB | 513 | 52.2% | −1.4 | **57.0%** | 263 | **+23.4** | 2016–2021 |
-| 2 | off_11/12 + qb_off + def + pd + qbr + cpoe | Combined | 513 | 54.8% | +23.5 | 57.0% | 256 | +22.7 | 2016–2021 |
-| 3 | QB: weighted+raw + pd + qbr | QB | 513 | 53.4% | +10.1 | 56.5% | 260 | +20.6 | 2016–2021 |
-| 4 | QB: off_11/12 + def + pd + qbr | QB | 513 | 52.4% | +0.5 | 56.5% | 262 | +20.5 | 2016–2021 |
-| 5 | off_11/12 + def + pd + qbr + cpoe | Team | 528 | 53.6% | +12.3 | 56.4% | 257 | +19.8 | 2016–2021 |
-| 6 | QB: off_11/12 + pd + qbr | QB | 513 | 53.0% | +6.3 | 55.8% | 258 | +16.9 | 2016–2021 |
-| 7 | QB: off_11/12_w5 + pd + qbr | QB | 513 | 53.0% | +6.3 | 55.8% | 258 | +16.9 | 2016–2021 |
-| 8 | off_11/12 + qb_off + def + pd + qbr | Combined | 513 | 56.3% | +38.7 | 55.3% | 262 | +14.8 | 2016–2021 |
-| 9 | QB: pd + qb_cpoe + qbr | QB | 533 | 53.3% | +9.2 | 55.3% | 255 | +14.2 | 2006–2021 |
-| 10 | off_11/12_w5 + qb_off + pd + qbr | Combined | 513 | 53.4% | +10.1 | 55.3% | 244 | +13.7 | 2016–2021 |
+| 1 | QB: off_11/12 + def + pd + qbr + cpoe<br><sub>`qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`, `cpoe_rolling`</sub> | QB | 513 | 52.2% | −1.4 | **57.0%** | 263 | **+23.4** | 2016–2021 |
+| 2 | off_11/12 + qb_off + def + pd + qbr + cpoe<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`, `cpoe_rolling`</sub> | Combined | 513 | 54.8% | +23.5 | 57.0% | 256 | +22.7 | 2016–2021 |
+| 3 | QB: weighted+raw + pd + qbr<br><sub>`qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `qb_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | QB | 513 | 53.4% | +10.1 | 56.5% | 260 | +20.6 | 2016–2021 |
+| 4 | QB: off_11/12 + def + pd + qbr<br><sub>`qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | QB | 513 | 52.4% | +0.5 | 56.5% | 262 | +20.5 | 2016–2021 |
+| 5 | off_11/12 + def + pd + qbr + cpoe<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`, `cpoe_rolling`</sub> | Team | 528 | 53.6% | +12.3 | 56.4% | 257 | +19.8 | 2016–2021 |
+| 6 | QB: off_11/12 + pd + qbr<br><sub>`qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | QB | 513 | 53.0% | +6.3 | 55.8% | 258 | +16.9 | 2016–2021 |
+| 7 | QB: off_11/12_w5 + pd + qbr<br><sub>`qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | QB | 513 | 53.0% | +6.3 | 55.8% | 258 | +16.9 | 2016–2021 |
+| 8 | off_11/12 + qb_off + def + pd + qbr<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | Combined | 513 | 56.3% | +38.7 | 55.3% | 262 | +14.8 | 2016–2021 |
+| 9 | QB: pd + qb_cpoe + qbr<br><sub>`point_diff_rolling`, `qb_cpoe_rolling`, `qbr_rolling`</sub> | QB | 533 | 53.3% | +9.2 | 55.3% | 255 | +14.2 | 2006–2021 |
+| 10 | off_11/12_w5 + qb_off + pd + qbr<br><sub>`off_11_epa_rolling_w5`, `off_12_epa_rolling_w5`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | Combined | 513 | 53.4% | +10.1 | 55.3% | 244 | +13.7 | 2016–2021 |
 
 **Notable:** Rank 4 in the overall ATS table (`off_11/12 + qb_off + def + pd + qbr + cpoe`) also ranks #2 in E>3 — the only model in both top 5s. Best choice for selective high-confidence betting.
 
