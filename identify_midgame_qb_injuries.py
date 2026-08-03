@@ -5,6 +5,9 @@ Strategy:
   - "finisher" = QB who threw the most passes in the 2nd half (Q3+Q4)
   - If starter != finisher AND there were meaningful 2nd-half attempts by a different QB,
     flag the game as a mid-game QB change.
+  - Garbage-time filter: if the score margin when the backup first appeared was >= 17
+    points (either direction), the starter was likely pulled because the game was over,
+    not because of injury. Those are excluded.
 
 We then cross-reference against our existing backup_qb_games.csv to exclude
 games already tagged as "backup starts" and focus on true mid-game injuries.
@@ -15,9 +18,14 @@ import pandas as pd
 from src.data_loader import get_pbp_data
 from config import SEASONS
 
+# Blowout threshold: if score margin when backup first appeared exceeds this,
+# treat it as a garbage-time pull rather than a mid-game injury.
+BLOWOUT_MARGIN = 17
+
 print("Loading play-by-play data...")
 COLS = ["season", "week", "game_id", "posteam", "qtr", "play_type",
-        "passer_player_name", "epa", "game_seconds_remaining"]
+        "passer_player_name", "epa", "game_seconds_remaining",
+        "score_differential"]
 pbp = get_pbp_data(SEASONS)[COLS]
 
 pass_plays = pbp[
@@ -79,6 +87,34 @@ df["mid_game_change"] = (
 
 changes = df[df["mid_game_change"]].copy()
 
+# --- Garbage-time filter: find score margin when backup first appeared ---
+# For each flagged game, get the score_differential on the backup's first pass play.
+# score_differential is from the posteam's perspective (positive = posteam winning).
+# We want the absolute margin regardless of which team is ahead.
+backup_first_play = (
+    pass_plays
+    .merge(
+        changes[["season", "week", "posteam", "finisher"]],
+        on=["season", "week", "posteam"]
+    )
+    .query("passer_player_name == finisher")
+    .sort_values("game_seconds_remaining", ascending=False)
+    .groupby(["season", "week", "posteam"])
+    .first()
+    .reset_index()[["season", "week", "posteam", "score_differential", "game_seconds_remaining"]]
+    .rename(columns={
+        "score_differential": "margin_at_entry",
+        "game_seconds_remaining": "seconds_remaining_at_entry",
+    })
+)
+
+changes = changes.merge(backup_first_play, on=["season", "week", "posteam"], how="left")
+changes["margin_at_entry"] = changes["margin_at_entry"].fillna(0)
+changes["abs_margin_at_entry"] = changes["margin_at_entry"].abs()
+
+# Flag as garbage time if blowout when backup entered
+changes["garbage_time"] = changes["abs_margin_at_entry"] >= BLOWOUT_MARGIN
+
 # --- Remove games already in backup_qb_games.csv as starter-level exclusions ---
 BACKUP_PATH = Path("exports/backup_qb_games.csv")
 if BACKUP_PATH.exists():
@@ -91,19 +127,37 @@ else:
     changes["already_excluded"] = False
 
 new_changes = changes[~changes["already_excluded"]].copy()
+non_garbage = new_changes[~new_changes["garbage_time"]].copy()
+garbage = new_changes[new_changes["garbage_time"]].copy()
+
+# Apply final-week and early-week filters to count actionable games
+final_week = non_garbage["season"].map(lambda s: 18 if s >= 2021 else 17)
+actionable = non_garbage[(non_garbage["week"] < final_week) & (non_garbage["week"] >= 4)]
 
 print(f"\nTotal mid-game QB changes detected: {len(changes)}")
-print(f"Already in backup_qb_games.csv (backup starts): {changes['already_excluded'].sum()}")
-print(f"New mid-game injuries to evaluate: {len(new_changes)}")
+print(f"Already in backup_qb_games.csv:      {changes['already_excluded'].sum()}")
+print(f"Garbage-time pulls (margin ≥{BLOWOUT_MARGIN}):   {len(garbage)}")
+print(f"Remaining after garbage-time filter: {len(non_garbage)}")
+print(f"Actionable (wk 4+, not final wk):   {len(actionable)}")
 
-print("\n--- New mid-game QB changes (not already excluded) ---")
-print(f"{'Season':>6} {'Wk':>3} {'Team':>5}  {'Starter':<25} {'Finisher':<25} {'Fin Att':>7} {'Str SH Att':>10}")
+print(f"\n--- Garbage-time pulls excluded (margin ≥{BLOWOUT_MARGIN} at backup entry) ---")
+print(f"{'Season':>6} {'Wk':>3} {'Team':>5}  {'Starter':<22} {'Finisher':<22} {'Margin':>7} {'SecRem':>7}")
+print("-" * 80)
+for _, r in garbage.sort_values(["season", "week"]).iterrows():
+    print(f"{r['season']:>6} {r['week']:>3} {r['posteam']:>5}  {r['starter']:<22} {r['finisher']:<22} {r['margin_at_entry']:>+7.0f} {r['seconds_remaining_at_entry']:>7.0f}")
+
+print(f"\n--- Mid-game QB changes (not garbage time, not already excluded) ---")
+print(f"{'Season':>6} {'Wk':>3} {'Team':>5}  {'Starter':<22} {'Finisher':<22} {'Margin':>7} {'SecRem':>7} {'FinAtt':>7}")
 print("-" * 90)
-for _, r in new_changes.sort_values(["season", "week"]).iterrows():
-    print(f"{r['season']:>6} {r['week']:>3} {r['posteam']:>5}  {r['starter']:<25} {r['finisher']:<25} {r['finisher_attempts']:>7} {r['starter_sh_attempts']:>10}")
+for _, r in non_garbage.sort_values(["season", "week"]).iterrows():
+    flag = " *" if r["week"] < (18 if r["season"] >= 2021 else 17) and r["week"] >= 4 else ""
+    print(f"{r['season']:>6} {r['week']:>3} {r['posteam']:>5}  {r['starter']:<22} {r['finisher']:<22} {r['margin_at_entry']:>+7.0f} {r['seconds_remaining_at_entry']:>7.0f} {r['finisher_attempts']:>7}{flag}")
 
-# Save
-out = new_changes[["season", "week", "posteam", "starter", "finisher",
-                    "finisher_attempts", "starter_sh_attempts"]].copy()
+print(f"\n* = actionable game (week 4+, not final week of season)")
+
+# Save full non-garbage list
+out = non_garbage[["season", "week", "posteam", "starter", "finisher",
+                    "finisher_attempts", "starter_sh_attempts",
+                    "margin_at_entry", "seconds_remaining_at_entry"]].copy()
 out.to_csv("exports/midgame_qb_injury_games.csv", index=False)
 print(f"\nSaved {len(out)} games to exports/midgame_qb_injury_games.csv")
