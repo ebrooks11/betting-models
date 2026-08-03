@@ -6,9 +6,25 @@ import pandas as pd
 from sklearn.metrics import mean_absolute_error
 
 FEATURES_PATH = Path("exports/features.parquet")
+BACKUP_QB_PATH = Path("exports/backup_qb_games.csv")
 TEAM_MAP = {"OAK": "LV", "SD": "LAC", "STL": "LA"}
 TRAIN_SEASONS = range(2006, 2022)
 TEST_SEASONS = range(2022, 2026)
+
+# Games where a backup QB started due to injury or benching — excluded from all datasets
+# because rolling EPA features reflect the starter, not the backup who actually played.
+_BACKUP_EXCLUSIONS: set | None = None
+
+def _get_backup_exclusions() -> set:
+    global _BACKUP_EXCLUSIONS
+    if _BACKUP_EXCLUSIONS is None:
+        if BACKUP_QB_PATH.exists():
+            df = pd.read_csv(BACKUP_QB_PATH)
+            bad = df[df["category"].isin(["injury", "benched"])]
+            _BACKUP_EXCLUSIONS = set(zip(bad["season"], bad["week"], bad["posteam"]))
+        else:
+            _BACKUP_EXCLUSIONS = set()
+    return _BACKUP_EXCLUSIONS
 
 
 def load_features() -> pd.DataFrame:
@@ -54,6 +70,15 @@ def build_dataset(schedules: pd.DataFrame, features: pd.DataFrame, feature_cols:
     # — resting starters and meaningless games break model signal
     final_week = home["season"].map(lambda s: 18 if s >= 2021 else 17)
     home = home[home["week"] < final_week]
+
+    # Drop games where either team started a backup QB due to injury or benching.
+    # Rolling EPA features are built from the starter's history, so these games
+    # introduce noise on whichever side fielded the backup.
+    excl = _get_backup_exclusions()
+    if excl:
+        home_flag = home.apply(lambda r: (r["season"], r["week"], r["team"]) in excl, axis=1)
+        away_flag = home.apply(lambda r: (r["season"], r["week"], r["opponent"]) in excl, axis=1)
+        home = home[~home_flag & ~away_flag]
 
     # Matchup formation score: how well the home offense's personnel packages match up
     # against the opponent's defensive tendencies, weighted by usage rate.
