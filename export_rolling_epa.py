@@ -491,6 +491,10 @@ game_epa["to_diff_rolling"] = (
     game_epa.groupby(["team", "season"])["to_diff"]
     .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
 )
+game_epa["turnovers_committed_rolling"] = (
+    game_epa.groupby(["team", "season"])["turnovers_committed"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
 
 game_epa["off_11_epa_rolling_w5"] = (
     game_epa.groupby(["team", "season"])["off_11_epa"]
@@ -749,7 +753,8 @@ result = game_epa[["season", "week", "team",
                     "top_rolling_w5", "sack_rate_rolling_w5",
                     "qb_hit_rate_rolling_w5", "stuff_rate_rolling_w5",
                     "qbr_rolling_w5",
-                    "turnovers_committed", "turnovers_forced", "to_diff", "to_diff_rolling"]].copy()
+                    "turnovers_committed", "turnovers_forced", "to_diff", "to_diff_rolling",
+                    "turnovers_committed_rolling"]].copy()
 result = result.sort_values(["season", "week", "team"]).reset_index(drop=True)
 
 out_path = Path("exports/features.parquet")
