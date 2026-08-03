@@ -23,7 +23,7 @@ FEATURE_COLS = [
 
 features = load_features()
 schedules = get_schedule_data(SEASONS)
-df = build_dataset(schedules, features, FEATURE_COLS)
+df = build_dataset(schedules, features, FEATURE_COLS, include_playoffs=True)
 
 train = df[df["season"].isin(TRAIN_SEASONS)]
 test = df[df["season"].isin(TEST_SEASONS)]

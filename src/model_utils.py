@@ -35,16 +35,22 @@ def load_features() -> pd.DataFrame:
     return pd.read_parquet(FEATURES_PATH)
 
 
-def build_dataset(schedules: pd.DataFrame, features: pd.DataFrame, feature_cols: list[str]) -> pd.DataFrame:
+PLAYOFF_TYPES = ["WC", "DIV", "CON", "SB"]
+
+
+def build_dataset(schedules: pd.DataFrame, features: pd.DataFrame, feature_cols: list[str],
+                  include_playoffs: bool = False) -> pd.DataFrame:
     """Build one row per home game with team and opponent features merged in.
 
     feature_cols: columns from features.parquet to include (must exist in the file).
     Opponent versions are added automatically with an opp_ prefix.
+    include_playoffs: if True, include WC/DIV/CON/SB games alongside REG games.
     """
-    games = schedules[schedules["game_type"] == "REG"].copy()
+    types = ["REG"] + (PLAYOFF_TYPES if include_playoffs else [])
+    games = schedules[schedules["game_type"].isin(types)].copy()
 
     home = games[["season", "week", "home_team", "away_team",
-                   "home_score", "away_score", "spread_line"]].copy()
+                   "home_score", "away_score", "spread_line", "game_type"]].copy()
     home = home.rename(columns={"home_team": "team", "away_team": "opponent",
                                  "home_score": "score", "away_score": "opp_score"})
     home["team"] = home["team"].replace(TEAM_MAP)
@@ -66,18 +72,18 @@ def build_dataset(schedules: pd.DataFrame, features: pd.DataFrame, feature_cols:
     home = home.dropna(subset=feature_cols + opp_cols + ["margin", "spread_line"])
     home = home[home["week"] >= 4]
 
-    # Drop the final week of each season (week 17 pre-2021, week 18 from 2021 onward)
-    # — resting starters and meaningless games break model signal
+    # Drop the final week of each regular season (week 17 pre-2021, week 18 from 2021 onward)
+    # — resting starters and meaningless games break model signal. Playoff weeks are exempt.
     final_week = home["season"].map(lambda s: 18 if s >= 2021 else 17)
-    home = home[home["week"] < final_week]
+    reg_mask = home["game_type"] == "REG"
+    home = home[~reg_mask | (home["week"] < final_week)]
 
-    # Drop games where either team started a backup QB due to injury or benching.
-    # Rolling EPA features are built from the starter's history, so these games
-    # introduce noise on whichever side fielded the backup.
+    # Drop regular-season games where either team started a backup QB due to injury or benching.
+    # Backup QB exclusion list only covers regular season games.
     excl = _get_backup_exclusions()
     if excl:
-        home_flag = home.apply(lambda r: (r["season"], r["week"], r["team"]) in excl, axis=1)
-        away_flag = home.apply(lambda r: (r["season"], r["week"], r["opponent"]) in excl, axis=1)
+        home_flag = home.apply(lambda r: r["game_type"] == "REG" and (r["season"], r["week"], r["team"]) in excl, axis=1)
+        away_flag = home.apply(lambda r: r["game_type"] == "REG" and (r["season"], r["week"], r["opponent"]) in excl, axis=1)
         home = home[~home_flag & ~away_flag]
 
     # Matchup formation score: how well the home offense's personnel packages match up
