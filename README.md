@@ -21,32 +21,32 @@ Three model types have been tested: **Team** (team-level rolling EPA only), **QB
 | Rank | Model | N | ATS | Units | E>3 ATS | E>3 N | E>3 Units |
 |------|-------|---|-----|-------|---------|-------|-----------|
 | 1 | off_11/12 + qb_off + def + pd + qbr<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | 513 | **56.3%** | **+38.7** | 55.3% | 262 | +14.8 |
-| 2 | off_11/12 + pd + qbr<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | 528 | 55.5% | +31.4 | 53.4% | 262 | +5.3 |
-| 3 | off_11/12 + qb_off_11/12 + pd + qbr<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | 513 | 55.0% | +25.4 | 54.4% | 261 | +10.1 |
-| 4 | off_11/12 + qb_off + def + pd + qbr + cpoe<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`, `cpoe_rolling`</sub> | 513 | 54.8% | +23.5 | **57.0%** | 256 | **+22.7** |
-| 5 | off_11/12 + def + pd + qbr<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | 528 | 54.4% | +19.9 | 54.8% | 261 | +12.0 |
-| 6 | off_11/12 + qb_off + def + pd<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`</sub> | 597 | 54.1% | +19.6 | 53.6% | 291 | +6.8 |
-| 7 | QB: first_down + pd + qbr<br><sub>`qb_epa_rolling`, `def_epa_first_down_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | 534 | 54.1% | +17.7 | 53.4% | 264 | +5.2 |
-| 8 | off_11/12 + def<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `def_epa_rolling`</sub> | 615 | 53.8% | +16.9 | 51.2% | 334 | −7.5 |
-| 9 | off_11/12 + qb_off + def + cpoe<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `cpoe_rolling`</sub> | 597 | 53.8% | +15.8 | 54.4% | 318 | +12.3 |
-| 10 | QB: off_11/12 + def + pd<br><sub>`qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`</sub> | 597 | 53.6% | +13.9 | 54.2% | 301 | +10.2 |
+| 2 | off_11/12 + qb_off + def + pd + qbr + def_vs_12<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`, `def_vs_12_epa_rolling`</sub> | 513 | 56.1% | +36.8 | 57.4% | 251 | +23.9 |
+| 3 | off_11/12 + qb_off + def + pd + qbr + cpoe + def_vs_12<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`, `cpoe_rolling`, `def_vs_12_epa_rolling`</sub> | 513 | 55.6% | +31.1 | **57.9%** | 254 | **+26.6** |
+| 4 | off_11/12 + pd + qbr<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | 528 | 55.5% | +31.4 | 53.4% | 262 | +5.3 |
+| 5 | off_11/12 + qb_off + pd + qbr<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | 513 | 55.0% | +25.4 | 54.4% | 261 | +10.1 |
+| 6 | off_11/12 + qb_off + pd + qbr + def_vs_12<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `point_diff_rolling`, `qbr_rolling`, `def_vs_12_epa_rolling`</sub> | 513 | 55.0% | +25.4 | 57.9% | 259 | +27.4 |
+| 7 | off_11/12 + qb_off + def + pd + qbr + cpoe<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`, `cpoe_rolling`</sub> | 513 | 54.8% | +23.5 | 57.0% | 256 | +22.7 |
+| 8 | off_11/12 + qb_off + def + pd + def_vs_12<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `def_vs_12_epa_rolling`</sub> | 597 | 54.8% | +27.3 | 56.6% | 288 | +23.2 |
+| 9 | off_11/12 + def + pd + qbr<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | 528 | 54.4% | +19.9 | 54.8% | 261 | +12.0 |
+| 10 | off_11/12 + qb_off + def + cpoe<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `cpoe_rolling`</sub> | 597 | 53.8% | +15.8 | 54.4% | 318 | +12.3 |
 
 ### Top 10 by E>3 ATS (selective high-confidence bets)
 
 | Rank | Model | N | ATS | Units | E>3 ATS | E>3 N | E>3 Units |
 |------|-------|---|-----|-------|---------|-------|-----------|
-| 1 | QB: off_11/12 + def + pd + qbr + cpoe<br><sub>`qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`, `cpoe_rolling`</sub> | 513 | 52.2% | −1.4 | **57.0%** | 263 | **+23.4** |
-| 2 | off_11/12 + qb_off + def + pd + qbr + cpoe<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`, `cpoe_rolling`</sub> | 513 | 54.8% | +23.5 | 57.0% | 256 | +22.7 |
-| 3 | QB: weighted+raw + pd + qbr<br><sub>`qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `qb_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | 513 | 53.4% | +10.1 | 56.5% | 260 | +20.6 |
-| 4 | QB: off_11/12 + def + pd + qbr<br><sub>`qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | 513 | 52.4% | +0.5 | 56.5% | 262 | +20.5 |
-| 5 | off_11/12 + def + pd + qbr + cpoe<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`, `cpoe_rolling`</sub> | 528 | 53.6% | +12.3 | 56.4% | 257 | +19.8 |
-| 6 | QB: off_11/12 + pd + qbr<br><sub>`qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | 513 | 53.0% | +6.3 | 55.8% | 258 | +16.9 |
-| 7 | QB: off_11/12_w5 + pd + qbr<br><sub>`qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | 513 | 53.0% | +6.3 | 55.8% | 258 | +16.9 |
-| 8 | off_11/12 + qb_off + def + pd + qbr<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | 513 | 56.3% | +38.7 | 55.3% | 262 | +14.8 |
-| 9 | QB: pd + qb_cpoe + qbr<br><sub>`point_diff_rolling`, `qb_cpoe_rolling`, `qbr_rolling`</sub> | 533 | 53.3% | +9.2 | 55.3% | 255 | +14.2 |
-| 10 | off_11/12_w5 + qb_off + pd + qbr<br><sub>`off_11_epa_rolling_w5`, `off_12_epa_rolling_w5`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | 513 | 53.4% | +10.1 | 55.3% | 244 | +13.7 |
+| 1 | off_11/12 + qb_off + pd + qbr + def_vs_12<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `point_diff_rolling`, `qbr_rolling`, `def_vs_12_epa_rolling`</sub> | 513 | 55.0% | +25.4 | **57.9%** | 259 | **+27.4** |
+| 2 | off_11/12 + qb_off + def + pd + qbr + cpoe + def_vs_12<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`, `cpoe_rolling`, `def_vs_12_epa_rolling`</sub> | 513 | 55.6% | +31.1 | 57.9% | 254 | +26.6 |
+| 3 | off_11/12 + qb_off + def + pd + qbr + def_vs_12<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`, `def_vs_12_epa_rolling`</sub> | 513 | 56.1% | +36.8 | 57.4% | 251 | +23.9 |
+| 4 | QB: off_11/12 + def + pd + qbr + cpoe<br><sub>`qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`, `cpoe_rolling`</sub> | 513 | 52.2% | −1.4 | 57.0% | 263 | +23.4 |
+| 5 | off_11/12 + qb_off + def + pd + qbr + cpoe<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`, `cpoe_rolling`</sub> | 513 | 54.8% | +23.5 | 57.0% | 256 | +22.7 |
+| 6 | off_11/12 + qb_off + def + pd + def_vs_12<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `def_vs_12_epa_rolling`</sub> | 597 | 54.8% | +27.3 | 56.6% | 288 | +23.2 |
+| 7 | QB: weighted+raw + pd + qbr<br><sub>`qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `qb_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | 513 | 53.4% | +10.1 | 56.5% | 260 | +20.6 |
+| 8 | QB: off_11/12 + def + pd + qbr<br><sub>`qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | 513 | 52.4% | +0.5 | 56.5% | 262 | +20.5 |
+| 9 | off_11/12 + def + pd + qbr + cpoe<br><sub>`off_11_epa_rolling`, `off_12_epa_rolling`, `def_epa_rolling`, `point_diff_rolling`, `qbr_rolling`, `cpoe_rolling`</sub> | 528 | 53.6% | +12.3 | 56.4% | 257 | +19.8 |
+| 10 | QB: off_11/12 + pd + qbr<br><sub>`qb_off_11_epa_rolling`, `qb_off_12_epa_rolling`, `point_diff_rolling`, `qbr_rolling`</sub> | 513 | 53.0% | +6.3 | 55.8% | 258 | +16.9 |
 
-**Notable:** Rank 4 in the overall ATS table (`off_11/12 + qb_off + def + pd + qbr + cpoe`) also ranks #2 in E>3 — the only model in both top 5s. Best choice for selective high-confidence betting.
+**Notable:** `def_vs_12_epa_rolling` (how well a defense handles 2-TE sets) consistently improves E>3 across models. The top three E>3 entries are all `def_vs_12` variants. Ranks 6 and 3 in the overall ATS table (`off_11/12 + qb_off + pd + qbr + def_vs_12` and the cpoe version) also rank #1 and #2 in E>3 — best options for selective high-confidence betting.
 
 ### ATS by Week (best model, test 2022–2025)
 
