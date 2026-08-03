@@ -2,28 +2,51 @@
 
 An NFL prediction model focused on ATS (against the spread) prediction. Uses play-by-play data from nflverse (2006–2025) via `nfl_data_py`, with scikit-learn for modeling. Train set: 2006–2021, test set: 2022–2025.
 
+## Game Filters
+
+All models are evaluated on the home-team perspective only (one row per game), test set 2022–2025. The following games are excluded from both train and test sets:
+
+- **Weeks 1–3**: Dropped — rolling windows require at least 3 prior games; early-season features are too noisy.
+- **Final week of each season**: Dropped — week 18 (2021+) and week 17 (pre-2021). Resting starters and meaningless games destroy signal.
+- **Backup QB starts (injury or benching)**: Dropped — rolling EPA features are built from the starter's history. When a backup plays due to injury or benching, those features no longer represent the team on the field. See `exports/backup_qb_games.csv` for the full list (categorized as injury, benched, controversy, returning, or rest). Only injury and benched are excluded; controversy and returning QB situations remain in the dataset and are partially addressed via QB-specific rolling features.
+
+Break-even at standard −110 juice is **52.38%**. Units at −110 juice: `wins × (1/1.1) − losses`. **E>3** = games where `|predicted_margin − spread_line| ≥ 3`.
+
 ## Model Leaderboard
 
-All models evaluated on home-team perspective only (one row per game), week 4+, test set 2022–2025. Break-even at standard −110 juice is 52.38%.
+Three model types have been tested: **Team** (team-level rolling EPA only), **QB** (QB-specific rolling EPA that follows the QB across teams and seasons), and **Combined** (both team and QB features together).
 
-All models evaluated on home-team perspective only (one row per game), weeks 4–16/17, test set 2022–2025. Final week of each season is excluded (week 18 from 2021+, week 17 pre-2021) — resting starters and meaningless games break model signal.
+### Top 10 by Overall ATS
 
-Games where either team started a backup QB due to injury or benching are excluded from all train and test sets — rolling EPA features reflect the starter's history, so these games introduce noise. See `exports/backup_qb_games.csv` for the full list.
+| Rank | Model | Type | N | ATS | Units | E>3 ATS | E>3 N | E>3 Units | Train |
+|------|-------|------|---|-----|-------|---------|-------|-----------|-------|
+| 1 | off_11/12 + qb_off + def + pd + qbr | Combined | 513 | **56.3%** | **+38.7** | 55.3% | 262 | +14.8 | 2016–2021 |
+| 2 | off_11/12 + pd + qbr | Team | 528 | 55.5% | +31.4 | 53.4% | 262 | +5.3 | 2016–2021 |
+| 3 | off_11/12 + qb_off_11/12 + pd + qbr | Combined | 513 | 55.0% | +25.4 | 54.4% | 261 | +10.1 | 2016–2021 |
+| 4 | off_11/12 + qb_off + def + pd + qbr + cpoe | Combined | 513 | 54.8% | +23.5 | **57.0%** | 256 | **+22.7** | 2016–2021 |
+| 5 | off_11/12 + def + pd + qbr | Team | 528 | 54.4% | +19.9 | 54.8% | 261 | +12.0 | 2016–2021 |
+| 6 | off_11/12 + qb_off + def + pd | Combined | 597 | 54.1% | +19.6 | 53.6% | 291 | +6.8 | 2016–2021 |
+| 7 | QB: first_down + pd + qbr | QB | 534 | 54.1% | +17.7 | 53.4% | 264 | +5.2 | 2016–2021 |
+| 8 | off_11/12 + def | Team | 615 | 53.8% | +16.9 | 51.2% | 334 | −7.5 | 2016–2021 |
+| 9 | off_11/12 + qb_off + def + cpoe | Combined | 597 | 53.8% | +15.8 | 54.4% | 318 | +12.3 | 2016–2021 |
+| 10 | QB: off_11/12 + def + pd | QB | 597 | 53.6% | +13.9 | 54.2% | 301 | +10.2 | 2016–2021 |
 
-| Rank | Model | ATS | N | Units | E>3 ATS | E>3 N | E>3 Units | Train |
-|------|-------|-----|---|-------|---------|-------|-----------|-------|
-| 1 | weighted+raw + pd + qbr | **55.7%** | 528 | **+33.3** | 52.3% | 260 | −0.4 | 2016–2021 |
-| 2 | `off_formation_point_diff_qbr_model.py` | 55.5% | 528 | +31.4 | 53.4% | 262 | +5.3 | 2016–2021 |
-| 3 | off_11/12 + def + pd + qbr | 55.1% | 528 | +27.5 | 55.1% | 254 | +13.3 | 2016–2021 |
-| 4 | off_11/12 + def + pd + qbr + cpoe | 54.9% | 528 | +25.6 | **56.0%** | 248 | **+17.4** | 2016–2021 |
-| 5 | off_11/12 + def + cpoe | 53.8% | 615 | +16.9 | 53.3% | 323 | +5.4 | 2016–2021 |
-| 6 | off_11/12_w5 + pd + qbr | 53.5% | 535 | +11.0 | 55.1% | 245 | +12.7 | 2016–2021 |
-| 7 | off_11/12 + def + pd | 53.3% | 615 | +11.2 | 53.8% | 299 | +8.4 | 2016–2021 |
-| 8 | `point_diff_cpoe_qbr_model.py` | 53.2% | 536 | +8.1 | 54.1% | 255 | +8.5 | 2006–2021 |
-| 9 | off_11/12 + def | 52.8% | 615 | +5.5 | 53.5% | 340 | +7.5 | 2016–2021 |
-| 10 | first_down + pd + qbr | 52.6% | 536 | +2.4 | **56.6%** | 256 | **+20.8** | 2016–2021 |
+### Top 10 by E>3 ATS (selective high-confidence bets)
 
-Units at −110 juice: `wins × (1/1.1) − losses`. **E>3** = games where `|predicted_margin − spread_line| ≥ 3`.
+| Rank | Model | Type | N | ATS | Units | E>3 ATS | E>3 N | E>3 Units | Train |
+|------|-------|------|---|-----|-------|---------|-------|-----------|-------|
+| 1 | QB: off_11/12 + def + pd + qbr + cpoe | QB | 513 | 52.2% | −1.4 | **57.0%** | 263 | **+23.4** | 2016–2021 |
+| 2 | off_11/12 + qb_off + def + pd + qbr + cpoe | Combined | 513 | 54.8% | +23.5 | 57.0% | 256 | +22.7 | 2016–2021 |
+| 3 | QB: weighted+raw + pd + qbr | QB | 513 | 53.4% | +10.1 | 56.5% | 260 | +20.6 | 2016–2021 |
+| 4 | QB: off_11/12 + def + pd + qbr | QB | 513 | 52.4% | +0.5 | 56.5% | 262 | +20.5 | 2016–2021 |
+| 5 | off_11/12 + def + pd + qbr + cpoe | Team | 528 | 53.6% | +12.3 | 56.4% | 257 | +19.8 | 2016–2021 |
+| 6 | QB: off_11/12 + pd + qbr | QB | 513 | 53.0% | +6.3 | 55.8% | 258 | +16.9 | 2016–2021 |
+| 7 | QB: off_11/12_w5 + pd + qbr | QB | 513 | 53.0% | +6.3 | 55.8% | 258 | +16.9 | 2016–2021 |
+| 8 | off_11/12 + qb_off + def + pd + qbr | Combined | 513 | 56.3% | +38.7 | 55.3% | 262 | +14.8 | 2016–2021 |
+| 9 | QB: pd + qb_cpoe + qbr | QB | 533 | 53.3% | +9.2 | 55.3% | 255 | +14.2 | 2006–2021 |
+| 10 | off_11/12_w5 + qb_off + pd + qbr | Combined | 513 | 53.4% | +10.1 | 55.3% | 244 | +13.7 | 2016–2021 |
+
+**Notable:** Rank 4 in the overall ATS table (`off_11/12 + qb_off + def + pd + qbr + cpoe`) also ranks #2 in E>3 — the only model in both top 5s. Best choice for selective high-confidence betting.
 
 ### ATS by Week (best model, test 2022–2025)
 
