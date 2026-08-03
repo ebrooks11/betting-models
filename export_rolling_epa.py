@@ -495,6 +495,10 @@ game_epa["turnovers_committed_rolling"] = (
     game_epa.groupby(["team", "season"])["turnovers_committed"]
     .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
 )
+game_epa["turnovers_committed_expanding"] = (
+    game_epa.groupby(["team", "season"])["turnovers_committed"]
+    .transform(lambda x: x.shift(1).expanding(min_periods=1).mean())
+)
 
 game_epa["off_11_epa_rolling_w5"] = (
     game_epa.groupby(["team", "season"])["off_11_epa"]
@@ -666,10 +670,20 @@ for raw_col, roll_col in [
         .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
     )
 
+for raw_col, exp_col in [
+    ("qb_off_11_epa", "qb_off_11_epa_expanding"),
+    ("qb_off_12_epa", "qb_off_12_epa_expanding"),
+]:
+    qb_stats[exp_col] = (
+        qb_stats.groupby("passer_player_name")[raw_col]
+        .transform(lambda x: x.shift(1).expanding(min_periods=1).mean())
+    )
+
 game_epa = game_epa.merge(
     qb_stats[["season", "week", "passer_player_name",
               "qb_epa_rolling", "qb_cpoe_rolling",
-              "qb_off_11_epa_rolling", "qb_off_12_epa_rolling"]]
+              "qb_off_11_epa_rolling", "qb_off_12_epa_rolling",
+              "qb_off_11_epa_expanding", "qb_off_12_epa_expanding"]]
     .rename(columns={"passer_player_name": "starting_qb"}),
     on=["season", "week", "starting_qb"],
     how="left",
@@ -696,6 +710,10 @@ game_epa["qbr_rolling"] = (
 game_epa["qbr_rolling_w5"] = (
     game_epa.groupby(["team", "season"])["qbr"]
     .transform(lambda x: x.shift(1).rolling(WINDOW5, min_periods=1).mean())
+)
+game_epa["qbr_expanding"] = (
+    game_epa.groupby(["team", "season"])["qbr"]
+    .transform(lambda x: x.shift(1).expanding(min_periods=1).mean())
 )
 
 result = game_epa[["season", "week", "team",
@@ -754,7 +772,9 @@ result = game_epa[["season", "week", "team",
                     "qb_hit_rate_rolling_w5", "stuff_rate_rolling_w5",
                     "qbr_rolling_w5",
                     "turnovers_committed", "turnovers_forced", "to_diff", "to_diff_rolling",
-                    "turnovers_committed_rolling"]].copy()
+                    "turnovers_committed_rolling", "turnovers_committed_expanding",
+                    "qbr_expanding",
+                    "qb_off_11_epa_expanding", "qb_off_12_epa_expanding"]].copy()
 result = result.sort_values(["season", "week", "team"]).reset_index(drop=True)
 
 out_path = Path("exports/features.parquet")
