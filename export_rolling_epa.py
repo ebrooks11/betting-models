@@ -15,7 +15,7 @@ WINDOW5 = 5
 print("Loading data...")
 PBP_COLS = [
     "season", "week", "play_type", "posteam", "defteam",
-    "epa", "cpoe", "fumble_lost", "down",
+    "epa", "cpoe", "fumble_lost", "interception", "down",
     "sack", "qb_hit", "yards_gained",
     "drive_time_of_possession", "fixed_drive",
     "passer_player_name",
@@ -227,6 +227,24 @@ qb_hit_rate = (
     .rename(columns={"posteam": "team"})
 )
 
+# Turnovers committed per team per game (interceptions thrown + fumbles lost)
+all_plays = pbp[pbp["posteam"].notna()].copy()
+turnovers_off = (
+    all_plays.groupby(["season", "week", "posteam"])
+    .agg(turnovers_committed=("interception", "sum"), fumbles_lost=("fumble_lost", "sum"))
+    .assign(turnovers_committed=lambda d: d["turnovers_committed"] + d["fumbles_lost"])
+    .reset_index()[["season", "week", "posteam", "turnovers_committed"]]
+    .rename(columns={"posteam": "team"})
+)
+# Turnovers forced = opponent's turnovers committed (join on defteam)
+turnovers_def = (
+    all_plays.groupby(["season", "week", "defteam"])
+    .agg(int_forced=("interception", "sum"), fum_forced=("fumble_lost", "sum"))
+    .assign(turnovers_forced=lambda d: d["int_forced"] + d["fum_forced"])
+    .reset_index()[["season", "week", "defteam", "turnovers_forced"]]
+    .rename(columns={"defteam": "team"})
+)
+
 run_plays_ol = pbp[(pbp["play_type"] == "run") & pbp["yards_gained"].notna()].copy()
 stuff_rate = (
     run_plays_ol.groupby(["season", "week", "posteam"])
@@ -287,6 +305,8 @@ game_epa = game_epa.merge(def_base_rate, on=["season", "week", "team"], how="lef
 game_epa = game_epa.merge(def_dime_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(def_vs_11_epa, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(def_vs_12_epa, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(turnovers_off, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(turnovers_def, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(def_vs_21_epa, on=["season", "week", "team"], how="left")
 game_epa["team"] = game_epa["team"].replace(TEAM_MAP)
 game_epa = game_epa.sort_values(["team", "season", "week"]).reset_index(drop=True)
@@ -466,6 +486,12 @@ game_epa["point_diff_rolling_w5"] = (
     game_epa.groupby(["team", "season"])["point_diff"]
     .transform(lambda x: x.shift(1).rolling(WINDOW5, min_periods=1).mean())
 )
+game_epa["to_diff"] = game_epa["turnovers_forced"] - game_epa["turnovers_committed"]
+game_epa["to_diff_rolling"] = (
+    game_epa.groupby(["team", "season"])["to_diff"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
+
 game_epa["off_11_epa_rolling_w5"] = (
     game_epa.groupby(["team", "season"])["off_11_epa"]
     .transform(lambda x: x.shift(1).rolling(WINDOW5, min_periods=1).mean())
@@ -722,7 +748,8 @@ result = game_epa[["season", "week", "team",
                     "off_epa_first_down_rolling_w5", "def_epa_first_down_rolling_w5",
                     "top_rolling_w5", "sack_rate_rolling_w5",
                     "qb_hit_rate_rolling_w5", "stuff_rate_rolling_w5",
-                    "qbr_rolling_w5"]].copy()
+                    "qbr_rolling_w5",
+                    "turnovers_committed", "turnovers_forced", "to_diff", "to_diff_rolling"]].copy()
 result = result.sort_values(["season", "week", "team"]).reset_index(drop=True)
 
 out_path = Path("exports/features.parquet")
