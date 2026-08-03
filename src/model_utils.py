@@ -7,6 +7,7 @@ from sklearn.metrics import mean_absolute_error
 
 FEATURES_PATH = Path("exports/features.parquet")
 BACKUP_QB_PATH = Path("exports/backup_qb_games.csv")
+MIDGAME_QB_PATH = Path("exports/midgame_qb_injury_games.csv")
 TEAM_MAP = {"OAK": "LV", "SD": "LAC", "STL": "LA"}
 TRAIN_SEASONS = range(2006, 2022)
 TEST_SEASONS = range(2022, 2026)
@@ -18,12 +19,17 @@ _BACKUP_EXCLUSIONS: set | None = None
 def _get_backup_exclusions() -> set:
     global _BACKUP_EXCLUSIONS
     if _BACKUP_EXCLUSIONS is None:
+        excl = set()
         if BACKUP_QB_PATH.exists():
             df = pd.read_csv(BACKUP_QB_PATH)
             bad = df[df["category"].isin(["injury", "benched"])]
-            _BACKUP_EXCLUSIONS = set(zip(bad["season"], bad["week"], bad["posteam"]))
-        else:
-            _BACKUP_EXCLUSIONS = set()
+            excl.update(zip(bad["season"], bad["week"], bad["posteam"]))
+        # Mid-game QB injuries: starter left due to injury mid-game (not garbage time,
+        # not blowout, not Q4). The outcome reflects a QB the rolling features don't cover.
+        if MIDGAME_QB_PATH.exists():
+            mg = pd.read_csv(MIDGAME_QB_PATH)
+            excl.update(zip(mg["season"], mg["week"], mg["posteam"]))
+        _BACKUP_EXCLUSIONS = excl
     return _BACKUP_EXCLUSIONS
 
 
