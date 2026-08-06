@@ -177,6 +177,38 @@ python -m src.model
 python -m src.predict
 ```
 
+## Picks UI
+
+A static dashboard lives in `docs/` and is served via **GitHub Pages**. It shows upcoming game cards with the book spread, model predicted margin, per-model picks, consensus indicator, and an expandable matchup stats table.
+
+### Enable GitHub Pages
+
+1. Go to **Settings → Pages** in the GitHub repo
+2. Set source to **Deploy from a branch**, branch: `main`, folder: `/docs`
+3. The site will be live at `https://ebrooks11.github.io/betting-models/`
+
+### Weekly workflow
+
+Each week, refresh the nflverse data and regenerate predictions:
+
+```bash
+# 1. Refresh schedule + play-by-play data (picks up new scores and upcoming lines)
+python -m src.data_loader --refresh
+
+# 2. Rebuild the feature store
+python export_rolling_epa.py
+
+# 3. Generate predictions for the upcoming week
+python generate_predictions.py
+
+# 4. Commit and push — GitHub Pages picks it up automatically
+git add docs/data/predictions.json
+git commit -m "Week N predictions"
+git push
+```
+
+`generate_predictions.py` trains the top 3 models on 2016–2021, looks up each team's most recent 3-game rolling stats, and writes `docs/data/predictions.json`. If no upcoming games are found (offseason), it falls back to the most recently completed regular season week as a demo.
+
 ## Key Design Decisions
 1. **Predict team scores, not margins** — gives us both spread and total from one model
 2. **Rolling windows, not season averages** — captures recent form, avoids early-season noise
