@@ -557,11 +557,7 @@ button { font-family: inherit; cursor: pointer; }
       <span class="results-stat-val" id="res-ats">—</span>
     </div>
     <div class="results-stat">
-      <span class="results-stat-label">Units (Overall)</span>
-      <span class="results-stat-val" id="res-units">—</span>
-    </div>
-    <div class="results-stat">
-      <span class="results-stat-label">Units (Consensus)</span>
+      <span class="results-stat-label">Units</span>
       <span class="results-stat-val" id="res-con-units">—</span>
     </div>
     <div class="results-stat">
@@ -723,10 +719,6 @@ function renderResultsBar(games) {
   atsEl.className = 'results-stat-val' + (total > 0 ? (atsGood ? ' good' : ' bad') : '');
   document.getElementById('res-consensus').textContent =
     (conWins + conLosses > 0) ? `${conWins}-${conLosses}` : '—';
-
-  const unitsEl = document.getElementById('res-units');
-  unitsEl.textContent = fmtUnits(units, total);
-  unitsEl.className = 'results-stat-val' + (total > 0 ? (units >= 0 ? ' good' : ' bad') : '');
 
   const conUnitsEl = document.getElementById('res-con-units');
   const conTotal = conWins + conLosses;
