@@ -401,6 +401,12 @@ button { font-family: inherit; cursor: pointer; }
   font-variant-numeric: tabular-nums;
   opacity: .75;
 }
+.model-bet {
+  font-size: .72rem;
+  font-family: var(--font-sans);
+  color: var(--text-muted);
+  font-style: italic;
+}
 .model-edge {
   font-family: var(--font-mono);
   font-size: .7rem;
@@ -726,12 +732,14 @@ function renderGame(game, idx) {
       ? `-${Math.abs(m.predicted_margin).toFixed(1)}`
       : '—';
     const edgeStr = m.edge !== null ? `Edge: ${m.edge > 0 ? '+' : ''}${m.edge.toFixed(1)}` : '';
+    const betStr = m.pick ? `Bet on ${m.pick}` : '';
     let resultHTML = '';
     if (m.correct === true)  resultHTML = '<span class="model-result correct">✓ Correct</span>';
     if (m.correct === false) resultHTML = '<span class="model-result wrong">✗ Wrong</span>';
     return `<div class="model-chip ${cls}">
       <span class="model-name">${m.label}</span>
       <span class="model-pick">${m.pick || '—'} <span class="model-margin">${marginStr}</span></span>
+      <span class="model-bet">${betStr}</span>
       <span class="model-edge">${edgeStr}</span>
       ${resultHTML}
     </div>`;
