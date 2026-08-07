@@ -740,13 +740,30 @@ game_epa = game_epa.merge(
 )
 
 # Rolling QBR: join QBR onto starting QB, then compute 3-game rolling average
-qbr_reg = qbr[qbr["season_type"] == "Regular"].copy()
+qbr_reg = qbr[qbr["season_type"].isin(["Regular", "Playoffs"])].copy()
 qbr_reg["team_abb"] = qbr_reg["team_abb"].replace(TEAM_MAP)
-qbr_reg["name_normalized"] = qbr_reg["name_short"].str.replace(". ", ".", regex=False)
+# Normalize to "F.Last" format — strip middle initials so "C.J. Stroud" → "C.Stroud"
+# to match the passer_player_name format used in nflverse play-by-play
+def _normalize_qbr_name(name: str) -> str:
+    parts = name.replace(". ", ".").split(".")
+    # parts like ["C", "J", " Stroud"] or ["D", " Mills"]
+    # keep only first initial + last name token
+    initials = [p for p in parts if len(p.strip()) <= 2]
+    last = [p.strip() for p in parts if len(p.strip()) > 2]
+    if initials and last:
+        return f"{initials[0]}.{last[0]}"
+    return name
+
+qbr_reg["name_normalized"] = qbr_reg["name_short"].apply(_normalize_qbr_name)
 qbr_reg = qbr_reg.drop(columns=["team"]).rename(columns={"week_num": "week", "team_abb": "team"})
 
 # Join QBR to game_epa on season/week/team/starting_qb
-qbr_game = qbr_reg[["season", "week", "team", "name_normalized", "qbr_total"]].copy()
+# When multiple QBR rows exist per team/week (e.g. two QBs played), keep highest snap count
+qbr_game = (
+    qbr_reg[["season", "week", "team", "name_normalized", "qbr_total"]]
+    .sort_values("qbr_total", ascending=False)
+    .drop_duplicates(subset=["season", "week", "team", "name_normalized"])
+)
 game_epa = game_epa.merge(
     qbr_game.rename(columns={"name_normalized": "starting_qb", "qbr_total": "qbr"}),
     on=["season", "week", "team", "starting_qb"], how="left"
