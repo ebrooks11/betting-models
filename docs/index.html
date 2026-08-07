@@ -1,4 +1,4 @@
-<!-- NFL Model Picks UI v3 -->
+<!-- NFL Model Picks UI v4 -->
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
@@ -97,10 +97,10 @@ button { font-family: inherit; cursor: pointer; }
 /* ── Header ────────────────────────────────────────────────── */
 .site-header {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 28px;
+  gap: 16px;
+  margin-bottom: 22px;
   padding-bottom: 18px;
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
@@ -112,8 +112,15 @@ button { font-family: inherit; cursor: pointer; }
   letter-spacing: .06em;
   text-transform: uppercase;
   color: var(--text);
+  margin-bottom: 4px;
 }
 .site-title span { color: var(--accent); }
+.header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
 .header-meta {
   display: flex;
   align-items: center;
@@ -151,6 +158,61 @@ button { font-family: inherit; cursor: pointer; }
   line-height: 1;
 }
 .theme-toggle:hover { color: var(--text); border-color: var(--border-hi); }
+
+/* ── Week picker ───────────────────────────────────────────── */
+.week-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.picker-label {
+  font-size: .72rem;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.picker-select {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: .78rem;
+  padding: 5px 10px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7a99'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 26px;
+}
+.picker-select:hover { border-color: var(--border-hi); }
+.picker-select:focus { outline: none; border-color: var(--accent); }
+
+/* ── Results summary bar ───────────────────────────────────── */
+.results-bar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  margin-bottom: 16px;
+  font-family: var(--font-mono);
+  font-size: .75rem;
+  flex-wrap: wrap;
+}
+.results-bar.hidden { display: none; }
+.results-stat { display: flex; flex-direction: column; gap: 1px; }
+.results-stat-label { color: var(--text-dim); font-size: .63rem; letter-spacing: .1em; text-transform: uppercase; }
+.results-stat-val { color: var(--text); font-size: .9rem; font-weight: 700; }
+.results-stat-val.good { color: var(--good); }
+.results-stat-val.bad { color: var(--bad); }
 
 /* ── Game card ─────────────────────────────────────────────── */
 .games { display: flex; flex-direction: column; gap: 14px; }
@@ -192,6 +254,15 @@ button { font-family: inherit; cursor: pointer; }
   letter-spacing: .08em;
   text-transform: uppercase;
 }
+.final-score {
+  font-family: var(--font-mono);
+  font-size: .8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-top: 3px;
+}
+.final-score.winner { color: var(--good); }
+.final-score.loser  { color: var(--text-dim); }
 .matchup-center {
   display: flex;
   flex-direction: column;
@@ -210,6 +281,16 @@ button { font-family: inherit; cursor: pointer; }
   white-space: nowrap;
 }
 .game-type-badge {
+  font-size: .62rem;
+  font-family: var(--font-mono);
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--surface-3);
+  color: var(--text-muted);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.final-badge {
   font-size: .62rem;
   font-family: var(--font-mono);
   padding: 1px 6px;
@@ -265,6 +346,18 @@ button { font-family: inherit; cursor: pointer; }
   font-size: .8rem;
   color: var(--text-muted);
 }
+.covered-pill {
+  display: inline-block;
+  font-size: .65rem;
+  font-family: var(--font-mono);
+  padding: 1px 7px;
+  border-radius: 3px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+.covered-pill.cover   { background: var(--good-dim); color: var(--good); border: 1px solid var(--good); }
+.covered-pill.nocover { background: var(--bad-dim);  color: var(--bad);  border: 1px solid var(--bad); }
 
 /* Model predictions */
 .models-section { padding: 12px 20px; border-bottom: 1px solid var(--border); }
@@ -283,7 +376,7 @@ button { font-family: inherit; cursor: pointer; }
   gap: 3px;
 }
 .model-chip.pick-home { border-color: var(--good); background: var(--good-dim); }
-.model-chip.pick-away { border-color: var(--bad); background: var(--bad-dim); }
+.model-chip.pick-away { border-color: var(--bad);  background: var(--bad-dim); }
 .model-name {
   font-size: .6rem;
   font-family: var(--font-mono);
@@ -307,6 +400,14 @@ button { font-family: inherit; cursor: pointer; }
   font-variant-numeric: tabular-nums;
   color: var(--text-muted);
 }
+.model-result {
+  font-size: .65rem;
+  font-family: var(--font-mono);
+  letter-spacing: .04em;
+  margin-top: 2px;
+}
+.model-result.correct { color: var(--good); }
+.model-result.wrong   { color: var(--bad); }
 
 /* Consensus banner */
 .consensus-banner {
@@ -384,19 +485,6 @@ button { font-family: inherit; cursor: pointer; }
 .val-pos { color: var(--good); }
 .val-neg { color: var(--bad); }
 .val-null { color: var(--text-dim); }
-.bar-cell { text-align: right; padding-right: 20px; }
-.edge-bar-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-}
-.edge-indicator {
-  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
-}
-.edge-home { background: var(--good); }
-.edge-away { background: var(--bad); }
-.edge-neutral { background: var(--neutral); }
 
 /* Loading / error */
 .state-msg {
@@ -413,6 +501,7 @@ button { font-family: inherit; cursor: pointer; }
   .pred-section { grid-template-columns: 1fr; }
   .pred-col + .pred-col { border-left: none; border-top: 1px solid var(--border); }
   .team-abbr { font-size: 1.3rem; }
+  .week-picker { gap: 6px; }
 }
 @media (max-width: 400px) {
   .models-grid { grid-template-columns: 1fr; }
@@ -424,14 +513,41 @@ button { font-family: inherit; cursor: pointer; }
   <header class="site-header">
     <div>
       <div class="site-title">NFL <span>MODEL</span> PICKS</div>
+      <div class="week-picker" id="week-picker" style="display:none">
+        <span class="picker-label">Season</span>
+        <select class="picker-select" id="season-select" onchange="onSeasonChange()"></select>
+        <span class="picker-label">Week</span>
+        <select class="picker-select" id="week-select" onchange="loadWeek()"></select>
+      </div>
     </div>
-    <div class="header-meta">
-      <span id="week-label" class="week-label"></span>
-      <span id="demo-badge" class="demo-badge" style="display:none">Demo</span>
-      <span id="generated-at"></span>
-      <button class="theme-toggle" onclick="toggleTheme()">Toggle theme</button>
+    <div class="header-right">
+      <div class="header-meta">
+        <span id="week-label" class="week-label"></span>
+        <span id="demo-badge" class="demo-badge" style="display:none">Demo</span>
+        <span id="generated-at"></span>
+        <button class="theme-toggle" onclick="toggleTheme()">Toggle theme</button>
+      </div>
     </div>
   </header>
+
+  <div id="results-bar" class="results-bar hidden">
+    <div class="results-stat">
+      <span class="results-stat-label">Record</span>
+      <span class="results-stat-val" id="res-record">—</span>
+    </div>
+    <div class="results-stat">
+      <span class="results-stat-label">ATS %</span>
+      <span class="results-stat-val" id="res-ats">—</span>
+    </div>
+    <div class="results-stat">
+      <span class="results-stat-label">Consensus Record</span>
+      <span class="results-stat-val" id="res-consensus">—</span>
+    </div>
+    <div class="results-stat">
+      <span class="results-stat-label">Week</span>
+      <span class="results-stat-val" id="res-week">—</span>
+    </div>
+  </div>
 
   <div id="games-container" class="games">
     <div class="state-msg">Loading picks…</div>
@@ -439,6 +555,9 @@ button { font-family: inherit; cursor: pointer; }
 </div>
 
 <script>
+// ── State ─────────────────────────────────────────────────────
+let INDEX = null;
+
 // ── Theme toggle ──────────────────────────────────────────────
 function toggleTheme() {
   const root = document.documentElement;
@@ -455,7 +574,7 @@ function fmtVal(val, fmt) {
       text = (v >= 0 ? '+' : '') + v.toFixed(3);
       cls = v > 0.02 ? 'val-pos' : v < -0.02 ? 'val-neg' : '';
       break;
-    case 'epa_inv': // lower = better for defense
+    case 'epa_inv':
       text = (v >= 0 ? '+' : '') + v.toFixed(3);
       cls = v < -0.02 ? 'val-pos' : v > 0.02 ? 'val-neg' : '';
       break;
@@ -486,13 +605,6 @@ function fmtVal(val, fmt) {
   return { text, cls };
 }
 
-function fmtSpread(val, team) {
-  if (val === null || val === undefined) return '—';
-  const v = parseFloat(val);
-  const sign = v > 0 ? '+' : '';
-  return `${team} ${sign}${v.toFixed(1)}`;
-}
-
 function fmtDate(str) {
   if (!str) return '';
   try {
@@ -501,18 +613,95 @@ function fmtDate(str) {
   } catch { return str; }
 }
 
-function edgeClass(edge, isHome) {
-  if (edge === null || edge === undefined) return 'edge-neutral';
-  // edge = predicted_margin - spread_line
-  // positive edge = model predicts home covers more than spread implies
-  const favorsHome = parseFloat(edge) > 0;
-  if ((favorsHome && isHome) || (!favorsHome && !isHome)) return 'edge-home';
-  return 'edge-away';
+// ── Week picker ───────────────────────────────────────────────
+function populateSeasons(seasons) {
+  const sel = document.getElementById('season-select');
+  sel.innerHTML = seasons.map(s =>
+    `<option value="${s.season}">${s.season}</option>`
+  ).join('');
+}
+
+function populateWeeks(weeks) {
+  const sel = document.getElementById('week-select');
+  const PLAYOFF_LABELS = { 19: 'WC', 20: 'DIV', 21: 'CON', 22: 'SB' };
+  sel.innerHTML = weeks.map(w => {
+    const label = w <= 18 ? `Week ${w}` : (PLAYOFF_LABELS[w] || `Week ${w}`);
+    return `<option value="${w}">${label}</option>`;
+  }).join('');
+}
+
+function onSeasonChange() {
+  const season = parseInt(document.getElementById('season-select').value);
+  const entry = INDEX.seasons.find(s => s.season === season);
+  if (!entry) return;
+  populateWeeks(entry.weeks);
+  // Default to last week of season
+  document.getElementById('week-select').value = entry.weeks[entry.weeks.length - 1];
+  loadWeek();
+}
+
+async function loadWeek() {
+  const season = document.getElementById('season-select').value;
+  const week = document.getElementById('week-select').value;
+  if (!season || !week) return;
+
+  const container = document.getElementById('games-container');
+  container.innerHTML = '<div class="state-msg">Loading…</div>';
+  document.getElementById('results-bar').classList.add('hidden');
+
+  try {
+    const res = await fetch(`./data/${season}/week_${week}.json`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    renderData(data);
+  } catch (e) {
+    container.innerHTML = `<div class="state-msg">Could not load week data<br><small>${e.message}</small></div>`;
+  }
+}
+
+// ── Results summary ───────────────────────────────────────────
+function renderResultsBar(games) {
+  const hasResults = games.some(g => g.result !== null);
+  if (!hasResults) {
+    document.getElementById('results-bar').classList.add('hidden');
+    return;
+  }
+
+  // Count across all 3 models per game
+  let wins = 0, losses = 0, conWins = 0, conLosses = 0;
+  games.forEach(g => {
+    if (!g.result) return;
+    const models = Object.values(g.predictions.models);
+    const correctList = models.map(m => m.correct).filter(c => c !== null && c !== undefined);
+    correctList.forEach(c => c ? wins++ : losses++);
+
+    if (g.predictions.consensus) {
+      const correct = models[0].correct;
+      if (correct === true) conWins++;
+      else if (correct === false) conLosses++;
+    }
+  });
+
+  const total = wins + losses;
+  const pct = total > 0 ? (wins / total * 100).toFixed(1) : '—';
+  const atsGood = total > 0 && parseFloat(pct) >= 52.4;
+
+  document.getElementById('res-record').textContent = `${wins}-${losses}`;
+  const atsEl = document.getElementById('res-ats');
+  atsEl.textContent = total > 0 ? `${pct}%` : '—';
+  atsEl.className = 'results-stat-val' + (total > 0 ? (atsGood ? ' good' : ' bad') : '');
+  document.getElementById('res-consensus').textContent =
+    (conWins + conLosses > 0) ? `${conWins}-${conLosses}` : '—';
+  document.getElementById('res-week').textContent =
+    document.getElementById('week-label').textContent;
+
+  document.getElementById('results-bar').classList.remove('hidden');
 }
 
 // ── Render ────────────────────────────────────────────────────
 function renderGame(game, idx) {
   const p = game.predictions;
+  const r = game.result;
   const modelKeys = Object.keys(p.models);
 
   // Per-model chips
@@ -527,10 +716,14 @@ function renderGame(game, idx) {
     const isHome = m.pick === game.home_team;
     const cls = isHome ? 'pick-home' : 'pick-away';
     const edgeStr = m.edge !== null ? `Edge: ${m.edge > 0 ? '+' : ''}${m.edge.toFixed(1)}` : '';
+    let resultHTML = '';
+    if (m.correct === true)  resultHTML = '<span class="model-result correct">✓ Correct</span>';
+    if (m.correct === false) resultHTML = '<span class="model-result wrong">✗ Wrong</span>';
     return `<div class="model-chip ${cls}">
       <span class="model-name">${m.label}</span>
       <span class="model-pick">${m.pick || '—'}</span>
       <span class="model-edge">${edgeStr}</span>
+      ${resultHTML}
     </div>`;
   }).join('');
 
@@ -542,11 +735,33 @@ function renderGame(game, idx) {
       </div>`
     : '';
 
+  // Final score display
+  let awayScoreHTML = '';
+  let homeScoreHTML = '';
+  let finalBadge = '';
+  if (r) {
+    const homeWon = r.margin > 0;
+    awayScoreHTML = `<div class="final-score ${homeWon ? 'loser' : 'winner'}">${r.away_score}</div>`;
+    homeScoreHTML = `<div class="final-score ${homeWon ? 'winner' : 'loser'}">${r.home_score}</div>`;
+    finalBadge = '<span class="final-badge">Final</span>';
+  }
+
+  // Spread covered pill
+  let coveredHTML = '';
+  if (r && r.home_covered !== null) {
+    if (r.home_covered) {
+      coveredHTML = `<span class="covered-pill cover">${game.home_team} covered</span>`;
+    } else {
+      const awayMargin = -r.margin;
+      const spreadAbs = game.spread_line !== null ? Math.abs(game.spread_line) : null;
+      coveredHTML = `<span class="covered-pill nocover">${game.home_team} didn't cover</span>`;
+    }
+  }
+
   // Stats table rows
   const awayStats = game.away_stats;
   const homeStats = game.home_stats;
   const statKeys = Object.keys(awayStats);
-
   const statRows = statKeys.map(col => {
     const a = awayStats[col];
     const h = homeStats[col];
@@ -559,7 +774,8 @@ function renderGame(game, idx) {
     </tr>`;
   }).join('');
 
-  const gameTypeLabel = game.game_type !== 'REG' ? `<span class="game-type-badge">${game.game_type}</span>` : '';
+  const gameTypeLabel = game.game_type !== 'REG'
+    ? `<span class="game-type-badge">${game.game_type}</span>` : '';
   const consensusClass = p.consensus ? 'consensus' : '';
 
   return `
@@ -568,15 +784,18 @@ function renderGame(game, idx) {
     <div class="team-block away">
       <div class="team-abbr">${game.away_team}</div>
       <div class="team-role">Away</div>
+      ${awayScoreHTML}
     </div>
     <div class="matchup-center">
       <span class="at-sign">@</span>
       <span class="gameday-str">${fmtDate(game.gameday)}</span>
       ${gameTypeLabel}
+      ${finalBadge}
     </div>
     <div class="team-block home">
       <div class="team-abbr">${game.home_team}</div>
       <div class="team-role">Home</div>
+      ${homeScoreHTML}
     </div>
   </div>
 
@@ -590,6 +809,7 @@ function renderGame(game, idx) {
           : `<span class="spread-val val-null">—</span>`}
       </div>
       ${game.total_line !== null ? `<span class="total-line">O/U ${game.total_line.toFixed(1)}</span>` : ''}
+      ${coveredHTML}
     </div>
     <div class="pred-col">
       <span class="pred-label">Model avg margin</span>
@@ -632,26 +852,60 @@ function toggleStats(idx) {
   btn.textContent = isOpen ? '▴ Hide matchup stats' : '▾ Show matchup stats';
 }
 
-// ── Load data ─────────────────────────────────────────────────
+function renderData(data) {
+  document.getElementById('week-label').textContent = data.week_label || '';
+  document.getElementById('generated-at').textContent = data.generated_at || '';
+  document.getElementById('demo-badge').style.display = data.demo_mode ? '' : 'none';
+
+  const container = document.getElementById('games-container');
+  if (!data.games || data.games.length === 0) {
+    container.innerHTML = '<div class="state-msg">No games found for this week.</div>';
+    return;
+  }
+
+  container.innerHTML = data.games.map((g, i) => renderGame(g, i)).join('');
+  renderResultsBar(data.games);
+}
+
+// ── Load index and init ───────────────────────────────────────
 async function init() {
   const container = document.getElementById('games-container');
   try {
-    const res = await fetch('./data/predictions.json');
+    const res = await fetch('./data/index.json');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    INDEX = await res.json();
 
-    document.getElementById('week-label').textContent = data.week_label || '';
-    document.getElementById('generated-at').textContent = data.generated_at || '';
-    if (data.demo_mode) document.getElementById('demo-badge').style.display = '';
+    populateSeasons(INDEX.seasons);
 
-    if (!data.games || data.games.length === 0) {
-      container.innerHTML = '<div class="state-msg">No games found for this week.</div>';
-      return;
+    // Select default season/week from index
+    if (INDEX.default) {
+      document.getElementById('season-select').value = INDEX.default.season;
     }
 
-    container.innerHTML = data.games.map((g, i) => renderGame(g, i)).join('');
+    // Populate weeks for selected season
+    const selSeason = parseInt(document.getElementById('season-select').value);
+    const entry = INDEX.seasons.find(s => s.season === selSeason);
+    if (entry) {
+      populateWeeks(entry.weeks);
+      if (INDEX.default) {
+        document.getElementById('week-select').value = INDEX.default.week;
+      } else {
+        document.getElementById('week-select').value = entry.weeks[entry.weeks.length - 1];
+      }
+    }
+
+    document.getElementById('week-picker').style.display = '';
+    await loadWeek();
   } catch (e) {
-    container.innerHTML = `<div class="state-msg">Could not load predictions.json<br><small>${e.message}</small></div>`;
+    // Fallback: try legacy predictions.json
+    try {
+      const res2 = await fetch('./data/predictions.json');
+      if (!res2.ok) throw new Error(`HTTP ${res2.status}`);
+      const data = await res2.json();
+      renderData(data);
+    } catch (e2) {
+      container.innerHTML = `<div class="state-msg">Could not load predictions<br><small>${e2.message}</small></div>`;
+    }
   }
 }
 
