@@ -686,10 +686,6 @@ function renderResultsBar(games) {
     else if (model.correct === false) conLosses++;
   });
 
-  const total = wins + losses;
-  const pct = total > 0 ? (wins / total * 100).toFixed(1) : '—';
-  const atsGood = total > 0 && parseFloat(pct) >= 52.4;
-
   // Units at -110: each win = +1/1.1, each loss = -1
   const conTotal = conWins + conLosses;
   const conUnits = conWins / 1.1 - conLosses;
