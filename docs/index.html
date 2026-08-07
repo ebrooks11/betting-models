@@ -228,14 +228,23 @@ button { font-family: inherit; cursor: pointer; }
   background: linear-gradient(135deg, var(--consensus-bg) 0%, var(--surface) 60%);
 }
 
+/* Card row: matchup + spread + model all on one line */
+.card-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+}
+
 /* Matchup bar */
 .matchup-bar {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 12px;
-  padding: 16px 20px 12px;
-  border-bottom: 1px solid var(--border);
+  padding: 14px 16px;
+  border-right: 1px solid var(--border);
+  flex: 1 1 0;
+  min-width: 0;
 }
 .team-block { display: flex; flex-direction: column; gap: 2px; }
 .team-block.away { text-align: right; }
@@ -307,18 +316,18 @@ button { font-family: inherit; cursor: pointer; }
   letter-spacing: .04em;
 }
 
-/* Prediction row */
+/* Prediction columns */
 .pred-section {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0;
-  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex: 0 0 auto;
 }
 .pred-col {
-  padding: 12px 20px;
+  padding: 12px 16px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  justify-content: center;
+  min-width: 130px;
 }
 .pred-col + .pred-col {
   border-left: 1px solid var(--border);
@@ -515,14 +524,12 @@ button { font-family: inherit; cursor: pointer; }
 
 /* Responsive */
 @media (max-width: 600px) {
-  .models-grid { grid-template-columns: 1fr 1fr; }
-  .pred-section { grid-template-columns: 1fr; }
+  .card-row { flex-direction: column; }
+  .matchup-bar { border-right: none; border-bottom: 1px solid var(--border); }
+  .pred-section { flex-direction: column; }
   .pred-col + .pred-col { border-left: none; border-top: 1px solid var(--border); }
   .team-abbr { font-size: 1.3rem; }
   .week-picker { gap: 6px; }
-}
-@media (max-width: 400px) {
-  .models-grid { grid-template-columns: 1fr; }
 }
 </style>
 </head>
@@ -778,6 +785,7 @@ function renderGame(game, idx) {
 
   return `
 <article class="game-card" id="game-${idx}">
+  <div class="card-row">
   <div class="matchup-bar">
     <div class="team-block away">
       <div class="team-abbr">${game.away_team}</div>
@@ -818,6 +826,7 @@ function renderGame(game, idx) {
       <span class="pred-label">Model</span>
       ${modelChip}
     </div>
+  </div>
   </div>
 
   <div class="stats-toggle-row">
