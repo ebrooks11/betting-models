@@ -752,13 +752,11 @@ function renderGame(game, idx) {
   // Spread covered pill
   let coveredHTML = '';
   if (r && r.home_covered !== null) {
-    if (r.home_covered) {
-      coveredHTML = `<span class="covered-pill cover">${game.home_team} covered</span>`;
-    } else {
-      const awayMargin = -r.margin;
-      const spreadAbs = game.spread_line !== null ? Math.abs(game.spread_line) : null;
-      coveredHTML = `<span class="covered-pill nocover">${game.home_team} didn't cover</span>`;
-    }
+    const pickCovered = m && m.pick
+      ? (m.pick === game.home_team ? r.home_covered : !r.home_covered)
+      : r.home_covered;
+    const coverTeam = r.home_covered ? game.home_team : game.away_team;
+    coveredHTML = `<span class="covered-pill ${pickCovered ? 'cover' : 'nocover'}">${coverTeam} covered</span>`;
   }
 
   // Stats table rows
