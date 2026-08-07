@@ -394,6 +394,13 @@ button { font-family: inherit; cursor: pointer; }
 }
 .model-chip.pick-home .model-pick { color: var(--good); }
 .model-chip.pick-away .model-pick { color: var(--bad); }
+.model-margin {
+  font-size: .78rem;
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  opacity: .75;
+}
 .model-edge {
   font-family: var(--font-mono);
   font-size: .7rem;
@@ -715,13 +722,16 @@ function renderGame(game, idx) {
     }
     const isHome = m.pick === game.home_team;
     const cls = isHome ? 'pick-home' : 'pick-away';
+    const marginStr = m.predicted_margin !== null
+      ? `${m.predicted_margin > 0 ? '+' : ''}${m.predicted_margin.toFixed(1)}`
+      : '—';
     const edgeStr = m.edge !== null ? `Edge: ${m.edge > 0 ? '+' : ''}${m.edge.toFixed(1)}` : '';
     let resultHTML = '';
     if (m.correct === true)  resultHTML = '<span class="model-result correct">✓ Correct</span>';
     if (m.correct === false) resultHTML = '<span class="model-result wrong">✗ Wrong</span>';
     return `<div class="model-chip ${cls}">
       <span class="model-name">${m.label}</span>
-      <span class="model-pick">${m.pick || '—'}</span>
+      <span class="model-pick">${m.pick || '—'} <span class="model-margin">${marginStr}</span></span>
       <span class="model-edge">${edgeStr}</span>
       ${resultHTML}
     </div>`;
