@@ -829,8 +829,14 @@ function renderGame(game, idx) {
       <span class="pred-label">Book spread</span>
       <div class="spread-row">
         ${game.spread_line !== null
-          ? `<span class="spread-val">${Math.abs(game.spread_line).toFixed(1)}</span>
-             <span class="spread-team">${game.spread_line < 0 ? game.away_team : game.spread_line > 0 ? game.home_team : 'PK'} favored</span>`
+          ? (() => {
+              if (game.spread_line === 0) return `<span class="spread-val">PK</span>`;
+              const favTeam = game.spread_line > 0 ? game.home_team : game.away_team;
+              const underdog = game.spread_line > 0 ? game.away_team : game.home_team;
+              const favNum = `-${Math.abs(game.spread_line).toFixed(1)}`;
+              const dogNum = `+${Math.abs(game.spread_line).toFixed(1)}`;
+              return `<span class="spread-val">${favTeam} ${favNum}</span><span class="spread-team">${underdog} ${dogNum}</span>`;
+            })()
           : `<span class="spread-val val-null">—</span>`}
       </div>
       ${game.total_line !== null ? `<span class="total-line">O/U ${game.total_line.toFixed(1)}</span>` : ''}
