@@ -557,6 +557,14 @@ button { font-family: inherit; cursor: pointer; }
       <span class="results-stat-val" id="res-ats">—</span>
     </div>
     <div class="results-stat">
+      <span class="results-stat-label">Units (Overall)</span>
+      <span class="results-stat-val" id="res-units">—</span>
+    </div>
+    <div class="results-stat">
+      <span class="results-stat-label">Units (Consensus)</span>
+      <span class="results-stat-val" id="res-con-units">—</span>
+    </div>
+    <div class="results-stat">
       <span class="results-stat-label">Week</span>
       <span class="results-stat-val" id="res-week">—</span>
     </div>
@@ -699,12 +707,32 @@ function renderResultsBar(games) {
   const pct = total > 0 ? (wins / total * 100).toFixed(1) : '—';
   const atsGood = total > 0 && parseFloat(pct) >= 52.4;
 
+  // Units at -110: each win = +1/1.1, each loss = -1
+  const units = wins / 1.1 - losses;
+  const conUnits = conWins / 1.1 - conLosses;
+
+  function fmtUnits(u, n) {
+    if (n === 0) return '—';
+    const s = (u >= 0 ? '+' : '') + u.toFixed(1) + 'u';
+    return s;
+  }
+
   document.getElementById('res-record').textContent = `${wins}-${losses}`;
   const atsEl = document.getElementById('res-ats');
   atsEl.textContent = total > 0 ? `${pct}%` : '—';
   atsEl.className = 'results-stat-val' + (total > 0 ? (atsGood ? ' good' : ' bad') : '');
   document.getElementById('res-consensus').textContent =
     (conWins + conLosses > 0) ? `${conWins}-${conLosses}` : '—';
+
+  const unitsEl = document.getElementById('res-units');
+  unitsEl.textContent = fmtUnits(units, total);
+  unitsEl.className = 'results-stat-val' + (total > 0 ? (units >= 0 ? ' good' : ' bad') : '');
+
+  const conUnitsEl = document.getElementById('res-con-units');
+  const conTotal = conWins + conLosses;
+  conUnitsEl.textContent = fmtUnits(conUnits, conTotal);
+  conUnitsEl.className = 'results-stat-val' + (conTotal > 0 ? (conUnits >= 0 ? ' good' : ' bad') : '');
+
   document.getElementById('res-week').textContent =
     document.getElementById('week-label').textContent;
 

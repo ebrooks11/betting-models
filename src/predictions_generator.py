@@ -265,8 +265,6 @@ def generate_week(
         label = f"Week {week} · {season} Season"
     else:
         label = f"{game_type} · {season} Season"
-    if is_completed:
-        label += " (final)"
 
     # For historical/completed weeks, use features at that specific week
     # For future weeks, use latest available features
