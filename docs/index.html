@@ -845,8 +845,16 @@ function renderGame(game, idx) {
     <div class="pred-col">
       <span class="pred-label">Model avg margin</span>
       <div class="spread-row">
-        <span class="spread-val">${p.avg_predicted_margin !== null ? (p.avg_predicted_margin > 0 ? '+' : '') + p.avg_predicted_margin.toFixed(1) : '—'}</span>
-        <span class="spread-team">${p.avg_predicted_margin > 0 ? game.home_team : game.away_team} edge</span>
+        ${p.avg_predicted_margin !== null
+          ? (() => {
+              if (p.avg_predicted_margin === 0) return `<span class="spread-val">PK</span>`;
+              const favTeam = p.avg_predicted_margin > 0 ? game.home_team : game.away_team;
+              const underdog = p.avg_predicted_margin > 0 ? game.away_team : game.home_team;
+              const favNum = `-${Math.abs(p.avg_predicted_margin).toFixed(1)}`;
+              const dogNum = `+${Math.abs(p.avg_predicted_margin).toFixed(1)}`;
+              return `<span class="spread-val">${favTeam} ${favNum}</span><span class="spread-team">${underdog} ${dogNum}</span>`;
+            })()
+          : `<span class="spread-val val-null">—</span>`}
       </div>
     </div>
   </div>
