@@ -728,9 +728,16 @@ function renderGame(game, idx) {
     }
     const isHome = m.pick === game.home_team;
     const cls = isHome ? 'pick-home' : 'pick-away';
-    const marginStr = m.predicted_margin !== null
-      ? `-${Math.abs(m.predicted_margin).toFixed(1)}`
-      : '—';
+    // Show margin from the pick team's perspective in spread notation.
+    // predicted_margin is always home-team perspective (positive = home wins).
+    // When pick=away, negate so positive means away wins, then format as spread.
+    let marginStr = '—';
+    if (m.predicted_margin !== null) {
+      const pickMargin = (m.pick === game.home_team) ? m.predicted_margin : -m.predicted_margin;
+      marginStr = pickMargin >= 0
+        ? `-${pickMargin.toFixed(1)}`   // pick is favored / expected to win
+        : `+${Math.abs(pickMargin).toFixed(1)}`; // pick is underdog but covers
+    }
     const edgeStr = m.edge !== null ? `Edge: ${m.edge > 0 ? '+' : ''}${m.edge.toFixed(1)}` : '';
     const betStr = m.pick ? `Bet on ${m.pick}` : '';
     let resultHTML = '';

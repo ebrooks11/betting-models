@@ -172,11 +172,19 @@ def _build_game_entry(g: pd.Series, home_row: pd.Series, away_row: pd.Series,
     valid_preds = []
     for key, pred in raw_preds.items():
         spread = g.get("spread_line")
-        edge = round(pred - float(spread), 1) if pred is not None and pd.notna(spread) else None
         if pred is not None:
             pick = home if pred > (float(spread) if pd.notna(spread) else 0) else away
         else:
             pick = None
+        # Edge = how much the pick covers the spread (always positive when pick is correct).
+        # predicted_margin is home-team perspective, spread_line is home-team perspective.
+        # When pick=home: edge = pred - spread (positive = home covers by that much)
+        # When pick=away: edge = spread - pred (positive = away covers by that much)
+        if pred is not None and pd.notna(spread):
+            spread_f = float(spread)
+            edge = round(pred - spread_f, 1) if pick == home else round(spread_f - pred, 1)
+        else:
+            edge = None
         model_result = None
         if is_completed and pick is not None and pd.notna(g.get("home_score")):
             margin = float(g["home_score"]) - float(g["away_score"])
