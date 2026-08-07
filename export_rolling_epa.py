@@ -536,6 +536,35 @@ game_epa["point_diff_rolling_w5"] = (
     game_epa.groupby(["team", "season"])["point_diff"]
     .transform(lambda x: x.shift(1).rolling(WINDOW5, min_periods=1).mean())
 )
+# Strength of schedule: rolling avg of opponent's point_diff_rolling going into each game.
+# Build a team-game table (all game types, home + away perspective) to get opponent per game.
+all_games = schedules[schedules["game_type"].isin(["REG", "WC", "DIV", "CON", "SB"])].copy()
+all_games["home_team"] = all_games["home_team"].replace(TEAM_MAP)
+all_games["away_team"] = all_games["away_team"].replace(TEAM_MAP)
+all_team_games_home = all_games[["season", "week", "home_team", "away_team"]].rename(
+    columns={"home_team": "team", "away_team": "opponent"}
+)
+all_team_games_away = all_games[["season", "week", "away_team", "home_team"]].rename(
+    columns={"away_team": "team", "home_team": "opponent"}
+)
+all_team_games = pd.concat([all_team_games_home, all_team_games_away], ignore_index=True)
+
+# Join opponent's point_diff_rolling (their form going into this game)
+opp_strength = game_epa[["season", "week", "team", "point_diff_rolling"]].rename(
+    columns={"team": "opponent", "point_diff_rolling": "opp_pd_rolling"}
+)
+all_team_games = all_team_games.merge(opp_strength, on=["season", "week", "opponent"], how="left")
+
+game_epa = game_epa.merge(
+    all_team_games[["season", "week", "team", "opp_pd_rolling"]],
+    on=["season", "week", "team"], how="left"
+)
+game_epa = game_epa.sort_values(["team", "season", "week"]).reset_index(drop=True)
+game_epa["sos_rolling"] = (
+    game_epa.groupby(["team", "season"])["opp_pd_rolling"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
+
 game_epa["to_diff"] = game_epa["turnovers_forced"] - game_epa["turnovers_committed"]
 game_epa["to_diff_rolling"] = (
     game_epa.groupby(["team", "season"])["to_diff"]
@@ -845,7 +874,8 @@ result = game_epa[["season", "week", "team",
                     "turnovers_committed", "turnovers_forced", "to_diff", "to_diff_rolling",
                     "turnovers_committed_rolling", "turnovers_committed_expanding",
                     "qbr_expanding",
-                    "qb_off_11_epa_expanding", "qb_off_12_epa_expanding"]].copy()
+                    "qb_off_11_epa_expanding", "qb_off_12_epa_expanding",
+                    "opp_pd_rolling", "sos_rolling"]].copy()
 result = result.sort_values(["season", "week", "team"]).reset_index(drop=True)
 
 out_path = Path("exports/features.parquet")
