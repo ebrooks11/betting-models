@@ -300,6 +300,12 @@ button { font-family: inherit; cursor: pointer; }
   letter-spacing: .06em;
   text-transform: uppercase;
 }
+.final-margin {
+  font-size: .62rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  letter-spacing: .04em;
+}
 
 /* Prediction row */
 .pred-section {
@@ -746,17 +752,9 @@ function renderGame(game, idx) {
     const homeWon = r.margin > 0;
     awayScoreHTML = `<div class="final-score ${homeWon ? 'loser' : 'winner'}">${r.away_score}</div>`;
     homeScoreHTML = `<div class="final-score ${homeWon ? 'winner' : 'loser'}">${r.home_score}</div>`;
-    finalBadge = '<span class="final-badge">Final</span>';
-  }
-
-  // Spread covered pill
-  let coveredHTML = '';
-  if (r && r.home_covered !== null) {
-    const pickCovered = m && m.pick
-      ? (m.pick === game.home_team ? r.home_covered : !r.home_covered)
-      : r.home_covered;
-    const coverTeam = r.home_covered ? game.home_team : game.away_team;
-    coveredHTML = `<span class="covered-pill ${pickCovered ? 'cover' : 'nocover'}">${coverTeam} covered</span>`;
+    const winTeam = homeWon ? game.home_team : game.away_team;
+    const marginAbs = Math.abs(r.margin);
+    finalBadge = `<span class="final-badge">Final</span><span class="final-margin">${winTeam} by ${marginAbs}</span>`;
   }
 
   // Stats table rows
@@ -815,7 +813,6 @@ function renderGame(game, idx) {
           : `<span class="spread-val val-null">—</span>`}
       </div>
       ${game.total_line !== null ? `<span class="total-line">O/U ${game.total_line.toFixed(1)}</span>` : ''}
-      ${coveredHTML}
     </div>
     <div class="pred-col">
       <span class="pred-label">Model</span>
