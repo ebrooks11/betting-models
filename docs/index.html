@@ -545,7 +545,7 @@ button { font-family: inherit; cursor: pointer; }
 
   <div id="results-bar" class="results-bar hidden">
     <div class="results-stat">
-      <span class="results-stat-label">Consensus Record</span>
+      <span class="results-stat-label">Record</span>
       <span class="results-stat-val" id="res-consensus">—</span>
     </div>
 
@@ -677,19 +677,13 @@ function renderResultsBar(games) {
     return;
   }
 
-  // Count across all 3 models per game
-  let wins = 0, losses = 0, conWins = 0, conLosses = 0;
+  let conWins = 0, conLosses = 0;
   games.forEach(g => {
     if (!g.result) return;
-    const models = Object.values(g.predictions.models);
-    const correctList = models.map(m => m.correct).filter(c => c !== null && c !== undefined);
-    correctList.forEach(c => c ? wins++ : losses++);
-
-    if (g.predictions.consensus) {
-      const correct = models[0].correct;
-      if (correct === true) conWins++;
-      else if (correct === false) conLosses++;
-    }
+    const model = Object.values(g.predictions.models)[0];
+    if (!model) return;
+    if (model.correct === true) conWins++;
+    else if (model.correct === false) conLosses++;
   });
 
   const total = wins + losses;
@@ -697,24 +691,18 @@ function renderResultsBar(games) {
   const atsGood = total > 0 && parseFloat(pct) >= 52.4;
 
   // Units at -110: each win = +1/1.1, each loss = -1
-  const units = wins / 1.1 - losses;
+  const conTotal = conWins + conLosses;
   const conUnits = conWins / 1.1 - conLosses;
 
   function fmtUnits(u, n) {
     if (n === 0) return '—';
-    const s = (u >= 0 ? '+' : '') + u.toFixed(1) + 'u';
-    return s;
+    return (u >= 0 ? '+' : '') + u.toFixed(1) + 'u';
   }
 
-  document.getElementById('res-record').textContent = `${wins}-${losses}`;
-  const atsEl = document.getElementById('res-ats');
-  atsEl.textContent = total > 0 ? `${pct}%` : '—';
-  atsEl.className = 'results-stat-val' + (total > 0 ? (atsGood ? ' good' : ' bad') : '');
   document.getElementById('res-consensus').textContent =
-    (conWins + conLosses > 0) ? `${conWins}-${conLosses}` : '—';
+    conTotal > 0 ? `${conWins}-${conLosses}` : '—';
 
   const conUnitsEl = document.getElementById('res-con-units');
-  const conTotal = conWins + conLosses;
   conUnitsEl.textContent = fmtUnits(conUnits, conTotal);
   conUnitsEl.className = 'results-stat-val' + (conTotal > 0 ? (conUnits >= 0 ? ' good' : ' bad') : '');
 
@@ -730,48 +718,30 @@ function renderGame(game, idx) {
   const r = game.result;
   const modelKeys = Object.keys(p.models);
 
-  // Per-model chips
-  const modelChips = modelKeys.map(key => {
-    const m = p.models[key];
-    if (!m.predicted_margin) {
-      return `<div class="model-chip">
-        <span class="model-name">${m.label}</span>
-        <span class="model-pick val-null">N/A</span>
-      </div>`;
-    }
+  // Single model chip
+  const m = Object.values(p.models)[0];
+  let modelChip = '';
+  if (!m || !m.predicted_margin) {
+    modelChip = `<div class="model-chip"><span class="model-pick val-null">N/A</span></div>`;
+  } else {
     const isHome = m.pick === game.home_team;
     const cls = isHome ? 'pick-home' : 'pick-away';
-    // Show margin from the pick team's perspective in spread notation.
-    // predicted_margin is always home-team perspective (positive = home wins).
-    // When pick=away, negate so positive means away wins, then format as spread.
-    let marginStr = '—';
-    if (m.predicted_margin !== null) {
-      const pickMargin = (m.pick === game.home_team) ? m.predicted_margin : -m.predicted_margin;
-      marginStr = pickMargin >= 0
-        ? `-${pickMargin.toFixed(1)}`   // pick is favored / expected to win
-        : `+${Math.abs(pickMargin).toFixed(1)}`; // pick is underdog but covers
-    }
+    const pickMargin = isHome ? m.predicted_margin : -m.predicted_margin;
+    const marginStr = pickMargin >= 0
+      ? `-${pickMargin.toFixed(1)}`
+      : `+${Math.abs(pickMargin).toFixed(1)}`;
     const edgeStr = m.edge !== null ? `Edge: ${m.edge > 0 ? '+' : ''}${m.edge.toFixed(1)}` : '';
     const betStr = m.pick ? `Bet on ${m.pick}` : '';
     let resultHTML = '';
     if (m.correct === true)  resultHTML = '<span class="model-result correct">✓ Correct</span>';
     if (m.correct === false) resultHTML = '<span class="model-result wrong">✗ Wrong</span>';
-    return `<div class="model-chip ${cls}">
-      <span class="model-name">${m.label}</span>
+    modelChip = `<div class="model-chip ${cls}">
       <span class="model-pick">${m.pick || '—'} <span class="model-margin">${marginStr}</span></span>
       <span class="model-bet">${betStr}</span>
       <span class="model-edge">${edgeStr}</span>
       ${resultHTML}
     </div>`;
-  }).join('');
-
-  // Consensus banner
-  const consensusBanner = p.consensus
-    ? `<div class="consensus-banner">
-        <span class="consensus-dot"></span>
-        All 3 models agree · ${p.consensus_pick} · avg ${p.avg_predicted_margin > 0 ? '+' : ''}${p.avg_predicted_margin?.toFixed(1)}
-      </div>`
-    : '';
+  }
 
   // Final score display
   let awayScoreHTML = '';
@@ -814,10 +784,9 @@ function renderGame(game, idx) {
 
   const gameTypeLabel = game.game_type !== 'REG'
     ? `<span class="game-type-badge">${game.game_type}</span>` : '';
-  const consensusClass = p.consensus ? 'consensus' : '';
 
   return `
-<article class="game-card ${consensusClass}" id="game-${idx}">
+<article class="game-card" id="game-${idx}">
   <div class="matchup-bar">
     <div class="team-block away">
       <div class="team-abbr">${game.away_team}</div>
@@ -873,10 +842,8 @@ function renderGame(game, idx) {
   </div>
 
   <div class="models-section">
-    <div class="models-grid">${modelChips}</div>
+    <div class="models-grid">${modelChip}</div>
   </div>
-
-  ${consensusBanner}
 
   <div class="stats-toggle-row">
     <button class="stats-toggle-btn" onclick="toggleStats(${idx})">▾ Show matchup stats</button>

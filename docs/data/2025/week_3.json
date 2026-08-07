@@ -1,11 +1,173 @@
 {
-  "generated_at": "2026-08-07 17:20 UTC",
+  "generated_at": "2026-08-07 17:28 UTC",
   "week_label": "Week 3 \u00b7 2025 Season",
   "season": 2025,
   "week": 3,
   "completed": true,
   "demo_mode": false,
   "games": [
+    {
+      "away_team": "IND",
+      "home_team": "TEN",
+      "gameday": "2025-09-21",
+      "game_type": "REG",
+      "spread_line": -6.0,
+      "total_line": 43.5,
+      "predictions": {
+        "models": {
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
+            "predicted_margin": -10.5,
+            "edge": 4.5,
+            "pick": "IND",
+            "correct": true
+          }
+        },
+        "avg_predicted_margin": -10.5,
+        "consensus": true,
+        "consensus_pick": "IND"
+      },
+      "home_stats": {
+        "off_11_epa_rolling": {
+          "label": "OFF EPA (11 personnel)",
+          "value": -0.228,
+          "format": "epa"
+        },
+        "off_12_epa_rolling": {
+          "label": "OFF EPA (12 personnel)",
+          "value": -0.183,
+          "format": "epa"
+        },
+        "qb_off_11_epa_rolling": {
+          "label": "QB EPA (11 personnel)",
+          "value": -0.287,
+          "format": "epa"
+        },
+        "qb_off_12_epa_rolling": {
+          "label": "QB EPA (12 personnel)",
+          "value": -0.075,
+          "format": "epa"
+        },
+        "off_epa_rolling": {
+          "label": "Overall OFF EPA",
+          "value": -0.267,
+          "format": "epa"
+        },
+        "def_epa_rolling": {
+          "label": "DEF EPA allowed",
+          "value": 0.098,
+          "format": "epa_inv"
+        },
+        "def_vs_12_epa_rolling": {
+          "label": "DEF vs 12 personnel",
+          "value": -0.045,
+          "format": "epa_inv"
+        },
+        "qbr_rolling": {
+          "label": "QBR",
+          "value": 19.0,
+          "format": "qbr"
+        },
+        "cpoe_rolling": {
+          "label": "CPOE",
+          "value": -8.695,
+          "format": "pct"
+        },
+        "point_diff_rolling": {
+          "label": "Point Differential",
+          "value": -11.0,
+          "format": "pts"
+        },
+        "turnovers_committed_rolling": {
+          "label": "Turnovers Committed",
+          "value": 2.0,
+          "format": "to"
+        },
+        "off_11_rate_rolling": {
+          "label": "11 Personnel Rate",
+          "value": 0.808,
+          "format": "rate"
+        },
+        "off_12_rate_rolling": {
+          "label": "12 Personnel Rate",
+          "value": 0.168,
+          "format": "rate"
+        }
+      },
+      "away_stats": {
+        "off_11_epa_rolling": {
+          "label": "OFF EPA (11 personnel)",
+          "value": 0.296,
+          "format": "epa"
+        },
+        "off_12_epa_rolling": {
+          "label": "OFF EPA (12 personnel)",
+          "value": 0.136,
+          "format": "epa"
+        },
+        "qb_off_11_epa_rolling": {
+          "label": "QB EPA (11 personnel)",
+          "value": 0.18,
+          "format": "epa"
+        },
+        "qb_off_12_epa_rolling": {
+          "label": "QB EPA (12 personnel)",
+          "value": 0.231,
+          "format": "epa"
+        },
+        "off_epa_rolling": {
+          "label": "Overall OFF EPA",
+          "value": 0.207,
+          "format": "epa"
+        },
+        "def_epa_rolling": {
+          "label": "DEF EPA allowed",
+          "value": -0.033,
+          "format": "epa_inv"
+        },
+        "def_vs_12_epa_rolling": {
+          "label": "DEF vs 12 personnel",
+          "value": -1.47,
+          "format": "epa_inv"
+        },
+        "qbr_rolling": {
+          "label": "QBR",
+          "value": 83.0,
+          "format": "qbr"
+        },
+        "cpoe_rolling": {
+          "label": "CPOE",
+          "value": 5.181,
+          "format": "pct"
+        },
+        "point_diff_rolling": {
+          "label": "Point Differential",
+          "value": 13.0,
+          "format": "pts"
+        },
+        "turnovers_committed_rolling": {
+          "label": "Turnovers Committed",
+          "value": 0.0,
+          "format": "to"
+        },
+        "off_11_rate_rolling": {
+          "label": "11 Personnel Rate",
+          "value": 0.614,
+          "format": "rate"
+        },
+        "off_12_rate_rolling": {
+          "label": "12 Personnel Rate",
+          "value": 0.269,
+          "format": "rate"
+        }
+      },
+      "result": {
+        "home_score": 20,
+        "away_score": 41,
+        "margin": -21,
+        "home_covered": false
+      }
+    },
     {
       "away_team": "DEN",
       "home_team": "LAC",
@@ -15,24 +177,10 @@
       "total_line": 45.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": 8.8,
-            "edge": 6.3,
-            "pick": "LAC",
-            "correct": true
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": 8.6,
-            "edge": 6.1,
-            "pick": "LAC",
-            "correct": true
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
-            "predicted_margin": 8.1,
-            "edge": 5.6,
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
+            "predicted_margin": 8.5,
+            "edge": 6.0,
             "pick": "LAC",
             "correct": true
           }
@@ -191,29 +339,15 @@
       "total_line": 49.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": -6.6,
-            "edge": 5.1,
-            "pick": "DAL",
-            "correct": false
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": -7.5,
-            "edge": 6.0,
-            "pick": "DAL",
-            "correct": false
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
-            "predicted_margin": -5.5,
-            "edge": 4.0,
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
+            "predicted_margin": -7.0,
+            "edge": 5.5,
             "pick": "DAL",
             "correct": false
           }
         },
-        "avg_predicted_margin": -6.5,
+        "avg_predicted_margin": -7.0,
         "consensus": true,
         "consensus_pick": "DAL"
       },
@@ -367,29 +501,15 @@
       "total_line": 43.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
             "predicted_margin": 5.7,
             "edge": 4.2,
             "pick": "JAX",
             "correct": true
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": 5.4,
-            "edge": 3.9,
-            "pick": "JAX",
-            "correct": true
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
-            "predicted_margin": 7.7,
-            "edge": 6.2,
-            "pick": "JAX",
-            "correct": true
           }
         },
-        "avg_predicted_margin": 6.3,
+        "avg_predicted_margin": 5.7,
         "consensus": true,
         "consensus_pick": "JAX"
       },
@@ -543,29 +663,15 @@
       "total_line": 41.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": 4.9,
-            "edge": 2.6,
-            "pick": "NO",
-            "correct": false
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": 5.4,
-            "edge": 2.1,
-            "pick": "NO",
-            "correct": false
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
-            "predicted_margin": 6.2,
-            "edge": 1.3,
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
+            "predicted_margin": 4.7,
+            "edge": 2.8,
             "pick": "NO",
             "correct": false
           }
         },
-        "avg_predicted_margin": 5.5,
+        "avg_predicted_margin": 4.7,
         "consensus": true,
         "consensus_pick": "NO"
       },
@@ -719,24 +825,10 @@
       "total_line": 44.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": 3.8,
-            "edge": 5.3,
-            "pick": "NE",
-            "correct": false
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": 5.0,
-            "edge": 6.5,
-            "pick": "NE",
-            "correct": false
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
-            "predicted_margin": 4.9,
-            "edge": 6.4,
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
+            "predicted_margin": 4.6,
+            "edge": 6.1,
             "pick": "NE",
             "correct": false
           }
@@ -895,29 +987,15 @@
       "total_line": 53.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": 3.3,
-            "edge": 1.2,
-            "pick": "DET",
-            "correct": true
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": 4.0,
-            "edge": 0.5,
-            "pick": "DET",
-            "correct": true
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
-            "predicted_margin": 4.2,
-            "edge": 0.3,
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
+            "predicted_margin": 3.5,
+            "edge": 1.0,
             "pick": "DET",
             "correct": true
           }
         },
-        "avg_predicted_margin": 3.8,
+        "avg_predicted_margin": 3.5,
         "consensus": true,
         "consensus_pick": "DET"
       },
@@ -1071,29 +1149,15 @@
       "total_line": 41.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": -2.0,
-            "edge": 5.0,
-            "pick": "CIN",
-            "correct": false
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": -1.9,
-            "edge": 4.9,
-            "pick": "CIN",
-            "correct": false
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
-            "predicted_margin": -1.9,
-            "edge": 4.9,
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
+            "predicted_margin": -1.5,
+            "edge": 4.5,
             "pick": "CIN",
             "correct": false
           }
         },
-        "avg_predicted_margin": -1.9,
+        "avg_predicted_margin": -1.5,
         "consensus": true,
         "consensus_pick": "CIN"
       },
@@ -1247,29 +1311,15 @@
       "total_line": 44.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
             "predicted_margin": 1.4,
             "edge": 7.4,
             "pick": "NYG",
             "correct": false
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": 1.0,
-            "edge": 7.0,
-            "pick": "NYG",
-            "correct": false
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
-            "predicted_margin": 2.8,
-            "edge": 8.8,
-            "pick": "NYG",
-            "correct": false
           }
         },
-        "avg_predicted_margin": 1.7,
+        "avg_predicted_margin": 1.4,
         "consensus": true,
         "consensus_pick": "NYG"
       },
@@ -1423,29 +1473,15 @@
       "total_line": 45.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": 0.7,
-            "edge": 2.8,
-            "pick": "LA",
-            "correct": false
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": 2.1,
-            "edge": 1.4,
-            "pick": "LA",
-            "correct": false
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
-            "predicted_margin": 0.3,
-            "edge": 3.2,
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
+            "predicted_margin": 1.1,
+            "edge": 2.4,
             "pick": "LA",
             "correct": false
           }
         },
-        "avg_predicted_margin": 1.0,
+        "avg_predicted_margin": 1.1,
         "consensus": true,
         "consensus_pick": "LA"
       },
@@ -1591,182 +1627,6 @@
       }
     },
     {
-      "away_team": "IND",
-      "home_team": "TEN",
-      "gameday": "2025-09-21",
-      "game_type": "REG",
-      "spread_line": -6.0,
-      "total_line": 43.5,
-      "predictions": {
-        "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": -6.6,
-            "edge": 0.6,
-            "pick": "IND",
-            "correct": true
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": -10.8,
-            "edge": 4.8,
-            "pick": "IND",
-            "correct": true
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
-            "predicted_margin": -5.6,
-            "edge": 0.4,
-            "pick": "TEN",
-            "correct": false
-          }
-        },
-        "avg_predicted_margin": -7.7,
-        "consensus": false,
-        "consensus_pick": null
-      },
-      "home_stats": {
-        "off_11_epa_rolling": {
-          "label": "OFF EPA (11 personnel)",
-          "value": -0.228,
-          "format": "epa"
-        },
-        "off_12_epa_rolling": {
-          "label": "OFF EPA (12 personnel)",
-          "value": -0.183,
-          "format": "epa"
-        },
-        "qb_off_11_epa_rolling": {
-          "label": "QB EPA (11 personnel)",
-          "value": -0.287,
-          "format": "epa"
-        },
-        "qb_off_12_epa_rolling": {
-          "label": "QB EPA (12 personnel)",
-          "value": -0.075,
-          "format": "epa"
-        },
-        "off_epa_rolling": {
-          "label": "Overall OFF EPA",
-          "value": -0.267,
-          "format": "epa"
-        },
-        "def_epa_rolling": {
-          "label": "DEF EPA allowed",
-          "value": 0.098,
-          "format": "epa_inv"
-        },
-        "def_vs_12_epa_rolling": {
-          "label": "DEF vs 12 personnel",
-          "value": -0.045,
-          "format": "epa_inv"
-        },
-        "qbr_rolling": {
-          "label": "QBR",
-          "value": 19.0,
-          "format": "qbr"
-        },
-        "cpoe_rolling": {
-          "label": "CPOE",
-          "value": -8.695,
-          "format": "pct"
-        },
-        "point_diff_rolling": {
-          "label": "Point Differential",
-          "value": -11.0,
-          "format": "pts"
-        },
-        "turnovers_committed_rolling": {
-          "label": "Turnovers Committed",
-          "value": 2.0,
-          "format": "to"
-        },
-        "off_11_rate_rolling": {
-          "label": "11 Personnel Rate",
-          "value": 0.808,
-          "format": "rate"
-        },
-        "off_12_rate_rolling": {
-          "label": "12 Personnel Rate",
-          "value": 0.168,
-          "format": "rate"
-        }
-      },
-      "away_stats": {
-        "off_11_epa_rolling": {
-          "label": "OFF EPA (11 personnel)",
-          "value": 0.296,
-          "format": "epa"
-        },
-        "off_12_epa_rolling": {
-          "label": "OFF EPA (12 personnel)",
-          "value": 0.136,
-          "format": "epa"
-        },
-        "qb_off_11_epa_rolling": {
-          "label": "QB EPA (11 personnel)",
-          "value": 0.18,
-          "format": "epa"
-        },
-        "qb_off_12_epa_rolling": {
-          "label": "QB EPA (12 personnel)",
-          "value": 0.231,
-          "format": "epa"
-        },
-        "off_epa_rolling": {
-          "label": "Overall OFF EPA",
-          "value": 0.207,
-          "format": "epa"
-        },
-        "def_epa_rolling": {
-          "label": "DEF EPA allowed",
-          "value": -0.033,
-          "format": "epa_inv"
-        },
-        "def_vs_12_epa_rolling": {
-          "label": "DEF vs 12 personnel",
-          "value": -1.47,
-          "format": "epa_inv"
-        },
-        "qbr_rolling": {
-          "label": "QBR",
-          "value": 83.0,
-          "format": "qbr"
-        },
-        "cpoe_rolling": {
-          "label": "CPOE",
-          "value": 5.181,
-          "format": "pct"
-        },
-        "point_diff_rolling": {
-          "label": "Point Differential",
-          "value": 13.0,
-          "format": "pts"
-        },
-        "turnovers_committed_rolling": {
-          "label": "Turnovers Committed",
-          "value": 0.0,
-          "format": "to"
-        },
-        "off_11_rate_rolling": {
-          "label": "11 Personnel Rate",
-          "value": 0.614,
-          "format": "rate"
-        },
-        "off_12_rate_rolling": {
-          "label": "12 Personnel Rate",
-          "value": 0.269,
-          "format": "rate"
-        }
-      },
-      "result": {
-        "home_score": 20,
-        "away_score": 41,
-        "margin": -21,
-        "home_covered": false
-      }
-    },
-    {
       "away_team": "MIA",
       "home_team": "BUF",
       "gameday": "2025-09-18",
@@ -1775,22 +1635,8 @@
       "total_line": 50.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": null,
-            "edge": null,
-            "pick": null,
-            "correct": null
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": null,
-            "edge": null,
-            "pick": null,
-            "correct": null
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
             "predicted_margin": null,
             "edge": null,
             "pick": null,
@@ -1951,22 +1797,8 @@
       "total_line": 44.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": null,
-            "edge": null,
-            "pick": null,
-            "correct": null
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": null,
-            "edge": null,
-            "pick": null,
-            "correct": null
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
             "predicted_margin": null,
             "edge": null,
             "pick": null,
@@ -2127,22 +1959,8 @@
       "total_line": 41.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": null,
-            "edge": null,
-            "pick": null,
-            "correct": null
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": null,
-            "edge": null,
-            "pick": null,
-            "correct": null
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
             "predicted_margin": null,
             "edge": null,
             "pick": null,
@@ -2303,22 +2121,8 @@
       "total_line": 43.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": null,
-            "edge": null,
-            "pick": null,
-            "correct": null
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": null,
-            "edge": null,
-            "pick": null,
-            "correct": null
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
             "predicted_margin": null,
             "edge": null,
             "pick": null,
@@ -2479,22 +2283,8 @@
       "total_line": 43.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": null,
-            "edge": null,
-            "pick": null,
-            "correct": null
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": null,
-            "edge": null,
-            "pick": null,
-            "correct": null
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
             "predicted_margin": null,
             "edge": null,
             "pick": null,
@@ -2655,22 +2445,8 @@
       "total_line": 44.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": null,
-            "edge": null,
-            "pick": null,
-            "correct": null
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": null,
-            "edge": null,
-            "pick": null,
-            "correct": null
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
             "predicted_margin": null,
             "edge": null,
             "pick": null,

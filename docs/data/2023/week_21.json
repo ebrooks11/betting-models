@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-07 17:20 UTC",
+  "generated_at": "2026-08-07 17:28 UTC",
   "week_label": "CON \u00b7 2023 Season",
   "season": 2023,
   "week": 21,
@@ -15,29 +15,15 @@
       "total_line": 44.0,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": 8.9,
-            "edge": 4.4,
-            "pick": "BAL",
-            "correct": false
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": 7.5,
-            "edge": 3.0,
-            "pick": "BAL",
-            "correct": false
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
-            "predicted_margin": 8.0,
-            "edge": 3.5,
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
+            "predicted_margin": 7.4,
+            "edge": 2.9,
             "pick": "BAL",
             "correct": false
           }
         },
-        "avg_predicted_margin": 8.1,
+        "avg_predicted_margin": 7.4,
         "consensus": true,
         "consensus_pick": "BAL"
       },
@@ -191,29 +177,15 @@
       "total_line": 52.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": -1.8,
-            "edge": 9.3,
-            "pick": "DET",
-            "correct": true
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": -2.2,
-            "edge": 9.7,
-            "pick": "DET",
-            "correct": true
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
-            "predicted_margin": 1.0,
-            "edge": 6.5,
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
+            "predicted_margin": -2.0,
+            "edge": 9.5,
             "pick": "DET",
             "correct": true
           }
         },
-        "avg_predicted_margin": -1.0,
+        "avg_predicted_margin": -2.0,
         "consensus": true,
         "consensus_pick": "DET"
       },

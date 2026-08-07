@@ -28,30 +28,13 @@ TRAIN_SEASONS = range(2016, 2022)
 TEST_SEASONS = range(2022, 2026)
 
 MODELS = {
-    "off+def+pd+qbr": {
-        "label": "OFF/DEF + PD + QBR",
+    "off+def+pd+qbr+def_vs12": {
+        "label": "Model",
         "features": [
             "off_11_epa_rolling", "off_12_epa_rolling",
             "qb_off_11_epa_rolling", "qb_off_12_epa_rolling",
             "def_epa_rolling", "point_diff_rolling", "qbr_rolling",
-        ],
-    },
-    "off+def+pd+qbr+cpoe+vs12": {
-        "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-        "features": [
-            "off_11_epa_rolling", "off_12_epa_rolling",
-            "qb_off_11_epa_rolling", "qb_off_12_epa_rolling",
-            "def_epa_rolling", "point_diff_rolling", "qbr_rolling",
-            "cpoe_rolling", "def_vs_12_epa_rolling",
-        ],
-    },
-    "off+pd+qbr+TO": {
-        "label": "OFF + PD + QBR + TO",
-        "features": [
-            "off_11_epa_rolling", "off_12_epa_rolling",
-            "qb_off_11_epa_rolling", "qb_off_12_epa_rolling",
-            "point_diff_rolling", "qbr_rolling",
-            "turnovers_committed_rolling",
+            "def_vs_12_epa_rolling",
         ],
     },
 }
@@ -204,7 +187,7 @@ def _build_game_entry(g: pd.Series, home_row: pd.Series, away_row: pd.Series,
 
     avg_pred = round(float(np.mean(valid_preds)), 1) if valid_preds else None
     picks = [v["pick"] for v in model_preds.values() if v["pick"]]
-    consensus = len(set(picks)) == 1 and len(picks) == 3
+    consensus = len(picks) > 0
 
     spread_line = float(g["spread_line"]) if pd.notna(g.get("spread_line")) else None
     total_line = float(g["total_line"]) if pd.notna(g.get("total_line")) else None

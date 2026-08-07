@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-07 17:20 UTC",
+  "generated_at": "2026-08-07 17:28 UTC",
   "week_label": "DIV \u00b7 2024 Season",
   "season": 2024,
   "week": 20,
@@ -15,29 +15,15 @@
       "total_line": 43.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": 9.3,
-            "edge": 2.3,
-            "pick": "PHI",
-            "correct": false
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": 9.4,
-            "edge": 2.4,
-            "pick": "PHI",
-            "correct": false
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
-            "predicted_margin": 10.6,
-            "edge": 3.6,
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
+            "predicted_margin": 9.6,
+            "edge": 2.6,
             "pick": "PHI",
             "correct": false
           }
         },
-        "avg_predicted_margin": 9.8,
+        "avg_predicted_margin": 9.6,
         "consensus": true,
         "consensus_pick": "PHI"
       },
@@ -191,29 +177,15 @@
       "total_line": 55.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": 6.7,
-            "edge": 1.8,
-            "pick": "WAS",
-            "correct": true
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": 7.1,
-            "edge": 1.4,
-            "pick": "WAS",
-            "correct": true
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
-            "predicted_margin": 7.7,
-            "edge": 0.8,
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
+            "predicted_margin": 7.0,
+            "edge": 1.5,
             "pick": "WAS",
             "correct": true
           }
         },
-        "avg_predicted_margin": 7.2,
+        "avg_predicted_margin": 7.0,
         "consensus": true,
         "consensus_pick": "WAS"
       },
@@ -367,29 +339,15 @@
       "total_line": 41.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
             "predicted_margin": 4.3,
             "edge": 5.2,
             "pick": "HOU",
             "correct": true
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": 4.2,
-            "edge": 5.3,
-            "pick": "HOU",
-            "correct": true
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
-            "predicted_margin": 3.9,
-            "edge": 5.6,
-            "pick": "HOU",
-            "correct": true
           }
         },
-        "avg_predicted_margin": 4.1,
+        "avg_predicted_margin": 4.3,
         "consensus": true,
         "consensus_pick": "HOU"
       },
@@ -543,29 +501,15 @@
       "total_line": 51.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": -3.0,
-            "edge": 1.5,
-            "pick": "BAL",
-            "correct": false
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": -3.5,
-            "edge": 2.0,
-            "pick": "BAL",
-            "correct": false
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
-            "predicted_margin": -2.5,
-            "edge": 1.0,
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
+            "predicted_margin": -3.2,
+            "edge": 1.7,
             "pick": "BAL",
             "correct": false
           }
         },
-        "avg_predicted_margin": -3.0,
+        "avg_predicted_margin": -3.2,
         "consensus": true,
         "consensus_pick": "BAL"
       },

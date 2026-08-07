@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-07 17:20 UTC",
+  "generated_at": "2026-08-07 17:28 UTC",
   "week_label": "DIV \u00b7 2022 Season",
   "season": 2022,
   "week": 20,
@@ -15,29 +15,15 @@
       "total_line": 46.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": 8.0,
-            "edge": 4.5,
-            "pick": "SF",
-            "correct": true
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": 7.1,
-            "edge": 3.6,
-            "pick": "SF",
-            "correct": true
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
-            "predicted_margin": 6.9,
-            "edge": 3.4,
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
+            "predicted_margin": 7.4,
+            "edge": 3.9,
             "pick": "SF",
             "correct": true
           }
         },
-        "avg_predicted_margin": 7.3,
+        "avg_predicted_margin": 7.4,
         "consensus": true,
         "consensus_pick": "SF"
       },
@@ -191,29 +177,15 @@
       "total_line": 48.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": 5.4,
-            "edge": 0.6,
-            "pick": "CIN",
-            "correct": true
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": 5.0,
-            "edge": 1.0,
-            "pick": "CIN",
-            "correct": true
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
-            "predicted_margin": 3.4,
-            "edge": 2.6,
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
+            "predicted_margin": 4.9,
+            "edge": 1.1,
             "pick": "CIN",
             "correct": true
           }
         },
-        "avg_predicted_margin": 4.6,
+        "avg_predicted_margin": 4.9,
         "consensus": true,
         "consensus_pick": "CIN"
       },
@@ -367,29 +339,15 @@
       "total_line": 48.0,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": -3.0,
-            "edge": 11.0,
-            "pick": "NYG",
-            "correct": false
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
-            "predicted_margin": -4.0,
-            "edge": 12.0,
-            "pick": "NYG",
-            "correct": false
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
-            "predicted_margin": -3.3,
-            "edge": 11.3,
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
+            "predicted_margin": -3.6,
+            "edge": 11.6,
             "pick": "NYG",
             "correct": false
           }
         },
-        "avg_predicted_margin": -3.4,
+        "avg_predicted_margin": -3.6,
         "consensus": true,
         "consensus_pick": "NYG"
       },
@@ -543,29 +501,15 @@
       "total_line": 52.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr": {
-            "label": "OFF/DEF + PD + QBR",
-            "predicted_margin": 0.8,
-            "edge": 9.2,
-            "pick": "JAX",
-            "correct": true
-          },
-          "off+def+pd+qbr+cpoe+vs12": {
-            "label": "OFF/DEF + PD + QBR + CPOE + DEF_VS12",
+          "off+def+pd+qbr+def_vs12": {
+            "label": "Model",
             "predicted_margin": 1.5,
             "edge": 8.5,
             "pick": "JAX",
             "correct": true
-          },
-          "off+pd+qbr+TO": {
-            "label": "OFF + PD + QBR + TO",
-            "predicted_margin": 0.7,
-            "edge": 9.3,
-            "pick": "JAX",
-            "correct": true
           }
         },
-        "avg_predicted_margin": 1.0,
+        "avg_predicted_margin": 1.5,
         "consensus": true,
         "consensus_pick": "JAX"
       },
