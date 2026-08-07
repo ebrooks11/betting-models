@@ -723,7 +723,7 @@ function renderGame(game, idx) {
     const isHome = m.pick === game.home_team;
     const cls = isHome ? 'pick-home' : 'pick-away';
     const marginStr = m.predicted_margin !== null
-      ? `${m.predicted_margin > 0 ? '+' : ''}${m.predicted_margin.toFixed(1)}`
+      ? `-${Math.abs(m.predicted_margin).toFixed(1)}`
       : '—';
     const edgeStr = m.edge !== null ? `Edge: ${m.edge > 0 ? '+' : ''}${m.edge.toFixed(1)}` : '';
     let resultHTML = '';
