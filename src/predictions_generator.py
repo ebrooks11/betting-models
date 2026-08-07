@@ -104,10 +104,29 @@ def _latest_team_features(features: pd.DataFrame) -> pd.DataFrame:
 
 
 def _team_features_at_week(features: pd.DataFrame, season: int, week: int) -> pd.DataFrame:
-    """Return per-team features as of a specific (season, week)."""
-    feat = features[(features["season"] == season) & (features["week"] == week)].copy()
-    feat["team"] = feat["team"].replace(TEAM_MAP)
-    return feat.set_index("team")
+    """Return per-team features as of a specific (season, week).
+
+    For any NaN feature, falls back to the most recent non-NaN value within
+    the same team/season so that games with missing QB data (injury, etc.)
+    still produce predictions using the last known stats.
+    """
+    season_feat = features[features["season"] == season].copy()
+    season_feat["team"] = season_feat["team"].replace(TEAM_MAP)
+
+    # Get the exact week row
+    week_feat = season_feat[season_feat["week"] == week].set_index("team")
+
+    # Build a forward-fill fallback: last known value per team up to this week
+    prior = (
+        season_feat[season_feat["week"] <= week]
+        .sort_values("week")
+        .groupby("team")
+        .last()
+    )
+
+    # Fill NaNs in the target week using the fallback
+    week_feat = week_feat.combine_first(prior)
+    return week_feat
 
 
 def _predict_game(
