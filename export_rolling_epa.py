@@ -583,11 +583,12 @@ for season in sorted(completed_all["season"].unique()):
     for week in sorted(season_games["week"].unique()):
         week_games = season_games[season_games["week"] == week]
 
-        # Snapshot power record going INTO this week for every team playing
+        # Snapshot record going INTO this week for every team playing
         for _, g in week_games.iterrows():
             for team in [g["home_team"], g["away_team"]]:
                 power_rows.append({
                     "season": season, "week": week, "team": team,
+                    "wins": wins[team], "losses": losses[team],
                     "power_wins": pw[team], "power_losses": pl[team],
                 })
 
@@ -921,6 +922,7 @@ result = game_epa[["season", "week", "team",
                     "qbr_expanding",
                     "qb_off_11_epa_expanding", "qb_off_12_epa_expanding",
                     "opp_pd_rolling", "sos_rolling",
+                    "wins", "losses",
                     "power_wins", "power_losses", "power_win_pct"]].copy()
 result = result.sort_values(["season", "week", "team"]).reset_index(drop=True)
 
