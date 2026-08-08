@@ -565,6 +565,51 @@ game_epa["sos_rolling"] = (
     .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
 )
 
+# Power Record: winner gets 1 + opponent's wins; loser gets 1 + opponent's losses.
+# Processed week-by-week within each season so intra-week games don't affect each other.
+# Uses regular wins/losses as the currency feeding into the power calculation.
+from collections import defaultdict
+
+completed_all = all_games[all_games["home_score"].notna() & all_games["away_score"].notna()].copy()
+
+power_rows = []
+for season in sorted(completed_all["season"].unique()):
+    season_games = completed_all[completed_all["season"] == season]
+    wins = defaultdict(int)
+    losses = defaultdict(int)
+    pw = defaultdict(int)
+    pl = defaultdict(int)
+
+    for week in sorted(season_games["week"].unique()):
+        week_games = season_games[season_games["week"] == week]
+
+        # Snapshot power record going INTO this week for every team playing
+        for _, g in week_games.iterrows():
+            for team in [g["home_team"], g["away_team"]]:
+                power_rows.append({
+                    "season": season, "week": week, "team": team,
+                    "power_wins": pw[team], "power_losses": pl[team],
+                })
+
+        # Resolve all games in this week, then update tallies
+        for _, g in week_games.iterrows():
+            home, away = g["home_team"], g["away_team"]
+            if g["home_score"] > g["away_score"]:
+                winner, loser = home, away
+            elif g["away_score"] > g["home_score"]:
+                winner, loser = away, home
+            else:
+                continue  # tie — no update
+            pw[winner] += 1 + wins[loser]
+            pl[loser]  += 1 + losses[winner]
+            wins[winner] += 1
+            losses[loser] += 1
+
+power_df = pd.DataFrame(power_rows).drop_duplicates(subset=["season", "week", "team"])
+power_df["power_win_pct"] = power_df["power_wins"] / (power_df["power_wins"] + power_df["power_losses"]).replace(0, float("nan"))
+
+game_epa = game_epa.merge(power_df, on=["season", "week", "team"], how="left")
+
 game_epa["to_diff"] = game_epa["turnovers_forced"] - game_epa["turnovers_committed"]
 game_epa["to_diff_rolling"] = (
     game_epa.groupby(["team", "season"])["to_diff"]
@@ -875,7 +920,8 @@ result = game_epa[["season", "week", "team",
                     "turnovers_committed_rolling", "turnovers_committed_expanding",
                     "qbr_expanding",
                     "qb_off_11_epa_expanding", "qb_off_12_epa_expanding",
-                    "opp_pd_rolling", "sos_rolling"]].copy()
+                    "opp_pd_rolling", "sos_rolling",
+                    "power_wins", "power_losses", "power_win_pct"]].copy()
 result = result.sort_values(["season", "week", "team"]).reset_index(drop=True)
 
 out_path = Path("exports/features.parquet")
