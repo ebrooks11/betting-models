@@ -54,6 +54,9 @@ DISPLAY_STATS = [
     ("turnovers_committed_rolling", "Turnovers Committed",          "to"),
     ("off_11_rate_rolling",         "11 Personnel Rate",            "rate"),
     ("off_12_rate_rolling",         "12 Personnel Rate",            "rate"),
+    ("power_wins",                  "Power Wins",                   "int"),
+    ("power_losses",                "Power Losses",                 "int"),
+    ("power_win_pct",               "Power Win %",                  "winpct"),
 ]
 
 

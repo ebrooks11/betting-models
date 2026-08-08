@@ -620,6 +620,14 @@ function fmtVal(val, fmt) {
       text = (v * 100).toFixed(0) + '%';
       cls = '';
       break;
+    case 'winpct':
+      text = (v * 100).toFixed(1) + '%';
+      cls = v > 0.55 ? 'val-pos' : v < 0.45 ? 'val-neg' : '';
+      break;
+    case 'int':
+      text = Math.round(v).toString();
+      cls = '';
+      break;
     default:
       text = v.toFixed(3);
       cls = '';
