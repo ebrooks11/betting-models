@@ -346,7 +346,7 @@ def generate_all(out_dir: str = "docs/data") -> None:
                 for g in payload.get("games", [])
                 if g.get("predictions", {}).get("models")
             )
-            if payload.get("games") and has_any_pred:
+            if payload.get("games") and has_any_pred and week >= 4:
                 available.append({"season": season, "week": week})
 
     # Also generate the upcoming week (or last completed REG week as demo)
