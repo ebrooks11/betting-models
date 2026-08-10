@@ -360,30 +360,39 @@ button { font-family: inherit; cursor: pointer; }
   font-size: .72rem;
   font-variant-numeric: tabular-nums;
 }
+.stats-panel { overflow-x: auto; }
 .stats-table thead th {
-  padding: 6px 12px 6px 20px;
-  font-size: .62rem;
-  letter-spacing: .1em;
+  padding: 6px 10px;
+  font-size: .6rem;
+  letter-spacing: .08em;
   text-transform: uppercase;
   color: var(--text-dim);
   background: var(--surface-2);
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
-  text-align: left;
+  text-align: right;
   font-weight: 600;
+  white-space: nowrap;
 }
-.stats-table thead th:not(:first-child) { text-align: right; }
-.stats-table thead .col-away { color: var(--bad); }
-.stats-table thead .col-home { color: var(--good); }
+.stats-table thead th:first-child { text-align: left; padding-left: 20px; }
 .stats-table tbody tr { border-bottom: 1px solid var(--border); }
 .stats-table tbody tr:last-child { border-bottom: none; }
-.stats-table tbody tr:nth-child(even) td { background: var(--surface-2); }
 .stats-table td {
-  padding: 6px 12px 6px 20px;
+  padding: 6px 10px;
   color: var(--text-muted);
+  white-space: nowrap;
 }
-.stats-table td.stat-label { color: var(--text-muted); font-size: .68rem; }
-.stats-table td.stat-val { text-align: right; color: var(--text); }
+.stats-table td.stat-label {
+  padding-left: 20px;
+  font-family: var(--font-cond);
+  font-size: .85rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.stats-table td.stat-label.col-away { color: var(--bad); }
+.stats-table td.stat-label.col-home { color: var(--good); }
+.stats-table td.stat-val { text-align: right; color: var(--text); font-size: .72rem; }
 .val-pos { color: var(--good); }
 .val-neg { color: var(--bad); }
 .val-null { color: var(--text-dim); }
@@ -651,18 +660,21 @@ function renderGameRows(game, idx) {
     </div>`;
   }
 
-  // Stats sub-table
+  // Stats sub-table (teams as rows, stats as columns)
   const awayStats = game.away_stats;
   const homeStats = game.home_stats;
-  const statRows = Object.keys(awayStats).map(col => {
-    const a = awayStats[col], h = homeStats[col];
-    const af = fmtVal(a.value, a.format), hf = fmtVal(h.value, h.format);
-    return `<tr>
-      <td class="stat-label">${a.label}</td>
-      <td class="stat-val ${af.cls}">${af.text}</td>
-      <td class="stat-val ${hf.cls}">${hf.text}</td>
-    </tr>`;
-  }).join('');
+  const cols = Object.keys(awayStats);
+  const statHeaders = cols.map(col => `<th>${awayStats[col].label}</th>`).join('');
+  function teamStatRow(team, stats, teamCls) {
+    const cells = cols.map(col => {
+      const s = stats[col];
+      const f = fmtVal(s.value, s.format);
+      return `<td class="stat-val ${f.cls}">${f.text}</td>`;
+    }).join('');
+    return `<tr><td class="stat-label ${teamCls}">${team}</td>${cells}</tr>`;
+  }
+  const statRows = teamStatRow(game.away_team, awayStats, 'col-away') +
+                   teamStatRow(game.home_team, homeStats, 'col-home');
 
   return `
 <tr class="game-row ${rowCls}" onclick="toggleStats(${idx})">
@@ -678,11 +690,7 @@ function renderGameRows(game, idx) {
   <td colspan="4">
     <div class="stats-panel">
       <table class="stats-table">
-        <thead><tr>
-          <th>Stat (3-game avg)</th>
-          <th class="col-away">${game.away_team}</th>
-          <th class="col-home">${game.home_team}</th>
-        </tr></thead>
+        <thead><tr><th>Team</th>${statHeaders}</tr></thead>
         <tbody>${statRows}</tbody>
       </table>
     </div>
