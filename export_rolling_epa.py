@@ -820,28 +820,29 @@ qbr_reg["team_abb"] = qbr_reg["team_abb"].replace(TEAM_MAP)
 # Normalize to "F.Last" format — strip middle initials so "C.J. Stroud" → "C.Stroud"
 # to match the passer_player_name format used in nflverse play-by-play
 def _normalize_qbr_name(name: str) -> str:
-    parts = name.replace(". ", ".").split(".")
-    # parts like ["C", "J", " Stroud"] or ["D", " Mills"]
-    # keep only first initial + last name token
-    initials = [p for p in parts if len(p.strip()) <= 2]
-    last = [p.strip() for p in parts if len(p.strip()) > 2]
-    if initials and last:
-        return f"{initials[0]}.{last[0]}"
+    # Produce "F.Last" to match passer_player_name in PBP (e.g. "M. Penix Jr." → "M.Penix")
+    parts = name.strip().split(".")
+    if len(parts) >= 2:
+        first_initial = parts[0].strip()
+        # Take only the first word of the last-name segment (drops "Jr", "II", etc.)
+        last = parts[1].strip().split()[0] if parts[1].strip() else ""
+        if first_initial and last:
+            return f"{first_initial}.{last}"
     return name
 
 qbr_reg["name_normalized"] = qbr_reg["name_short"].apply(_normalize_qbr_name)
 qbr_reg = qbr_reg.drop(columns=["team"]).rename(columns={"week_num": "week", "team_abb": "team"})
 
-# Join QBR to game_epa on season/week/team/starting_qb
-# When multiple QBR rows exist per team/week (e.g. two QBs played), keep highest snap count
+# Join QBR to game_epa on season/week/starting_qb only (drop team from key because
+# nflverse sometimes attributes a QB's QBR to his former team after a mid-season trade)
 qbr_game = (
-    qbr_reg[["season", "week", "team", "name_normalized", "qbr_total"]]
+    qbr_reg[["season", "week", "name_normalized", "qbr_total"]]
     .sort_values("qbr_total", ascending=False)
-    .drop_duplicates(subset=["season", "week", "team", "name_normalized"])
+    .drop_duplicates(subset=["season", "week", "name_normalized"])
 )
 game_epa = game_epa.merge(
     qbr_game.rename(columns={"name_normalized": "starting_qb", "qbr_total": "qbr"}),
-    on=["season", "week", "team", "starting_qb"], how="left"
+    on=["season", "week", "starting_qb"], how="left"
 )
 
 game_epa = game_epa.sort_values(["team", "season", "week"]).reset_index(drop=True)
