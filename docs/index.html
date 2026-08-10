@@ -631,7 +631,7 @@ function renderGameRows(game, idx) {
     const marginStr = pickMargin >= 0
       ? `-${pickMargin.toFixed(1)}`
       : `+${Math.abs(pickMargin).toFixed(1)}`;
-    const edgeStr = m.edge !== null ? `Edge: ${m.edge > 0 ? '+' : ''}${m.edge.toFixed(1)}` : '';
+    const edgeStr = m.edge !== null ? `Edge: ${m.edge.toFixed(1)}` : '';
     let resultTag = '';
     if (m.correct === true)  { resultTag = '<div class="result-tag correct">✓ Correct</div>'; rowCls = 'result-correct'; }
     if (m.correct === false) { resultTag = '<div class="result-tag wrong">✗ Wrong</div>';   rowCls = 'result-wrong'; }
@@ -686,7 +686,12 @@ function renderData(data) {
     return;
   }
 
-  const rows = data.games.map((g, i) => renderGameRows(g, i)).join('');
+  const sorted = [...data.games].sort((a, b) => {
+    const ae = Object.values(a.predictions.models)[0]?.edge ?? -Infinity;
+    const be = Object.values(b.predictions.models)[0]?.edge ?? -Infinity;
+    return be - ae;
+  });
+  const rows = sorted.map((g, i) => renderGameRows(g, i)).join('');
   container.innerHTML = `<table class="games-table">
     <thead><tr>
       <th>Matchup</th>
