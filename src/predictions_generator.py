@@ -37,6 +37,15 @@ MODELS = {
             "def_vs_12_epa_rolling",
         ],
     },
+    "off+def+pd+qbr+cpoe+def_vs12": {
+        "label": "E>3 Model",
+        "features": [
+            "off_11_epa_rolling", "off_12_epa_rolling",
+            "qb_off_11_epa_rolling", "qb_off_12_epa_rolling",
+            "def_epa_rolling", "point_diff_rolling", "qbr_rolling",
+            "cpoe_rolling", "def_vs_12_epa_rolling",
+        ],
+    },
 }
 
 # All stats to surface in the UI per team

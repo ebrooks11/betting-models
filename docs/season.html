@@ -316,6 +316,12 @@ button { font-family: inherit; cursor: pointer; }
   white-space: nowrap;
   font-style: italic;
 }
+.game-card.card-below-threshold {
+  opacity: .38;
+  border-color: var(--border);
+  background: var(--surface-2);
+  filter: grayscale(.6);
+}
 
 /* Games cell container */
 .games-cell {
@@ -341,9 +347,19 @@ button { font-family: inherit; cursor: pointer; }
   <div class="controls">
     <span class="picker-label">Season</span>
     <select class="picker-select" id="season-select" onchange="loadSeason()"></select>
+    <span class="picker-label" style="margin-left:12px">Model</span>
+    <select class="picker-select" id="model-select" onchange="onModelChange()">
+      <option value="off+def+pd+qbr+def_vs12">Overall (all bets)</option>
+      <option value="off+def+pd+qbr+cpoe+def_vs12" selected>E&gt;3 (high confidence)</option>
+    </select>
   </div>
 
   <div id="season-summary" class="season-summary hidden">
+    <div class="sum-stat">
+      <span class="sum-label" id="sum-model-label">Model</span>
+      <span class="sum-val" id="sum-model-name" style="font-size:.72rem;color:var(--text-muted);font-weight:600">—</span>
+    </div>
+    <div class="sum-divider"></div>
     <div class="sum-stat">
       <span class="sum-label">Season Record</span>
       <span class="sum-val" id="sum-record">—</span>
@@ -383,10 +399,26 @@ const TEAM_COLORS = {
 };
 
 let INDEX = null;
+let CACHED_WEEKS = null; // week data cached across model switches
+
+const MODEL_LABELS = {
+  'off+def+pd+qbr+def_vs12':       'Overall',
+  'off+def+pd+qbr+cpoe+def_vs12':  'E>3',
+};
+const E3_MODEL_KEY = 'off+def+pd+qbr+cpoe+def_vs12';
+const E3_THRESHOLD = 3.0;
+
+function activeModelKey() {
+  return document.getElementById('model-select').value;
+}
 
 function toggleTheme() {
   const r = document.documentElement;
   r.dataset.theme = r.dataset.theme === 'light' ? 'dark' : 'light';
+}
+
+function onModelChange() {
+  if (CACHED_WEEKS) renderRollup(CACHED_WEEKS);
 }
 
 function fmtUnits(u) {
@@ -398,8 +430,8 @@ function weekLabel(w) {
   return w <= 18 ? `Wk ${w}` : (PLAYOFF_LABELS[w] || `Wk ${w}`);
 }
 
-function gameCard(game) {
-  const m = Object.values(game.predictions.models)[0];
+function gameCard(game, modelKey, minEdge) {
+  const m = game.predictions.models[modelKey];
   const r = game.result;
 
   const away = game.away_team;
@@ -417,6 +449,8 @@ function gameCard(game) {
     </div>`;
   }
 
+  const belowThreshold = minEdge > 0 && (m.edge === null || m.edge < minEdge);
+
   const isHome = m.pick === home;
   const pickMargin = isHome ? m.predicted_margin : -m.predicted_margin;
   const marginStr = pickMargin >= 0
@@ -425,16 +459,16 @@ function gameCard(game) {
 
   let cardCls = 'card-pending';
   let pickCls = 'pick-pending';
-  if (m.correct === true)  { cardCls = 'card-correct'; pickCls = 'pick-correct'; }
-  if (m.correct === false) { cardCls = 'card-wrong';   pickCls = 'pick-wrong'; }
+  if (!belowThreshold) {
+    if (m.correct === true)  { cardCls = 'card-correct'; pickCls = 'pick-correct'; }
+    if (m.correct === false) { cardCls = 'card-wrong';   pickCls = 'pick-wrong'; }
+  }
+  if (belowThreshold) cardCls = 'card-below-threshold';
 
   const edgeStr = m.edge !== null ? `Edge ${m.edge.toFixed(1)}` : '';
 
   let scoreStr = '';
-  if (r) {
-    const winTeam = r.margin > 0 ? home : r.margin < 0 ? away : null;
-    scoreStr = `${r.away_score}–${r.home_score}`;
-  }
+  if (r) scoreStr = `${r.away_score}–${r.home_score}`;
 
   return `<div class="game-card ${cardCls}">
     <div class="card-matchup">${matchupHTML}</div>
@@ -446,37 +480,37 @@ function gameCard(game) {
 
 function renderRollup(weekDataList) {
   const container = document.getElementById('rollup-container');
+  const modelKey = activeModelKey();
+  const isE3 = modelKey === E3_MODEL_KEY;
+  const minEdge = isE3 ? E3_THRESHOLD : 0;
 
   // Find max games in any week for column count
   const maxGames = Math.max(...weekDataList.map(d => d.games.length));
 
-  // Build header game columns
   let gameColHeaders = '';
   for (let i = 1; i <= maxGames; i++) {
     gameColHeaders += `<th>Game ${i}</th>`;
   }
 
   let cumW = 0, cumL = 0;
+  let seasonW = 0, seasonL = 0;
   let rows = '';
-  const totals = { w: 0, l: 0, units: 0 };
-
-  // Track season-level units
-  let seasonW = 0, seasonL = 0, seasonUnits = 0;
 
   weekDataList.forEach(data => {
-    // Sort games by edge descending (same as week view)
+    // Sort by the active model's edge descending
     const games = [...data.games].sort((a, b) => {
-      const ae = Object.values(a.predictions.models)[0]?.edge ?? -Infinity;
-      const be = Object.values(b.predictions.models)[0]?.edge ?? -Infinity;
+      const ae = a.predictions.models[modelKey]?.edge ?? -Infinity;
+      const be = b.predictions.models[modelKey]?.edge ?? -Infinity;
       return be - ae;
     });
 
-    // Tally week results
+    // Tally week: only count bets that meet the edge threshold
     let wkW = 0, wkL = 0;
     games.forEach(g => {
       if (!g.result) return;
-      const m = Object.values(g.predictions.models)[0];
+      const m = g.predictions.models[modelKey];
       if (!m || m.predicted_margin === null || m.predicted_margin === undefined) return;
+      if (isE3 && (m.edge === null || m.edge < E3_THRESHOLD)) return;
       if (m.correct === true)  wkW++;
       if (m.correct === false) wkL++;
     });
@@ -485,41 +519,31 @@ function renderRollup(weekDataList) {
 
     cumW += wkW;
     cumL += wkL;
-    const cumUnits = cumW / 1.1 - cumL;
-
     seasonW = cumW;
     seasonL = cumL;
-    seasonUnits = cumUnits;
+    const cumUnits = cumW / 1.1 - cumL;
 
-    const wkLabel = weekLabel(data.week);
-    const recStr = wkTotal > 0 ? `${wkW}-${wkL}` : '—';
+    const wkLbl = weekLabel(data.week);
+    const recStr    = wkTotal > 0 ? `${wkW}-${wkL}` : '—';
     const cumRecStr = (cumW + cumL) > 0 ? `${cumW}-${cumL}` : '—';
-    const wkUnitsStr = wkTotal > 0 ? fmtUnits(wkUnits) : '—';
-    const cumUnitsStr = (cumW + cumL) > 0 ? fmtUnits(cumUnits) : '—';
-
-    const wkUnitsCls = wkTotal > 0 ? (wkUnits >= 0 ? 'units-pos' : 'units-neg') : '';
+    const wkUnitsCls  = wkTotal > 0 ? (wkUnits >= 0 ? 'units-pos' : 'units-neg') : '';
     const cumUnitsCls = (cumW + cumL) > 0 ? (cumUnits >= 0 ? 'units-pos' : 'units-neg') : '';
 
-    // Build game card cells
-    let gameCells = games.map(g => `<td class="col-game">${gameCard(g)}</td>`).join('');
-    // Pad remaining columns
-    for (let i = games.length; i < maxGames; i++) {
-      gameCells += `<td class="col-game"></td>`;
-    }
+    let gameCells = games.map(g => `<td class="col-game">${gameCard(g, modelKey, minEdge)}</td>`).join('');
+    for (let i = games.length; i < maxGames; i++) gameCells += `<td class="col-game"></td>`;
 
     rows += `<tr>
-      <td class="col-week">${wkLabel}</td>
+      <td class="col-week">${wkLbl}</td>
       <td class="col-record">${recStr}</td>
-      <td class="col-units ${wkUnitsCls}">${wkUnitsStr}</td>
+      <td class="col-units ${wkUnitsCls}">${wkTotal > 0 ? fmtUnits(wkUnits) : '—'}</td>
       <td class="col-cum-record">${cumRecStr}</td>
-      <td class="col-cum-units ${cumUnitsCls}">${cumUnitsStr}</td>
+      <td class="col-cum-units ${cumUnitsCls}">${(cumW+cumL) > 0 ? fmtUnits(cumUnits) : '—'}</td>
       ${gameCells}
     </tr>`;
   });
 
-  // Totals row
-  const totalUnits = seasonW / 1.1 - seasonL;
-  const totalTotal = seasonW + seasonL;
+  const totalTotal  = seasonW + seasonL;
+  const totalUnits  = seasonW / 1.1 - seasonL;
   const totalUnitsCls = totalTotal > 0 ? (totalUnits >= 0 ? 'units-pos' : 'units-neg') : '';
   rows += `<tr class="totals-row">
     <td class="col-week">Season</td>
@@ -542,10 +566,11 @@ function renderRollup(weekDataList) {
     <tbody>${rows}</tbody>
   </table></div>`;
 
-  // Season summary
+  // Season summary bar
   const pct = totalTotal > 0 ? (seasonW / totalTotal * 100).toFixed(1) + '%' : '—';
   const unitsCls = totalTotal > 0 ? (totalUnits >= 0 ? 'good' : 'bad') : '';
 
+  document.getElementById('sum-model-name').textContent = MODEL_LABELS[modelKey] || modelKey;
   document.getElementById('sum-record').textContent = totalTotal > 0 ? `${seasonW}-${seasonL}` : '—';
   const sumUnitsEl = document.getElementById('sum-units');
   sumUnitsEl.textContent = totalTotal > 0 ? fmtUnits(totalUnits) : '—';
@@ -587,6 +612,7 @@ async function loadSeason() {
     return;
   }
 
+  CACHED_WEEKS = results;
   renderRollup(results);
 }
 
