@@ -352,47 +352,45 @@ button { font-family: inherit; cursor: pointer; }
 .stats-toggle-btn:hover { color: var(--text); border-color: var(--border-hi); }
 
 /* Stats table (inside expandable row) */
-.stats-panel { }
+.stats-panel { overflow-x: auto; padding: 8px 12px; }
 .stats-table {
-  width: 100%;
   border-collapse: collapse;
   font-family: var(--font-mono);
-  font-size: .72rem;
+  font-size: .68rem;
   font-variant-numeric: tabular-nums;
 }
-.stats-panel { overflow-x: auto; }
 .stats-table thead th {
-  padding: 6px 10px;
-  font-size: .6rem;
-  letter-spacing: .08em;
+  padding: 4px 8px;
+  font-size: .57rem;
+  letter-spacing: .06em;
   text-transform: uppercase;
   color: var(--text-dim);
-  background: var(--surface-2);
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  text-align: right;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  text-align: center;
   font-weight: 600;
   white-space: nowrap;
 }
-.stats-table thead th:first-child { text-align: left; padding-left: 20px; }
-.stats-table tbody tr { border-bottom: 1px solid var(--border); }
-.stats-table tbody tr:last-child { border-bottom: none; }
+.stats-table thead th:first-child { text-align: left; }
 .stats-table td {
-  padding: 6px 10px;
+  padding: 4px 8px;
   color: var(--text-muted);
   white-space: nowrap;
+  border: 1px solid var(--border);
+  text-align: center;
 }
 .stats-table td.stat-label {
-  padding-left: 20px;
   font-family: var(--font-cond);
-  font-size: .85rem;
+  font-size: .82rem;
   font-weight: 700;
   letter-spacing: .04em;
   text-transform: uppercase;
+  text-align: left;
+  background: var(--surface-2);
 }
 .stats-table td.stat-label.col-away { color: var(--bad); }
 .stats-table td.stat-label.col-home { color: var(--good); }
-.stats-table td.stat-val { text-align: right; color: var(--text); font-size: .72rem; }
+.stats-table td.stat-val { color: var(--text); }
 .val-pos { color: var(--good); }
 .val-neg { color: var(--bad); }
 .val-null { color: var(--text-dim); }
