@@ -24,26 +24,25 @@ class _NumpyEncoder(json.JSONEncoder):
 from src.data_loader import get_schedule_data
 from src.model_utils import TEAM_MAP, load_features, build_dataset
 
-TRAIN_SEASONS = range(2016, 2022)
-TEST_SEASONS = range(2022, 2026)
+TRAIN_SEASONS = range(2016, 2023)
+TEST_SEASONS = range(2023, 2026)
 
+# Best overall ATS model (train 2016-2022, test 2023-2025)
+# Best E>3 model selected from the same evaluation
 MODELS = {
-    "off+def+pd+qbr+def_vs12": {
-        "label": "Model",
+    "model_overall": {
+        "label": "off_11/12 + qb_off + def + cpoe",
         "features": [
             "off_11_epa_rolling", "off_12_epa_rolling",
             "qb_off_11_epa_rolling", "qb_off_12_epa_rolling",
-            "def_epa_rolling", "point_diff_rolling", "qbr_rolling",
-            "def_vs_12_epa_rolling",
+            "def_epa_rolling", "cpoe_rolling",
         ],
     },
-    "off+def+pd+qbr+cpoe+def_vs12": {
-        "label": "E>3 Model",
+    "model_e3": {
+        "label": "qb_off + def + pd",
         "features": [
-            "off_11_epa_rolling", "off_12_epa_rolling",
             "qb_off_11_epa_rolling", "qb_off_12_epa_rolling",
-            "def_epa_rolling", "point_diff_rolling", "qbr_rolling",
-            "cpoe_rolling", "def_vs_12_epa_rolling",
+            "def_epa_rolling", "point_diff_rolling",
         ],
     },
 }

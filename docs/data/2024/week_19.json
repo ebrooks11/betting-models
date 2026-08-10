@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-10 20:28 UTC",
+  "generated_at": "2026-08-10 20:47 UTC",
   "week_label": "WC \u00b7 2024 Season",
   "season": 2024,
   "week": 19,
@@ -15,24 +15,24 @@
       "total_line": 44.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr+def_vs12": {
-            "label": "Model",
-            "predicted_margin": 14.3,
-            "edge": 4.8,
-            "pick": "BAL",
-            "correct": true
+          "model_overall": {
+            "label": "off_11/12 + qb_off + def + cpoe",
+            "predicted_margin": 9.2,
+            "edge": 0.3,
+            "pick": "PIT",
+            "correct": false
           },
-          "off+def+pd+qbr+cpoe+def_vs12": {
-            "label": "E>3 Model",
-            "predicted_margin": 14.2,
-            "edge": 4.7,
+          "model_e3": {
+            "label": "qb_off + def + pd",
+            "predicted_margin": 11.4,
+            "edge": 1.9,
             "pick": "BAL",
             "correct": true
           }
         },
-        "avg_predicted_margin": 14.2,
+        "avg_predicted_margin": 10.3,
         "consensus": true,
-        "consensus_pick": "BAL"
+        "consensus_pick": "PIT"
       },
       "home_qb": "L.Jackson",
       "away_qb": "R.Wilson",
@@ -196,22 +196,22 @@
       "total_line": 41.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr+def_vs12": {
-            "label": "Model",
+          "model_overall": {
+            "label": "off_11/12 + qb_off + def + cpoe",
+            "predicted_margin": -7.6,
+            "edge": 4.6,
+            "pick": "LAC",
+            "correct": false
+          },
+          "model_e3": {
+            "label": "qb_off + def + pd",
             "predicted_margin": -6.9,
             "edge": 3.9,
             "pick": "LAC",
             "correct": false
-          },
-          "off+def+pd+qbr+cpoe+def_vs12": {
-            "label": "E>3 Model",
-            "predicted_margin": -7.2,
-            "edge": 4.2,
-            "pick": "LAC",
-            "correct": false
           }
         },
-        "avg_predicted_margin": -7.1,
+        "avg_predicted_margin": -7.2,
         "consensus": true,
         "consensus_pick": "LAC"
       },
@@ -377,22 +377,22 @@
       "total_line": 51.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr+def_vs12": {
-            "label": "Model",
-            "predicted_margin": 6.1,
-            "edge": 3.1,
+          "model_overall": {
+            "label": "off_11/12 + qb_off + def + cpoe",
+            "predicted_margin": 5.3,
+            "edge": 2.3,
             "pick": "TB",
             "correct": false
           },
-          "off+def+pd+qbr+cpoe+def_vs12": {
-            "label": "E>3 Model",
-            "predicted_margin": 6.1,
-            "edge": 3.1,
+          "model_e3": {
+            "label": "qb_off + def + pd",
+            "predicted_margin": 5.8,
+            "edge": 2.8,
             "pick": "TB",
             "correct": false
           }
         },
-        "avg_predicted_margin": 6.1,
+        "avg_predicted_margin": 5.5,
         "consensus": true,
         "consensus_pick": "TB"
       },
@@ -558,22 +558,22 @@
       "total_line": 45.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr+def_vs12": {
-            "label": "Model",
-            "predicted_margin": 6.0,
-            "edge": 0.5,
-            "pick": "PHI",
-            "correct": true
-          },
-          "off+def+pd+qbr+cpoe+def_vs12": {
-            "label": "E>3 Model",
+          "model_overall": {
+            "label": "off_11/12 + qb_off + def + cpoe",
             "predicted_margin": 5.8,
             "edge": 0.3,
             "pick": "PHI",
             "correct": true
+          },
+          "model_e3": {
+            "label": "qb_off + def + pd",
+            "predicted_margin": 3.7,
+            "edge": 1.8,
+            "pick": "GB",
+            "correct": false
           }
         },
-        "avg_predicted_margin": 5.9,
+        "avg_predicted_margin": 4.8,
         "consensus": true,
         "consensus_pick": "PHI"
       },
@@ -731,187 +731,6 @@
       }
     },
     {
-      "away_team": "DEN",
-      "home_team": "BUF",
-      "gameday": "2025-01-12",
-      "game_type": "WC",
-      "spread_line": 7.5,
-      "total_line": 48.5,
-      "predictions": {
-        "models": {
-          "off+def+pd+qbr+def_vs12": {
-            "label": "Model",
-            "predicted_margin": 3.2,
-            "edge": 4.3,
-            "pick": "DEN",
-            "correct": false
-          },
-          "off+def+pd+qbr+cpoe+def_vs12": {
-            "label": "E>3 Model",
-            "predicted_margin": 2.8,
-            "edge": 4.7,
-            "pick": "DEN",
-            "correct": false
-          }
-        },
-        "avg_predicted_margin": 3.0,
-        "consensus": true,
-        "consensus_pick": "DEN"
-      },
-      "home_qb": "J.Allen",
-      "away_qb": "B.Nix",
-      "home_stats": {
-        "off_11_epa_rolling": {
-          "label": "Off EPA 11",
-          "value": 0.097,
-          "format": "epa"
-        },
-        "off_12_epa_rolling": {
-          "label": "Off EPA 12",
-          "value": 0.184,
-          "format": "epa"
-        },
-        "off_epa_rolling": {
-          "label": "Overall OFF EPA",
-          "value": 0.045,
-          "format": "epa"
-        },
-        "def_epa_rolling": {
-          "label": "EPA Allowed",
-          "value": -0.067,
-          "format": "epa_inv"
-        },
-        "def_vs_12_epa_rolling": {
-          "label": "Def vs 12",
-          "value": 0.249,
-          "format": "epa_inv"
-        },
-        "qbr_rolling": {
-          "label": "QBR",
-          "value": 52.167,
-          "format": "qbr"
-        },
-        "point_diff_rolling": {
-          "label": "Pt. Diff.",
-          "value": 7.333,
-          "format": "pts"
-        },
-        "turnovers_committed_rolling": {
-          "label": "TOs",
-          "value": 0.333,
-          "format": "to"
-        },
-        "off_11_rate_rolling": {
-          "label": "11 Rate",
-          "value": 0.614,
-          "format": "rate"
-        },
-        "off_12_rate_rolling": {
-          "label": "12 Rate",
-          "value": 0.011,
-          "format": "rate"
-        },
-        "wins": {
-          "label": "Wins",
-          "value": 13.0,
-          "format": "int"
-        },
-        "losses": {
-          "label": "Losses",
-          "value": 4.0,
-          "format": "int"
-        },
-        "power_wins": {
-          "label": "Power Wins",
-          "value": 60.0,
-          "format": "int"
-        },
-        "power_losses": {
-          "label": "Power Losses",
-          "value": 26.0,
-          "format": "int"
-        }
-      },
-      "away_stats": {
-        "off_11_epa_rolling": {
-          "label": "Off EPA 11",
-          "value": 0.234,
-          "format": "epa"
-        },
-        "off_12_epa_rolling": {
-          "label": "Off EPA 12",
-          "value": 0.03,
-          "format": "epa"
-        },
-        "off_epa_rolling": {
-          "label": "Overall OFF EPA",
-          "value": 0.259,
-          "format": "epa"
-        },
-        "def_epa_rolling": {
-          "label": "EPA Allowed",
-          "value": -0.029,
-          "format": "epa_inv"
-        },
-        "def_vs_12_epa_rolling": {
-          "label": "Def vs 12",
-          "value": 0.747,
-          "format": "epa_inv"
-        },
-        "qbr_rolling": {
-          "label": "QBR",
-          "value": 73.667,
-          "format": "qbr"
-        },
-        "point_diff_rolling": {
-          "label": "Pt. Diff.",
-          "value": 8.333,
-          "format": "pts"
-        },
-        "turnovers_committed_rolling": {
-          "label": "TOs",
-          "value": 0.333,
-          "format": "to"
-        },
-        "off_11_rate_rolling": {
-          "label": "11 Rate",
-          "value": 0.565,
-          "format": "rate"
-        },
-        "off_12_rate_rolling": {
-          "label": "12 Rate",
-          "value": 0.096,
-          "format": "rate"
-        },
-        "wins": {
-          "label": "Wins",
-          "value": 10.0,
-          "format": "int"
-        },
-        "losses": {
-          "label": "Losses",
-          "value": 7.0,
-          "format": "int"
-        },
-        "power_wins": {
-          "label": "Power Wins",
-          "value": 51.0,
-          "format": "int"
-        },
-        "power_losses": {
-          "label": "Power Losses",
-          "value": 26.0,
-          "format": "int"
-        }
-      },
-      "result": {
-        "home_score": 31,
-        "away_score": 7,
-        "margin": 24,
-        "home_covered": true
-      }
-    },
-    {
       "away_team": "MIN",
       "home_team": "LA",
       "gameday": "2025-01-13",
@@ -920,22 +739,22 @@
       "total_line": 47.5,
       "predictions": {
         "models": {
-          "off+def+pd+qbr+def_vs12": {
-            "label": "Model",
-            "predicted_margin": 2.8,
-            "edge": 5.3,
+          "model_overall": {
+            "label": "off_11/12 + qb_off + def + cpoe",
+            "predicted_margin": -0.5,
+            "edge": 2.0,
             "pick": "LA",
             "correct": true
           },
-          "off+def+pd+qbr+cpoe+def_vs12": {
-            "label": "E>3 Model",
-            "predicted_margin": 2.3,
-            "edge": 4.8,
+          "model_e3": {
+            "label": "qb_off + def + pd",
+            "predicted_margin": 4.4,
+            "edge": 6.9,
             "pick": "LA",
             "correct": true
           }
         },
-        "avg_predicted_margin": 2.5,
+        "avg_predicted_margin": 2.0,
         "consensus": true,
         "consensus_pick": "LA"
       },
@@ -1089,6 +908,187 @@
         "home_score": 27,
         "away_score": 9,
         "margin": 18,
+        "home_covered": true
+      }
+    },
+    {
+      "away_team": "DEN",
+      "home_team": "BUF",
+      "gameday": "2025-01-12",
+      "game_type": "WC",
+      "spread_line": 7.5,
+      "total_line": 48.5,
+      "predictions": {
+        "models": {
+          "model_overall": {
+            "label": "off_11/12 + qb_off + def + cpoe",
+            "predicted_margin": 0.1,
+            "edge": 7.4,
+            "pick": "DEN",
+            "correct": false
+          },
+          "model_e3": {
+            "label": "qb_off + def + pd",
+            "predicted_margin": 1.2,
+            "edge": 6.3,
+            "pick": "DEN",
+            "correct": false
+          }
+        },
+        "avg_predicted_margin": 0.7,
+        "consensus": true,
+        "consensus_pick": "DEN"
+      },
+      "home_qb": "J.Allen",
+      "away_qb": "B.Nix",
+      "home_stats": {
+        "off_11_epa_rolling": {
+          "label": "Off EPA 11",
+          "value": 0.097,
+          "format": "epa"
+        },
+        "off_12_epa_rolling": {
+          "label": "Off EPA 12",
+          "value": 0.184,
+          "format": "epa"
+        },
+        "off_epa_rolling": {
+          "label": "Overall OFF EPA",
+          "value": 0.045,
+          "format": "epa"
+        },
+        "def_epa_rolling": {
+          "label": "EPA Allowed",
+          "value": -0.067,
+          "format": "epa_inv"
+        },
+        "def_vs_12_epa_rolling": {
+          "label": "Def vs 12",
+          "value": 0.249,
+          "format": "epa_inv"
+        },
+        "qbr_rolling": {
+          "label": "QBR",
+          "value": 52.167,
+          "format": "qbr"
+        },
+        "point_diff_rolling": {
+          "label": "Pt. Diff.",
+          "value": 7.333,
+          "format": "pts"
+        },
+        "turnovers_committed_rolling": {
+          "label": "TOs",
+          "value": 0.333,
+          "format": "to"
+        },
+        "off_11_rate_rolling": {
+          "label": "11 Rate",
+          "value": 0.614,
+          "format": "rate"
+        },
+        "off_12_rate_rolling": {
+          "label": "12 Rate",
+          "value": 0.011,
+          "format": "rate"
+        },
+        "wins": {
+          "label": "Wins",
+          "value": 13.0,
+          "format": "int"
+        },
+        "losses": {
+          "label": "Losses",
+          "value": 4.0,
+          "format": "int"
+        },
+        "power_wins": {
+          "label": "Power Wins",
+          "value": 60.0,
+          "format": "int"
+        },
+        "power_losses": {
+          "label": "Power Losses",
+          "value": 26.0,
+          "format": "int"
+        }
+      },
+      "away_stats": {
+        "off_11_epa_rolling": {
+          "label": "Off EPA 11",
+          "value": 0.234,
+          "format": "epa"
+        },
+        "off_12_epa_rolling": {
+          "label": "Off EPA 12",
+          "value": 0.03,
+          "format": "epa"
+        },
+        "off_epa_rolling": {
+          "label": "Overall OFF EPA",
+          "value": 0.259,
+          "format": "epa"
+        },
+        "def_epa_rolling": {
+          "label": "EPA Allowed",
+          "value": -0.029,
+          "format": "epa_inv"
+        },
+        "def_vs_12_epa_rolling": {
+          "label": "Def vs 12",
+          "value": 0.747,
+          "format": "epa_inv"
+        },
+        "qbr_rolling": {
+          "label": "QBR",
+          "value": 73.667,
+          "format": "qbr"
+        },
+        "point_diff_rolling": {
+          "label": "Pt. Diff.",
+          "value": 8.333,
+          "format": "pts"
+        },
+        "turnovers_committed_rolling": {
+          "label": "TOs",
+          "value": 0.333,
+          "format": "to"
+        },
+        "off_11_rate_rolling": {
+          "label": "11 Rate",
+          "value": 0.565,
+          "format": "rate"
+        },
+        "off_12_rate_rolling": {
+          "label": "12 Rate",
+          "value": 0.096,
+          "format": "rate"
+        },
+        "wins": {
+          "label": "Wins",
+          "value": 10.0,
+          "format": "int"
+        },
+        "losses": {
+          "label": "Losses",
+          "value": 7.0,
+          "format": "int"
+        },
+        "power_wins": {
+          "label": "Power Wins",
+          "value": 51.0,
+          "format": "int"
+        },
+        "power_losses": {
+          "label": "Power Losses",
+          "value": 26.0,
+          "format": "int"
+        }
+      },
+      "result": {
+        "home_score": 31,
+        "away_score": 7,
+        "margin": 24,
         "home_covered": true
       }
     }

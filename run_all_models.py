@@ -20,8 +20,8 @@ from config import SEASONS
 from src.data_loader import get_schedule_data
 from src.model_utils import load_features, build_dataset, ats_accuracy
 
-TRAIN_SEASONS = range(2016, 2022)
-TEST_SEASONS  = range(2022, 2026)
+TRAIN_SEASONS = range(2016, 2023)
+TEST_SEASONS  = range(2023, 2026)
 
 # ── All models to evaluate ────────────────────────────────────────────────────
 # Each entry: (human_label, feature_cols)
@@ -307,8 +307,9 @@ def build_leaderboard_tables(results):
     ats_table = header + "\n" + table_rows(by_ats)
     e3_table  = header + "\n" + table_rows(by_e3)
 
-    best = by_ats[0]
-    return ats_table, e3_table, best
+    best     = by_ats[0]
+    best_e3  = by_e3[0]
+    return ats_table, e3_table, best, best_e3
 
 
 def update_readme(ats_table, e3_table, best):
@@ -318,7 +319,7 @@ def update_readme(ats_table, e3_table, best):
     # Replace the two leaderboard blocks between their headings and the Notable note
     ats_section = (
         "### Top 10 by Overall ATS\n\n"
-        "Includes playoff games (WC, DIV, CON, SB). Train 2016–2021, test 2022–2025.\n\n"
+        "Includes playoff games (WC, DIV, CON, SB). Train 2016–2022, test 2023–2025.\n\n"
         + ats_table
     )
     e3_section = (
@@ -352,17 +353,20 @@ def update_readme(ats_table, e3_table, best):
     print(f"\nREADME updated. Best model: {best['label']} — {best['ats']:.1%} / {best['units']:+.1f}u")
 
 
-def regenerate_ui(best_features, best_label):
-    """Update predictions_generator.py MODELS dict to the best model and regenerate all JSONs."""
+def regenerate_ui(best, best_e3):
+    """Patch predictions_generator MODELS with the two best models and regenerate all JSONs."""
+    import src.predictions_generator as pg
     from src.predictions_generator import generate_all
 
-    # Patch the MODELS dict in predictions_generator at runtime
-    import src.predictions_generator as pg
     pg.MODELS = {
-        "off+def+pd+qbr+def_vs12": {
-            "label": "Model",
-            "features": best_features,
-        }
+        "model_overall": {
+            "label": best["label"],
+            "features": best["features"],
+        },
+        "model_e3": {
+            "label": best_e3["label"],
+            "features": best_e3["features"],
+        },
     }
 
     print("\nRegenerating UI JSON files...")
@@ -392,11 +396,11 @@ def main():
         print("No results — check feature availability.")
         return
 
-    ats_table, e3_table, best = build_leaderboard_tables(results)
+    ats_table, e3_table, best, best_e3 = build_leaderboard_tables(results)
     update_readme(ats_table, e3_table, best)
 
     if not args.eval_only:
-        regenerate_ui(best["features"], best["label"])
+        regenerate_ui(best, best_e3)
         print("\nDone. Commit docs/data/ and README.md to publish.")
     else:
         print("\nDone. README updated. Run without --eval-only to also regenerate UI JSON files.")

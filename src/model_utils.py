@@ -8,8 +8,8 @@ from sklearn.metrics import mean_absolute_error
 FEATURES_PATH = Path("exports/features.parquet")
 BACKUP_QB_PATH = Path("exports/backup_qb_games.csv")
 TEAM_MAP = {"OAK": "LV", "SD": "LAC", "STL": "LA"}
-TRAIN_SEASONS = range(2006, 2022)
-TEST_SEASONS = range(2022, 2026)
+TRAIN_SEASONS = range(2006, 2023)
+TEST_SEASONS = range(2023, 2026)
 
 # Games where a backup QB started due to injury or benching — excluded from all datasets
 # because rolling EPA features reflect the starter, not the backup who actually played.

@@ -349,8 +349,8 @@ button { font-family: inherit; cursor: pointer; }
     <select class="picker-select" id="season-select" onchange="loadSeason()"></select>
     <span class="picker-label" style="margin-left:12px">Model</span>
     <select class="picker-select" id="model-select" onchange="onModelChange()">
-      <option value="off+def+pd+qbr+def_vs12">Overall (all bets)</option>
-      <option value="off+def+pd+qbr+cpoe+def_vs12" selected>E&gt;3 (high confidence)</option>
+      <option value="model_overall">Overall (all bets)</option>
+      <option value="model_e3" selected>E&gt;3 (high confidence)</option>
     </select>
   </div>
 
@@ -402,10 +402,10 @@ let INDEX = null;
 let CACHED_WEEKS = null; // week data cached across model switches
 
 const MODEL_LABELS = {
-  'off+def+pd+qbr+def_vs12':       'Overall',
-  'off+def+pd+qbr+cpoe+def_vs12':  'E>3',
+  'model_overall': 'Overall',
+  'model_e3':      'E>3',
 };
-const E3_MODEL_KEY = 'off+def+pd+qbr+cpoe+def_vs12';
+const E3_MODEL_KEY = 'model_e3';
 const E3_THRESHOLD = 3.0;
 
 function activeModelKey() {
