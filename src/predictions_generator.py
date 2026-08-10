@@ -41,24 +41,20 @@ MODELS = {
 
 # All stats to surface in the UI per team
 DISPLAY_STATS = [
-    ("off_11_epa_rolling",          "OFF EPA (11 personnel)",       "epa"),
-    ("off_12_epa_rolling",          "OFF EPA (12 personnel)",       "epa"),
-    ("qb_off_11_epa_rolling",       "QB EPA (11 personnel)",        "epa"),
-    ("qb_off_12_epa_rolling",       "QB EPA (12 personnel)",        "epa"),
+    ("off_11_epa_rolling",          "Off EPA 11",                   "epa"),
+    ("off_12_epa_rolling",          "Off EPA 12",                   "epa"),
     ("off_epa_rolling",             "Overall OFF EPA",              "epa"),
-    ("def_epa_rolling",             "DEF EPA allowed",              "epa_inv"),
-    ("def_vs_12_epa_rolling",       "DEF vs 12 personnel",         "epa_inv"),
+    ("def_epa_rolling",             "EPA Allowed",                  "epa_inv"),
+    ("def_vs_12_epa_rolling",       "Def vs 12",                    "epa_inv"),
     ("qbr_rolling",                 "QBR",                          "qbr"),
-    ("cpoe_rolling",                "CPOE",                         "pct"),
-    ("point_diff_rolling",          "Point Differential",           "pts"),
-    ("turnovers_committed_rolling", "Turnovers Committed",          "to"),
-    ("off_11_rate_rolling",         "11 Personnel Rate",            "rate"),
-    ("off_12_rate_rolling",         "12 Personnel Rate",            "rate"),
+    ("point_diff_rolling",          "Pt. Diff.",                    "pts"),
+    ("turnovers_committed_rolling", "TOs",                          "to"),
+    ("off_11_rate_rolling",         "11 Rate",                      "rate"),
+    ("off_12_rate_rolling",         "12 Rate",                      "rate"),
     ("wins",                        "Wins",                         "int"),
     ("losses",                      "Losses",                       "int"),
     ("power_wins",                  "Power Wins",                   "int"),
     ("power_losses",                "Power Losses",                 "int"),
-    ("power_win_pct",               "Power Win %",                  "winpct"),
 ]
 
 
