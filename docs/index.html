@@ -266,6 +266,16 @@ button { font-family: inherit; cursor: pointer; }
 }
 .matchup-teams .score-away.winner, .matchup-teams .score-home.winner { color: var(--good); }
 .matchup-teams .score-away.loser,  .matchup-teams .score-home.loser  { color: var(--text-dim); }
+.matchup-qbs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 1px;
+  font-size: .62rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.qb-sep { color: var(--text-dim); font-size: .55rem; }
 .matchup-meta {
   display: flex;
   align-items: center;
@@ -606,6 +616,8 @@ function renderGameRows(game, idx) {
   const gameTypeBadge = game.game_type !== 'REG'
     ? `<span class="game-type-badge">${game.game_type}</span>` : '';
   const marginNote = r ? `<span class="final-margin">${homeWon ? game.home_team : game.away_team} by ${Math.abs(r.margin)}</span>` : '';
+  const awayQB = game.away_qb || '';
+  const homeQB = game.home_qb || '';
 
   // Spread cell
   let spreadHTML = '<span class="val-null">—</span>';
@@ -662,6 +674,7 @@ function renderGameRows(game, idx) {
 <tr class="game-row ${rowCls}">
   <td class="cell-matchup">
     <div class="matchup-teams">${game.away_team} ${awayScore} <span style="color:var(--text-dim);font-size:.8rem">@</span> ${game.home_team} ${homeScore}</div>
+    <div class="matchup-qbs"><span class="qb-name">${awayQB}</span><span class="qb-sep">vs</span><span class="qb-name">${homeQB}</span></div>
     <div class="matchup-meta">${fmtDate(game.gameday)} ${gameTypeBadge} ${marginNote}</div>
   </td>
   <td class="cell-spread">${spreadHTML}${totalHTML}</td>
