@@ -341,7 +341,12 @@ def generate_all(out_dir: str = "docs/data") -> None:
             week = int(week)
             print(f"  Generating {season} week {week}...")
             payload = generate_week(season, week, schedules, features, trained, out_dir)
-            if payload.get("games"):
+            has_any_pred = any(
+                list(g["predictions"]["models"].values())[0]["predicted_margin"] is not None
+                for g in payload.get("games", [])
+                if g.get("predictions", {}).get("models")
+            )
+            if payload.get("games") and has_any_pred:
                 available.append({"season": season, "week": week})
 
     # Also generate the upcoming week (or last completed REG week as demo)
