@@ -637,7 +637,7 @@ function renderGameRows(game, idx) {
   // Model cell
   let modelHTML = '<span class="val-null">—</span>';
   let rowCls = '';
-  if (m && m.predicted_margin) {
+  if (m && m.predicted_margin !== null && m.predicted_margin !== undefined) {
     const isHome = m.pick === game.home_team;
     const pickMargin = isHome ? m.predicted_margin : -m.predicted_margin;
     const marginStr = pickMargin >= 0
