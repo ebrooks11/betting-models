@@ -1,0 +1,619 @@
+<!-- NFL Model Season Rollup v1 -->
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NFL Model · Season Rollup</title>
+<style>
+/* ── Tokens ────────────────────────────────────────────────── */
+:root {
+  --bg:           #0d1117;
+  --surface:      #161b22;
+  --surface-2:    #1e242e;
+  --surface-3:    #252c38;
+  --border:       #2a3140;
+  --border-hi:    #3a4458;
+  --text:         #e2e8f4;
+  --text-muted:   #6b7a99;
+  --text-dim:     #4a5568;
+  --accent:       #f0a500;
+  --accent-dim:   rgba(240,165,0,.12);
+  --good:         #3fb68a;
+  --good-dim:     rgba(63,182,138,.15);
+  --bad:          #e05656;
+  --bad-dim:      rgba(224,86,86,.13);
+  --neutral:      #5a7099;
+  --font-mono:    "JetBrains Mono","Fira Code","Cascadia Code",ui-monospace,monospace;
+  --font-sans:    -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  --font-cond:    "Arial Narrow","Helvetica Neue",Arial,sans-serif;
+  --r:            6px;
+  --r-lg:         10px;
+}
+:root[data-theme="light"] {
+  --bg:           #f0f2f7;
+  --surface:      #ffffff;
+  --surface-2:    #f5f7fc;
+  --surface-3:    #eaecf4;
+  --border:       #d8dce8;
+  --border-hi:    #b8c0d4;
+  --text:         #1a2035;
+  --text-muted:   #5a6480;
+  --text-dim:     #9aa0b4;
+  --accent:       #d4890a;
+  --accent-dim:   rgba(212,137,10,.1);
+  --good:         #1e9e6e;
+  --good-dim:     rgba(30,158,110,.12);
+  --bad:          #cc3a3a;
+  --bad-dim:      rgba(204,58,58,.10);
+  --neutral:      #7080a0;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f0f2f7; --surface: #ffffff; --surface-2: #f5f7fc;
+    --surface-3: #eaecf4; --border: #d8dce8; --border-hi: #b8c0d4;
+    --text: #1a2035; --text-muted: #5a6480; --text-dim: #9aa0b4;
+    --accent: #d4890a; --accent-dim: rgba(212,137,10,.1);
+    --good: #1e9e6e; --good-dim: rgba(30,158,110,.12);
+    --bad: #cc3a3a; --bad-dim: rgba(204,58,58,.10); --neutral: #7080a0;
+  }
+}
+
+/* ── Reset ─────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+button { font-family: inherit; cursor: pointer; }
+
+/* ── Layout ────────────────────────────────────────────────── */
+.page {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 28px 20px 80px;
+}
+
+/* ── Header ────────────────────────────────────────────────── */
+.site-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.site-title {
+  font-family: var(--font-cond);
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.site-title span { color: var(--accent); }
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.theme-toggle {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--text-muted);
+  font-size: .75rem;
+  padding: 4px 10px;
+  line-height: 1;
+}
+.theme-toggle:hover { color: var(--text); border-color: var(--border-hi); }
+.nav-link {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--text-muted);
+  font-size: .75rem;
+  padding: 4px 10px;
+  line-height: 1;
+  text-decoration: none;
+}
+.nav-link:hover { color: var(--text); border-color: var(--border-hi); }
+
+/* ── Controls ──────────────────────────────────────────────── */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.picker-label {
+  font-size: .72rem;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.picker-select {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: .78rem;
+  padding: 5px 10px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7a99'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 26px;
+}
+.picker-select:hover { border-color: var(--border-hi); }
+.picker-select:focus { outline: none; border-color: var(--accent); }
+
+/* ── Season summary bar ────────────────────────────────────── */
+.season-summary {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 12px 18px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  margin-bottom: 20px;
+  font-family: var(--font-mono);
+  font-size: .75rem;
+  flex-wrap: wrap;
+}
+.season-summary.hidden { display: none; }
+.sum-stat { display: flex; flex-direction: column; gap: 2px; }
+.sum-label { color: var(--text-dim); font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; }
+.sum-val { color: var(--text); font-size: 1rem; font-weight: 700; }
+.sum-val.good { color: var(--good); }
+.sum-val.bad  { color: var(--bad); }
+.sum-divider { width: 1px; height: 32px; background: var(--border); }
+
+/* ── Loading / error ───────────────────────────────────────── */
+.state-msg {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: .85rem;
+}
+.progress-bar-wrap {
+  width: 100%;
+  max-width: 340px;
+  margin: 12px auto 0;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width .15s;
+}
+
+/* ── Rollup table ──────────────────────────────────────────── */
+.rollup-wrap { overflow-x: auto; }
+.rollup-table {
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: .78rem;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  min-width: 100%;
+}
+.rollup-table thead th {
+  padding: 5px 10px;
+  font-size: .6rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: var(--surface-2);
+  border-bottom: 2px solid var(--border);
+  border-right: 1px solid var(--border);
+  white-space: nowrap;
+  font-weight: 600;
+  vertical-align: bottom;
+  text-align: center;
+}
+.rollup-table thead th.col-week { text-align: left; }
+.rollup-table tbody tr {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.rollup-table tbody tr:last-child { border-bottom: none; }
+.rollup-table tbody tr.totals-row {
+  background: var(--surface-2);
+  border-top: 2px solid var(--border);
+  font-weight: 700;
+}
+.rollup-table tbody td {
+  padding: 5px 10px;
+  border-right: 1px solid var(--border);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* Fixed columns */
+.col-week   { min-width: 64px; font-weight: 600; color: var(--text); text-align: left; }
+.col-record { min-width: 56px; text-align: center; }
+.col-units  { min-width: 64px; text-align: center; font-variant-numeric: tabular-nums; }
+.col-cum-record { min-width: 64px; text-align: center; color: var(--text-muted); }
+.col-cum-units  { min-width: 64px; text-align: center; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.units-pos { color: var(--good); }
+.units-neg { color: var(--bad); }
+
+/* Game card cells */
+.col-game { padding: 4px 5px !important; vertical-align: top !important; }
+.game-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 78px;
+  max-width: 100px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  cursor: default;
+}
+.game-card.card-correct { background: var(--good-dim); border-color: var(--good); }
+.game-card.card-wrong   { background: var(--bad-dim);  border-color: var(--bad); }
+.game-card.card-pending { opacity: .7; }
+.game-card.card-no-pick { opacity: .45; }
+.card-matchup {
+  font-family: var(--font-cond);
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  color: var(--text);
+  white-space: nowrap;
+  line-height: 1.2;
+}
+.card-pick {
+  font-family: var(--font-cond);
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.card-pick.pick-correct { color: var(--good); }
+.card-pick.pick-wrong   { color: var(--bad); }
+.card-pick.pick-pending { color: var(--text-muted); }
+.card-edge {
+  font-size: .62rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.card-score {
+  font-size: .65rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.card-no-pred {
+  font-size: .65rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  font-style: italic;
+}
+
+/* Games cell container */
+.games-cell {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  align-items: flex-start;
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="site-header">
+    <div>
+      <div class="site-title">NFL <span>MODEL</span> · Season Rollup</div>
+    </div>
+    <div class="header-right">
+      <a class="nav-link" href="index.html">← Week View</a>
+      <button class="theme-toggle" onclick="toggleTheme()">Toggle theme</button>
+    </div>
+  </header>
+
+  <div class="controls">
+    <span class="picker-label">Season</span>
+    <select class="picker-select" id="season-select" onchange="loadSeason()"></select>
+  </div>
+
+  <div id="season-summary" class="season-summary hidden">
+    <div class="sum-stat">
+      <span class="sum-label">Season Record</span>
+      <span class="sum-val" id="sum-record">—</span>
+    </div>
+    <div class="sum-divider"></div>
+    <div class="sum-stat">
+      <span class="sum-label">Season Units</span>
+      <span class="sum-val" id="sum-units">—</span>
+    </div>
+    <div class="sum-divider"></div>
+    <div class="sum-stat">
+      <span class="sum-label">Win %</span>
+      <span class="sum-val" id="sum-pct">—</span>
+    </div>
+    <div class="sum-divider"></div>
+    <div class="sum-stat">
+      <span class="sum-label">Bets Made</span>
+      <span class="sum-val" id="sum-bets">—</span>
+    </div>
+  </div>
+
+  <div id="rollup-container">
+    <div class="state-msg">Select a season above.</div>
+  </div>
+</div>
+
+<script>
+const TEAM_COLORS = {
+  ARI: '#97233f', ATL: '#a71930', BAL: '#241773', BUF: '#00338d',
+  CAR: '#0085ca', CHI: '#0b162a', CIN: '#fb4f14', CLE: '#311d00',
+  DAL: '#003594', DEN: '#fb4f14', DET: '#0076b6', GB:  '#203731',
+  HOU: '#03202f', IND: '#002c5f', JAX: '#006778', KC:  '#e31837',
+  LA:  '#003594', LAC: '#0080c6', LV:  '#000000', MIA: '#008e97',
+  MIN: '#4f2683', NE:  '#002244', NO:  '#d3bc8d', NYG: '#0b2265',
+  NYJ: '#125740', PHI: '#004c54', PIT: '#ffb612', SEA: '#002244',
+  SF:  '#aa0000', TB:  '#d50a0a', TEN: '#0c2340', WAS: '#5a1414',
+};
+
+let INDEX = null;
+
+function toggleTheme() {
+  const r = document.documentElement;
+  r.dataset.theme = r.dataset.theme === 'light' ? 'dark' : 'light';
+}
+
+function fmtUnits(u) {
+  return (u >= 0 ? '+' : '') + u.toFixed(1) + 'u';
+}
+
+const PLAYOFF_LABELS = { 19: 'WC', 20: 'DIV', 21: 'CON', 22: 'SB' };
+function weekLabel(w) {
+  return w <= 18 ? `Wk ${w}` : (PLAYOFF_LABELS[w] || `Wk ${w}`);
+}
+
+function gameCard(game) {
+  const m = Object.values(game.predictions.models)[0];
+  const r = game.result;
+
+  const away = game.away_team;
+  const home = game.home_team;
+  const awayColor = TEAM_COLORS[away] || 'var(--text)';
+  const homeColor = TEAM_COLORS[home] || 'var(--text)';
+  const matchupHTML = `<span style="color:${awayColor}">${away}</span> <span style="color:var(--text-dim);font-size:.65rem">@</span> <span style="color:${homeColor}">${home}</span>`;
+
+  const hasPick = m && m.predicted_margin !== null && m.predicted_margin !== undefined;
+
+  if (!hasPick) {
+    return `<div class="game-card card-no-pick">
+      <div class="card-matchup">${matchupHTML}</div>
+      <div class="card-no-pred">No pick</div>
+    </div>`;
+  }
+
+  const isHome = m.pick === home;
+  const pickMargin = isHome ? m.predicted_margin : -m.predicted_margin;
+  const marginStr = pickMargin >= 0
+    ? `-${pickMargin.toFixed(1)}`
+    : `+${Math.abs(pickMargin).toFixed(1)}`;
+
+  let cardCls = 'card-pending';
+  let pickCls = 'pick-pending';
+  if (m.correct === true)  { cardCls = 'card-correct'; pickCls = 'pick-correct'; }
+  if (m.correct === false) { cardCls = 'card-wrong';   pickCls = 'pick-wrong'; }
+
+  const edgeStr = m.edge !== null ? `Edge ${m.edge.toFixed(1)}` : '';
+
+  let scoreStr = '';
+  if (r) {
+    const winTeam = r.margin > 0 ? home : r.margin < 0 ? away : null;
+    scoreStr = `${r.away_score}–${r.home_score}`;
+  }
+
+  return `<div class="game-card ${cardCls}">
+    <div class="card-matchup">${matchupHTML}</div>
+    <div class="card-pick ${pickCls}">${m.pick} ${marginStr}</div>
+    ${edgeStr ? `<div class="card-edge">${edgeStr}</div>` : ''}
+    ${scoreStr ? `<div class="card-score">${scoreStr}</div>` : ''}
+  </div>`;
+}
+
+function renderRollup(weekDataList) {
+  const container = document.getElementById('rollup-container');
+
+  // Find max games in any week for column count
+  const maxGames = Math.max(...weekDataList.map(d => d.games.length));
+
+  // Build header game columns
+  let gameColHeaders = '';
+  for (let i = 1; i <= maxGames; i++) {
+    gameColHeaders += `<th>Game ${i}</th>`;
+  }
+
+  let cumW = 0, cumL = 0;
+  let rows = '';
+  const totals = { w: 0, l: 0, units: 0 };
+
+  // Track season-level units
+  let seasonW = 0, seasonL = 0, seasonUnits = 0;
+
+  weekDataList.forEach(data => {
+    // Sort games by edge descending (same as week view)
+    const games = [...data.games].sort((a, b) => {
+      const ae = Object.values(a.predictions.models)[0]?.edge ?? -Infinity;
+      const be = Object.values(b.predictions.models)[0]?.edge ?? -Infinity;
+      return be - ae;
+    });
+
+    // Tally week results
+    let wkW = 0, wkL = 0;
+    games.forEach(g => {
+      if (!g.result) return;
+      const m = Object.values(g.predictions.models)[0];
+      if (!m || m.predicted_margin === null || m.predicted_margin === undefined) return;
+      if (m.correct === true)  wkW++;
+      if (m.correct === false) wkL++;
+    });
+    const wkTotal = wkW + wkL;
+    const wkUnits = wkW / 1.1 - wkL;
+
+    cumW += wkW;
+    cumL += wkL;
+    const cumUnits = cumW / 1.1 - cumL;
+
+    seasonW = cumW;
+    seasonL = cumL;
+    seasonUnits = cumUnits;
+
+    const wkLabel = weekLabel(data.week);
+    const recStr = wkTotal > 0 ? `${wkW}-${wkL}` : '—';
+    const cumRecStr = (cumW + cumL) > 0 ? `${cumW}-${cumL}` : '—';
+    const wkUnitsStr = wkTotal > 0 ? fmtUnits(wkUnits) : '—';
+    const cumUnitsStr = (cumW + cumL) > 0 ? fmtUnits(cumUnits) : '—';
+
+    const wkUnitsCls = wkTotal > 0 ? (wkUnits >= 0 ? 'units-pos' : 'units-neg') : '';
+    const cumUnitsCls = (cumW + cumL) > 0 ? (cumUnits >= 0 ? 'units-pos' : 'units-neg') : '';
+
+    // Build game card cells
+    let gameCells = games.map(g => `<td class="col-game">${gameCard(g)}</td>`).join('');
+    // Pad remaining columns
+    for (let i = games.length; i < maxGames; i++) {
+      gameCells += `<td class="col-game"></td>`;
+    }
+
+    rows += `<tr>
+      <td class="col-week">${wkLabel}</td>
+      <td class="col-record">${recStr}</td>
+      <td class="col-units ${wkUnitsCls}">${wkUnitsStr}</td>
+      <td class="col-cum-record">${cumRecStr}</td>
+      <td class="col-cum-units ${cumUnitsCls}">${cumUnitsStr}</td>
+      ${gameCells}
+    </tr>`;
+  });
+
+  // Totals row
+  const totalUnits = seasonW / 1.1 - seasonL;
+  const totalTotal = seasonW + seasonL;
+  const totalUnitsCls = totalTotal > 0 ? (totalUnits >= 0 ? 'units-pos' : 'units-neg') : '';
+  rows += `<tr class="totals-row">
+    <td class="col-week">Season</td>
+    <td class="col-record">${totalTotal > 0 ? `${seasonW}-${seasonL}` : '—'}</td>
+    <td class="col-units ${totalUnitsCls}">${totalTotal > 0 ? fmtUnits(totalUnits) : '—'}</td>
+    <td class="col-cum-record"></td>
+    <td class="col-cum-units"></td>
+    <td colspan="${maxGames}"></td>
+  </tr>`;
+
+  container.innerHTML = `<div class="rollup-wrap"><table class="rollup-table">
+    <thead><tr>
+      <th class="col-week">Week</th>
+      <th>Record</th>
+      <th>Units</th>
+      <th>Cum. Record</th>
+      <th>Cum. Units</th>
+      ${gameColHeaders}
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+
+  // Season summary
+  const pct = totalTotal > 0 ? (seasonW / totalTotal * 100).toFixed(1) + '%' : '—';
+  const unitsCls = totalTotal > 0 ? (totalUnits >= 0 ? 'good' : 'bad') : '';
+
+  document.getElementById('sum-record').textContent = totalTotal > 0 ? `${seasonW}-${seasonL}` : '—';
+  const sumUnitsEl = document.getElementById('sum-units');
+  sumUnitsEl.textContent = totalTotal > 0 ? fmtUnits(totalUnits) : '—';
+  sumUnitsEl.className = 'sum-val' + (unitsCls ? ' ' + unitsCls : '');
+  document.getElementById('sum-pct').textContent = pct;
+  document.getElementById('sum-bets').textContent = totalTotal > 0 ? String(totalTotal) : '—';
+  document.getElementById('season-summary').classList.remove('hidden');
+}
+
+async function loadSeason() {
+  const season = document.getElementById('season-select').value;
+  const entry = INDEX.seasons.find(s => s.season === parseInt(season));
+  if (!entry) return;
+
+  const container = document.getElementById('rollup-container');
+  document.getElementById('season-summary').classList.add('hidden');
+  container.innerHTML = `<div class="state-msg">Loading ${season} season…
+    <div class="progress-bar-wrap"><div class="progress-bar-fill" id="prog" style="width:0%"></div></div>
+  </div>`;
+
+  const weeks = entry.weeks;
+  const results = [];
+
+  for (let i = 0; i < weeks.length; i++) {
+    const w = weeks[i];
+    try {
+      const res = await fetch(`./data/${season}/week_${w}.json`);
+      if (!res.ok) continue;
+      const data = await res.json();
+      results.push(data);
+    } catch (_) { /* skip missing weeks */ }
+    const pct = Math.round((i + 1) / weeks.length * 100);
+    const prog = document.getElementById('prog');
+    if (prog) prog.style.width = pct + '%';
+  }
+
+  if (results.length === 0) {
+    container.innerHTML = `<div class="state-msg">No data found for ${season}.</div>`;
+    return;
+  }
+
+  renderRollup(results);
+}
+
+async function init() {
+  try {
+    const res = await fetch('./data/index.json');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    INDEX = await res.json();
+
+    const sel = document.getElementById('season-select');
+    sel.innerHTML = INDEX.seasons.map(s =>
+      `<option value="${s.season}">${s.season}</option>`
+    ).join('');
+
+    // Default to most recent season
+    if (INDEX.seasons.length > 0) {
+      sel.value = INDEX.seasons[0].season;
+    }
+
+    await loadSeason();
+  } catch (e) {
+    document.getElementById('rollup-container').innerHTML =
+      `<div class="state-msg">Could not load index<br><small>${e.message}</small></div>`;
+  }
+}
+
+init();
+</script>
+</body>
+</html>
