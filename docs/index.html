@@ -577,7 +577,7 @@ async function loadWeek() {
   document.getElementById('results-bar').classList.add('hidden');
 
   try {
-    const res = await fetch(`./data/${season}/week_${week}.json`);
+    const res = await fetch(`./data/${season}/week_${week}.json?v=2`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     renderData(data);
@@ -749,7 +749,7 @@ function renderData(data) {
 async function init() {
   const container = document.getElementById('games-container');
   try {
-    const res = await fetch('./data/index.json');
+    const res = await fetch('./data/index.json?v=2');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     INDEX = await res.json();
 
