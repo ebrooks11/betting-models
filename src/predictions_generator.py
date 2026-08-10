@@ -119,10 +119,11 @@ def _predict_game(
     trained_models: dict,
 ) -> dict:
     """Return predictions from all 3 models for a single game."""
+    OPTIONAL_ZERO = {"off_12_epa_rolling", "qb_off_12_epa_rolling", "def_vs_12_epa_rolling"}
     preds = {}
     for key, (model, feat_cols) in trained_models.items():
-        home_vals = [home_row.get(c, np.nan) for c in feat_cols]
-        away_vals = [away_row.get(c, np.nan) for c in feat_cols]
+        home_vals = [0.0 if (np.isnan(home_row.get(c, np.nan)) and c in OPTIONAL_ZERO) else home_row.get(c, np.nan) for c in feat_cols]
+        away_vals = [0.0 if (np.isnan(away_row.get(c, np.nan)) and c in OPTIONAL_ZERO) else away_row.get(c, np.nan) for c in feat_cols]
         if any(np.isnan(v) for v in home_vals + away_vals):
             preds[key] = None
             continue

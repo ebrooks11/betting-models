@@ -820,14 +820,18 @@ qbr_reg["team_abb"] = qbr_reg["team_abb"].replace(TEAM_MAP)
 # Normalize to "F.Last" format — strip middle initials so "C.J. Stroud" → "C.Stroud"
 # to match the passer_player_name format used in nflverse play-by-play
 def _normalize_qbr_name(name: str) -> str:
-    # Produce "F.Last" to match passer_player_name in PBP (e.g. "M. Penix Jr." → "M.Penix")
+    # Produce "F.Last" to match passer_player_name in PBP
+    # Handles "M. Penix Jr." → "M.Penix", "C.J. Stroud" → "C.Stroud"
     parts = name.strip().split(".")
-    if len(parts) >= 2:
-        first_initial = parts[0].strip()
-        # Take only the first word of the last-name segment (drops "Jr", "II", etc.)
-        last = parts[1].strip().split()[0] if parts[1].strip() else ""
-        if first_initial and last:
-            return f"{first_initial}.{last}"
+    first_initial = parts[0].strip()
+    last = ""
+    for part in parts[1:]:
+        word = part.strip().split()[0] if part.strip() else ""
+        if len(word) > 1:  # skip middle initials like "J"
+            last = word
+            break
+    if first_initial and last:
+        return f"{first_initial}.{last}"
     return name
 
 qbr_reg["name_normalized"] = qbr_reg["name_short"].apply(_normalize_qbr_name)
