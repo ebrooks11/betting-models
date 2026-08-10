@@ -320,12 +320,25 @@ button { font-family: inherit; cursor: pointer; }
 /* Model cell */
 .cell-model { min-width: 90px; }
 .model-row { display: flex; flex-direction: column; gap: 2px; }
+.model-action {
+  font-family: var(--font-cond);
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
 .model-pick-val {
   font-family: var(--font-cond);
   font-size: .95rem;
   font-weight: 700;
   letter-spacing: .04em;
   text-transform: uppercase;
+}
+.matchup-margin {
+  font-size: .62rem;
+  color: var(--text-muted);
+  margin-top: 1px;
 }
 .model-edge-val {
   font-size: .72rem;
@@ -648,6 +661,7 @@ function renderGameRows(game, idx) {
     if (m.correct === true)  { resultTag = '<div class="result-tag correct">✓ Correct</div>'; rowCls = 'result-correct'; }
     if (m.correct === false) { resultTag = '<div class="result-tag wrong">✗ Wrong</div>';   rowCls = 'result-wrong'; }
     modelHTML = `<div class="model-row">
+      <div class="model-action">Bet ${m.pick}</div>
       <div class="model-pick-val">${m.pick} ${marginStr}</div>
       <div class="model-edge-val">${edgeStr}</div>
       ${resultTag}
@@ -673,9 +687,10 @@ function renderGameRows(game, idx) {
   return `
 <tr class="game-row ${rowCls}">
   <td class="cell-matchup">
+    <div class="matchup-meta">${fmtDate(game.gameday)} ${gameTypeBadge}</div>
     <div class="matchup-teams">${game.away_team} ${awayScore} <span style="color:var(--text-dim);font-size:.8rem">@</span> ${game.home_team} ${homeScore}</div>
     <div class="matchup-qbs"><span class="qb-name">${awayQB}</span><span class="qb-sep">vs</span><span class="qb-name">${homeQB}</span></div>
-    <div class="matchup-meta">${fmtDate(game.gameday)} ${gameTypeBadge} ${marginNote}</div>
+    ${marginNote ? `<div class="matchup-margin">${marginNote}</div>` : ''}
   </td>
   <td class="cell-spread">${spreadHTML}${totalHTML}</td>
   <td class="cell-model">${modelHTML}</td>
