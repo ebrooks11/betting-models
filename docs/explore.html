@@ -283,6 +283,19 @@ th.group-away, td.group-away { opacity: .7; }
 .page-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); font-weight: 700; }
 .page-btn:disabled { opacity: .35; cursor: default; }
 
+/* ── Season chips ───────────────────────────────────────────── */
+.season-chips { display: flex; flex-wrap: wrap; gap: 4px; max-width: 340px; }
+.season-chip {
+  background: var(--surface-3); border: 1px solid var(--border);
+  border-radius: 20px; color: var(--text-muted); cursor: pointer;
+  font-family: var(--font-mono); font-size: .68rem; padding: 2px 9px;
+  user-select: none; transition: none;
+}
+.season-chip:hover { border-color: var(--border-hi); color: var(--text); }
+.season-chip.selected {
+  background: var(--accent-dim); border-color: var(--accent); color: var(--accent); font-weight: 600;
+}
+
 /* ── Loading state ──────────────────────────────────────────── */
 .state-msg { text-align: center; padding: 60px 20px; color: var(--text-muted); font-family: var(--font-mono); font-size: .85rem; }
 </style>
@@ -320,11 +333,9 @@ th.group-away, td.group-away { opacity: .7; }
     </div>
 
     <div class="quick-row">
-      <div class="qf-group">
-        <span class="qf-label">Season</span>
-        <select class="qf-select" id="f-season" onchange="onFilterChange()">
-          <option value="">All</option>
-        </select>
+      <div class="qf-group" style="align-items:flex-start">
+        <span class="qf-label" style="margin-top:4px">Season</span>
+        <div class="season-chips" id="f-season"></div>
       </div>
       <div class="qf-group">
         <span class="qf-label">Weeks</span>
@@ -440,14 +451,32 @@ async function init() {
   }
 }
 
+let selectedSeasons = new Set(); // empty = all
+
 function buildSeasonFilter() {
   const seasons = [...new Set(DATA.data['season'])].sort((a,b) => b - a);
-  const sel = document.getElementById('f-season');
+  const container = document.getElementById('f-season');
+  // Default: select 2016 and later
+  seasons.forEach(s => { if (s >= 2016) selectedSeasons.add(s); });
   seasons.forEach(s => {
-    const o = document.createElement('option');
-    o.value = s; o.textContent = s;
-    sel.appendChild(o);
+    const chip = document.createElement('button');
+    chip.className = 'season-chip' + (selectedSeasons.has(s) ? ' selected' : '');
+    chip.textContent = s;
+    chip.dataset.season = s;
+    chip.onclick = () => toggleSeason(s, chip);
+    container.appendChild(chip);
   });
+}
+
+function toggleSeason(s, chip) {
+  if (selectedSeasons.has(s)) {
+    selectedSeasons.delete(s);
+    chip.classList.remove('selected');
+  } else {
+    selectedSeasons.add(s);
+    chip.classList.add('selected');
+  }
+  onFilterChange();
 }
 
 function buildFeatFilters() {
@@ -473,7 +502,6 @@ function buildFeatFilters() {
 function getVal(key, i) { return DATA.data[key][i]; }
 
 function matchesFilters(i) {
-  const season   = document.getElementById('f-season').value;
   const weekMin  = document.getElementById('f-week-min').value;
   const weekMax  = document.getElementById('f-week-max').value;
   const type     = document.getElementById('f-type').value;
@@ -481,7 +509,7 @@ function matchesFilters(i) {
   const covered  = document.getElementById('f-covered').value;
   const fav      = document.getElementById('f-fav').value;
 
-  if (season && getVal('season', i) !== parseInt(season)) return false;
+  if (selectedSeasons.size > 0 && !selectedSeasons.has(getVal('season', i))) return false;
   if (weekMin && getVal('week', i) < parseInt(weekMin)) return false;
   if (weekMax && getVal('week', i) > parseInt(weekMax)) return false;
   if (type && getVal('game_type', i) !== type) return false;
@@ -561,14 +589,16 @@ function renderSummary() {
 
   // Build filter description
   const parts = [];
-  const season = document.getElementById('f-season').value;
   const wMin = document.getElementById('f-week-min').value;
   const wMax = document.getElementById('f-week-max').value;
   const type  = document.getElementById('f-type').value;
   const team  = document.getElementById('f-team').value.trim();
   const cov   = document.getElementById('f-covered').value;
   const fav   = document.getElementById('f-fav').value;
-  if (season) parts.push(`Season ${season}`);
+  if (selectedSeasons.size > 0) {
+    const sorted = [...selectedSeasons].sort((a,b) => a-b);
+    parts.push(sorted.length <= 4 ? sorted.join(', ') : `${sorted[0]}–${sorted[sorted.length-1]} (${sorted.length}yr)`);
+  }
   if (wMin || wMax) parts.push(`Wk ${wMin||'4'}–${wMax||'22'}`);
   if (type) parts.push(type);
   if (team) parts.push(team.toUpperCase());
@@ -842,7 +872,13 @@ function clearFeatFilter(col) {
 }
 
 function clearAllFilters() {
-  document.getElementById('f-season').value = '';
+  // Reset seasons to 2016+
+  selectedSeasons.clear();
+  document.querySelectorAll('.season-chip').forEach(chip => {
+    const s = parseInt(chip.dataset.season);
+    if (s >= 2016) { selectedSeasons.add(s); chip.classList.add('selected'); }
+    else chip.classList.remove('selected');
+  });
   document.getElementById('f-week-min').value = '';
   document.getElementById('f-week-max').value = '';
   document.getElementById('f-type').value = '';
