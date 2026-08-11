@@ -194,6 +194,11 @@ def epa_by_off_pkg(df, pkg_val, out_col):
 off_11_epa = epa_by_off_pkg(personnel_plays, "11", "off_11_epa")
 off_12_epa = epa_by_off_pkg(personnel_plays, "12", "off_12_epa")
 
+# Early-down (1st & 2nd down) EPA by personnel package
+early_personnel_plays = personnel_plays[personnel_plays["down"].isin([1, 2])].copy()
+off_11_epa_early = epa_by_off_pkg(early_personnel_plays, "11", "off_11_epa_early_down")
+off_12_epa_early = epa_by_off_pkg(early_personnel_plays, "12", "off_12_epa_early_down")
+
 # Offensive personnel rates (posteam perspective)
 def pkg_rate(df, team_col, pkg_col, pkg_val, out_col):
     total = df.groupby(["season", "week", team_col]).size().reset_index(name="total")
@@ -328,6 +333,8 @@ game_epa = game_epa.merge(qb_hit_rate, on=["season", "week", "team"], how="left"
 game_epa = game_epa.merge(stuff_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(off_11_epa, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(off_12_epa, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(off_11_epa_early, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(off_12_epa_early, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(off_11_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(off_12_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(off_21_rate, on=["season", "week", "team"], how="left")
@@ -424,6 +431,7 @@ game_epa["stuff_rate_rolling"] = (
 
 PERSONNEL_COLS = [
     "off_11_epa", "off_12_epa",
+    "off_11_epa_early_down", "off_12_epa_early_down",
     "off_11_rate", "off_12_rate", "off_21_rate",
     "off_vs_nickel_epa", "off_vs_base_epa", "off_vs_dime_epa",
     "def_nickel_rate", "def_base_rate", "def_dime_rate",
@@ -891,6 +899,8 @@ result = game_epa[["season", "week", "team",
                     "stuff_rate", "stuff_rate_rolling",
                     "off_11_epa", "off_11_epa_rolling", "off_11_epa_rolling_w5",
                     "off_12_epa", "off_12_epa_rolling", "off_12_epa_rolling_w5",
+                    "off_11_epa_early_down", "off_11_epa_early_down_rolling",
+                    "off_12_epa_early_down", "off_12_epa_early_down_rolling",
                     "off_11_weighted_epa", "off_11_weighted_epa_rolling",
                     "off_12_weighted_epa", "off_12_weighted_epa_rolling",
                     "off_11_rate", "off_11_rate_rolling",
