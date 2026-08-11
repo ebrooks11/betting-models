@@ -725,7 +725,12 @@ function renderRow(i) {
   cells += `<td class="${cvCls}">${cvTxt}</td>`;
 
   // Columns where higher value is bad (invert diff coloring)
-  const INVERT_DIFF = new Set(['turnovers_committed_rolling']);
+  const INVERT_DIFF = new Set([
+    'turnovers_committed_rolling',
+    'def_epa_rolling',
+    'def_vs_11_epa_rolling',
+    'def_vs_12_epa_rolling',
+  ]);
 
   // Feature cells
   featCols.forEach(col => {
