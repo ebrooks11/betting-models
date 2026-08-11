@@ -4,7 +4,10 @@ For each game, off_epa_per_play and def_epa_per_play are the mean of the
 raw EPA values from the prior 1-3 games (not averages of averages).
 """
 
+import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import pandas as pd
 from src.data_loader import get_pbp_data, get_schedule_data, get_qbr_data
 from config import SEASONS

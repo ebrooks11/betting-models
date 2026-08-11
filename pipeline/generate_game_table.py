@@ -3,8 +3,10 @@ Generate docs/data/games.json — columnar format for efficient browser loading.
 One entry per column (array of all row values), consumed by docs/explore.html.
 """
 
+import sys
 import json
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import numpy as np
 import pandas as pd
