@@ -31,15 +31,9 @@ FEATURES = [
     ("point_diff_rolling",           "Pt Diff"),
     ("turnovers_committed_rolling",  "TOs Committed"),
     ("to_diff_rolling",              "TO Diff"),
-    ("sack_rate_rolling",            "Sack Rate"),
-    ("qb_hit_rate_rolling",          "QB Hit Rate"),
     ("first_down_rate_rolling",      "1st Down Rate"),
     ("top_rolling",                  "Time of Poss"),
     ("rest_days",                    "Rest Days"),
-    ("def_base_rate_rolling",        "Def Base Rate"),
-    ("def_nickel_rate_rolling",      "Def Nickel Rate"),
-    ("off_vs_nickel_epa_rolling",    "Off vs Nickel"),
-    ("stuff_rate_rolling",           "Stuff Rate"),
 ]
 
 FEAT_COLS   = [f for f, _ in FEATURES]
