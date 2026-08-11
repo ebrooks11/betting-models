@@ -724,6 +724,9 @@ function renderRow(i) {
   if (cv === null && mg !== null) { cvTxt = 'Push'; cvCls = 'covered-push'; }
   cells += `<td class="${cvCls}">${cvTxt}</td>`;
 
+  // Columns where higher value is bad (invert diff coloring)
+  const INVERT_DIFF = new Set(['turnovers_committed_rolling']);
+
   // Feature cells
   featCols.forEach(col => {
     const v = getVal(col.key, i);
@@ -731,7 +734,11 @@ function renderRow(i) {
     let txt = '—';
     if (v !== null) {
       const isDiff = col.group === 'diff';
-      if (isDiff) cls += v > 0.005 ? ' diff-pos' : v < -0.005 ? ' diff-neg' : '';
+      if (isDiff && Math.abs(v) > 0.005) {
+        const isPos = v > 0;
+        const invert = INVERT_DIFF.has(col.feat);
+        cls += (isPos !== invert) ? ' diff-pos' : ' diff-neg';
+      }
       txt = formatVal(v, col);
     }
     cells += `<td class="${cls}">${txt}</td>`;
@@ -743,21 +750,29 @@ function renderRow(i) {
 function formatVal(v, col) {
   if (v === null) return '—';
   const k = col.key;
-  // Percentages
-  if (k.includes('rate') || k.includes('_pct') || k === 'top_rolling' || k.includes('d_top') || k.includes('h_top') || k.includes('a_top')) {
+  const feat = col.feat || '';
+  // Time of possession: stored in seconds, display as M:SS
+  if (feat === 'top_rolling' || k === 'd_top_rolling' || k === 'h_top_rolling' || k === 'a_top_rolling') {
+    const abs = Math.abs(v);
+    const m = Math.floor(abs / 60);
+    const s = Math.round(abs % 60).toString().padStart(2, '0');
+    return (v < 0 ? '-' : '') + `${m}:${s}`;
+  }
+  // Percentages (rates stored as 0–1 fractions)
+  if (k.includes('rate') || k.includes('_pct')) {
     return (v * 100).toFixed(1) + '%';
   }
   // QBR (0-100 scale)
   if (k.includes('qbr')) {
     return v.toFixed(1);
   }
-  // Points
-  if (k.includes('point_diff') || k === 'd_point_diff_rolling' || k === 'h_point_diff_rolling' || k === 'a_point_diff_rolling') {
+  // Point diff (show sign)
+  if (feat === 'point_diff_rolling') {
     return (v > 0 ? '+' : '') + v.toFixed(1);
   }
   // Rest days (integer)
-  if (k.includes('rest_days')) {
-    return Math.round(v);
+  if (feat === 'rest_days') {
+    return v >= 0 ? '+' + Math.round(v) : Math.round(v);
   }
   return v.toFixed(2);
 }
