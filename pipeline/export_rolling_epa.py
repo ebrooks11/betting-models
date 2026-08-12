@@ -528,12 +528,16 @@ game_epa = game_epa.merge(
 home_scores = games[["season", "week", "home_team", "away_team", "home_score", "away_score"]].copy()
 home_scores = home_scores[home_scores["home_score"].notna() & home_scores["away_score"].notna()]
 home_pd = home_scores.rename(columns={"home_team": "team"}).copy()
-home_pd["point_diff"] = home_pd["home_score"] - home_pd["away_score"]
+home_pd["point_diff"]    = home_pd["home_score"] - home_pd["away_score"]
+home_pd["points_scored"] = home_pd["home_score"]
+home_pd["points_allowed"]= home_pd["away_score"]
 away_pd = home_scores.rename(columns={"away_team": "team"}).copy()
-away_pd["point_diff"] = away_pd["away_score"] - away_pd["home_score"]
+away_pd["point_diff"]    = away_pd["away_score"] - away_pd["home_score"]
+away_pd["points_scored"] = away_pd["away_score"]
+away_pd["points_allowed"]= away_pd["home_score"]
 team_pd = pd.concat([
-    home_pd[["season", "week", "team", "point_diff"]],
-    away_pd[["season", "week", "team", "point_diff"]],
+    home_pd[["season", "week", "team", "point_diff", "points_scored", "points_allowed"]],
+    away_pd[["season", "week", "team", "point_diff", "points_scored", "points_allowed"]],
 ], ignore_index=True)
 team_pd["team"] = team_pd["team"].replace(TEAM_MAP)
 
@@ -546,6 +550,14 @@ game_epa["point_diff_rolling"] = (
 game_epa["point_diff_rolling_w5"] = (
     game_epa.groupby(["team", "season"])["point_diff"]
     .transform(lambda x: x.shift(1).rolling(WINDOW5, min_periods=1).mean())
+)
+game_epa["points_scored_rolling"] = (
+    game_epa.groupby(["team", "season"])["points_scored"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
+game_epa["points_allowed_rolling"] = (
+    game_epa.groupby(["team", "season"])["points_allowed"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
 )
 # Strength of schedule: rolling avg of opponent's point_diff_rolling going into each game.
 # Build a team-game table (all game types, home + away perspective) to get opponent per game.
@@ -893,6 +905,8 @@ result = game_epa[["season", "week", "team",
                     "top_seconds_per_game", "top_rolling",
                     "rest_days", "rest_advantage",
                     "point_diff", "point_diff_rolling", "point_diff_rolling_w5",
+                    "points_scored", "points_scored_rolling",
+                    "points_allowed", "points_allowed_rolling",
                     "coach", "coach_ats_rolling",
                     "starting_qb", "qbr", "qbr_rolling",
                     "qb_epa_rolling", "qb_cpoe_rolling",
