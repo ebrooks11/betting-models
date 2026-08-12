@@ -24,7 +24,7 @@ PBP_COLS = [
     "passer_player_name", "rusher_player_name",
     "offense_personnel", "defense_personnel",
     "first_down", "air_yards", "complete_pass", "pass_attempt",
-    "qb_scramble",
+    "qb_scramble", "rush_attempt", "rushing_yards", "first_down_rush", "tackled_for_loss",
 ]
 pbp = get_pbp_data(SEASONS)[PBP_COLS]
 schedules = get_schedule_data(SEASONS)
@@ -227,6 +227,55 @@ fourth_down_rate = (
     .rename(columns={"posteam": "team"})
 )
 
+# Rushing metrics (non-scramble runs only)
+designed_runs = pbp[(pbp["play_type"] == "run") & (pbp["qb_scramble"] != 1) & pbp["rushing_yards"].notna()].copy()
+
+rush_yards_pg = (
+    designed_runs.groupby(["season", "week", "posteam"])
+    .agg(rush_yards_pg=("rushing_yards", "sum"))
+    .reset_index().rename(columns={"posteam": "team"})
+)
+
+rush_ypc = (
+    designed_runs.groupby(["season", "week", "posteam"])
+    .agg(rush_attempts=("rush_attempt", "sum"), rush_yards=("rushing_yards", "sum"))
+    .assign(rush_ypc=lambda d: d["rush_yards"] / d["rush_attempts"].replace(0, float("nan")))
+    .reset_index()[["season", "week", "posteam", "rush_ypc"]]
+    .rename(columns={"posteam": "team"})
+)
+
+rush_epa = (
+    designed_runs.groupby(["season", "week", "posteam"])
+    .agg(rush_epa=("epa", "mean"))
+    .reset_index().rename(columns={"posteam": "team"})
+)
+
+rush_first_down_rate = (
+    designed_runs[designed_runs["first_down_rush"].notna()]
+    .groupby(["season", "week", "posteam"])
+    .agg(rush_fds=("first_down_rush", "sum"), rush_atts=("first_down_rush", "count"))
+    .assign(rush_first_down_rate=lambda d: d["rush_fds"] / d["rush_atts"].replace(0, float("nan")))
+    .reset_index()[["season", "week", "posteam", "rush_first_down_rate"]]
+    .rename(columns={"posteam": "team"})
+)
+
+rush_explosive_rate = (
+    designed_runs.groupby(["season", "week", "posteam"])
+    .apply(lambda g: (g["rushing_yards"] >= 10).sum() / len(g), include_groups=False)
+    .reset_index(name="rush_explosive_rate")
+    .rename(columns={"posteam": "team"})
+)
+
+# Defensive: TFL rate allowed (from defteam perspective)
+tfl_allowed = (
+    designed_runs[designed_runs["tackled_for_loss"].notna()]
+    .groupby(["season", "week", "defteam"])
+    .agg(tfls=("tackled_for_loss", "sum"), rush_atts_def=("tackled_for_loss", "count"))
+    .assign(tfl_rate_allowed=lambda d: d["tfls"] / d["rush_atts_def"].replace(0, float("nan")))
+    .reset_index()[["season", "week", "defteam", "tfl_rate_allowed"]]
+    .rename(columns={"defteam": "team"})
+)
+
 # Personnel package metrics (2016+ only)
 import re
 
@@ -421,6 +470,12 @@ game_epa = game_epa.merge(explosive_per_game, on=["season", "week", "team"], how
 game_epa = game_epa.merge(first_downs_per_game, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(third_down_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(fourth_down_rate, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(rush_yards_pg, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(rush_ypc, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(rush_epa, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(rush_first_down_rate, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(rush_explosive_rate, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(tfl_allowed, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(top, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(sack_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(qb_hit_rate, on=["season", "week", "team"], how="left")
@@ -476,7 +531,9 @@ game_epa["first_down_rate_rolling"] = (
 )
 for _col in ["ypa", "adot", "pass_attempts_pg", "completions_pg",
              "qb_rush_yards_pg", "explosive_plays_pg", "first_downs_pg", "third_down_rate",
-             "fourth_down_attempt_rate"]:
+             "fourth_down_attempt_rate",
+             "rush_yards_pg", "rush_ypc", "rush_epa", "rush_first_down_rate",
+             "rush_explosive_rate", "tfl_rate_allowed"]:
     game_epa[f"{_col}_rolling"] = (
         game_epa.groupby(["team", "season"])[_col]
         .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
@@ -1062,7 +1119,13 @@ result = game_epa[["season", "week", "team",
                     "explosive_plays_pg", "explosive_plays_pg_rolling",
                     "first_downs_pg", "first_downs_pg_rolling",
                     "third_down_rate", "third_down_rate_rolling",
-                    "fourth_down_attempt_rate", "fourth_down_attempt_rate_rolling"]].copy()
+                    "fourth_down_attempt_rate", "fourth_down_attempt_rate_rolling",
+                    "rush_yards_pg", "rush_yards_pg_rolling",
+                    "rush_ypc", "rush_ypc_rolling",
+                    "rush_epa", "rush_epa_rolling",
+                    "rush_first_down_rate", "rush_first_down_rate_rolling",
+                    "rush_explosive_rate", "rush_explosive_rate_rolling",
+                    "tfl_rate_allowed", "tfl_rate_allowed_rolling"]].copy()
 result = result.sort_values(["season", "week", "team"]).reset_index(drop=True)
 
 out_path = Path("exports/features.parquet")
