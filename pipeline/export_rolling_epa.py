@@ -396,6 +396,15 @@ qb_hit_rate = (
     .rename(columns={"posteam": "team"})
 )
 
+# Defensive QB hit rate: how often the defense generates a QB hit (grouped by defteam)
+def_qb_hit_rate = (
+    pass_plays_ol.groupby(["season", "week", "defteam"])
+    .agg(def_qb_hits=("qb_hit", "sum"), def_pass_atts=("qb_hit", "count"))
+    .assign(def_qb_hit_rate=lambda d: d["def_qb_hits"] / d["def_pass_atts"])
+    .reset_index()[["season", "week", "defteam", "def_qb_hit_rate"]]
+    .rename(columns={"defteam": "team"})
+)
+
 # Turnovers committed per team per game (interceptions thrown + fumbles lost)
 all_plays = pbp[pbp["posteam"].notna()].copy()
 turnovers_off = (
@@ -479,6 +488,7 @@ game_epa = game_epa.merge(tfl_allowed, on=["season", "week", "team"], how="left"
 game_epa = game_epa.merge(top, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(sack_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(qb_hit_rate, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(def_qb_hit_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(stuff_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(off_11_epa, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(off_12_epa, on=["season", "week", "team"], how="left")
@@ -580,6 +590,10 @@ game_epa["sack_rate_rolling"] = (
 )
 game_epa["qb_hit_rate_rolling"] = (
     game_epa.groupby(["team", "season"])["qb_hit_rate"]
+    .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+)
+game_epa["def_qb_hit_rate_rolling"] = (
+    game_epa.groupby(["team", "season"])["def_qb_hit_rate"]
     .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
 )
 game_epa["stuff_rate_rolling"] = (
@@ -1068,6 +1082,7 @@ result = game_epa[["season", "week", "team",
                     "qb_off_11_epa_rolling", "qb_off_12_epa_rolling",
                     "sack_rate", "sack_rate_rolling",
                     "qb_hit_rate", "qb_hit_rate_rolling",
+                    "def_qb_hit_rate", "def_qb_hit_rate_rolling",
                     "stuff_rate", "stuff_rate_rolling",
                     "off_11_epa", "off_11_epa_rolling", "off_11_epa_rolling_w5",
                     "off_12_epa", "off_12_epa_rolling", "off_12_epa_rolling_w5",
