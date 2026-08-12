@@ -271,8 +271,8 @@ tfl_allowed = (
     designed_runs[designed_runs["tackled_for_loss"].notna()]
     .groupby(["season", "week", "defteam"])
     .agg(tfls=("tackled_for_loss", "sum"), rush_atts_def=("tackled_for_loss", "count"))
-    .assign(tfl_rate_allowed=lambda d: d["tfls"] / d["rush_atts_def"].replace(0, float("nan")))
-    .reset_index()[["season", "week", "defteam", "tfl_rate_allowed"]]
+    .assign(tfl_rate=lambda d: d["tfls"] / d["rush_atts_def"].replace(0, float("nan")))
+    .reset_index()[["season", "week", "defteam", "tfl_rate"]]
     .rename(columns={"defteam": "team"})
 )
 
@@ -533,7 +533,7 @@ for _col in ["ypa", "adot", "pass_attempts_pg", "completions_pg",
              "qb_rush_yards_pg", "explosive_plays_pg", "first_downs_pg", "third_down_rate",
              "fourth_down_attempt_rate",
              "rush_yards_pg", "rush_ypc", "rush_epa", "rush_first_down_rate",
-             "rush_explosive_rate", "tfl_rate_allowed"]:
+             "rush_explosive_rate", "tfl_rate"]:
     game_epa[f"{_col}_rolling"] = (
         game_epa.groupby(["team", "season"])[_col]
         .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
@@ -1125,7 +1125,7 @@ result = game_epa[["season", "week", "team",
                     "rush_epa", "rush_epa_rolling",
                     "rush_first_down_rate", "rush_first_down_rate_rolling",
                     "rush_explosive_rate", "rush_explosive_rate_rolling",
-                    "tfl_rate_allowed", "tfl_rate_allowed_rolling"]].copy()
+                    "tfl_rate", "tfl_rate_rolling"]].copy()
 result = result.sort_values(["season", "week", "team"]).reset_index(drop=True)
 
 out_path = Path("exports/features.parquet")
