@@ -24,10 +24,10 @@ CV_TRAIN_START = 2016
 CV_TEST_SEASONS = [2020, 2021, 2022, 2023, 2024, 2025]
 
 # Offensive features (this team's rolling stats)
-OFF_COLS = ["points_scored_rolling", "qbr_rolling", "plays_per_game_rolling"]
+OFF_COLS = ["points_scored_rolling", "qbr_rolling", "plays_per_game_rolling", "turnovers_committed_rolling"]
 
 # Defensive features (opponent's rolling stats)
-DEF_COLS = []
+DEF_COLS = ["turnovers_committed_rolling"]
 
 # After dataset build: off cols keep their name, def cols get "opp_" prefix
 FEATURE_COLS = OFF_COLS + [f"opp_{c}" for c in DEF_COLS] + ["is_home"]
