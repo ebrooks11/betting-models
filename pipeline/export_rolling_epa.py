@@ -218,6 +218,15 @@ third_down_rate = (
     .rename(columns={"posteam": "team"})
 )
 
+# 4th down aggression rate: go-for-it attempts / total 4th down opportunities
+all_fourth = pbp[(pbp["down"] == 4) & pbp["posteam"].notna()].copy()
+fourth_down_rate = (
+    all_fourth.groupby(["season", "week", "posteam"])
+    .apply(lambda g: (g["play_type"].isin(["run", "pass"])).sum() / len(g), include_groups=False)
+    .reset_index(name="fourth_down_attempt_rate")
+    .rename(columns={"posteam": "team"})
+)
+
 # Personnel package metrics (2016+ only)
 import re
 
@@ -411,6 +420,7 @@ game_epa = game_epa.merge(qb_rush_per_game, on=["season", "week", "team"], how="
 game_epa = game_epa.merge(explosive_per_game, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(first_downs_per_game, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(third_down_rate, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(fourth_down_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(top, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(sack_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(qb_hit_rate, on=["season", "week", "team"], how="left")
@@ -465,7 +475,8 @@ game_epa["first_down_rate_rolling"] = (
     .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
 )
 for _col in ["ypa", "adot", "pass_attempts_pg", "completions_pg",
-             "qb_rush_yards_pg", "explosive_plays_pg", "first_downs_pg", "third_down_rate"]:
+             "qb_rush_yards_pg", "explosive_plays_pg", "first_downs_pg", "third_down_rate",
+             "fourth_down_attempt_rate"]:
     game_epa[f"{_col}_rolling"] = (
         game_epa.groupby(["team", "season"])[_col]
         .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
@@ -1050,7 +1061,8 @@ result = game_epa[["season", "week", "team",
                     "qb_rush_yards_pg", "qb_rush_yards_pg_rolling",
                     "explosive_plays_pg", "explosive_plays_pg_rolling",
                     "first_downs_pg", "first_downs_pg_rolling",
-                    "third_down_rate", "third_down_rate_rolling"]].copy()
+                    "third_down_rate", "third_down_rate_rolling",
+                    "fourth_down_attempt_rate", "fourth_down_attempt_rate_rolling"]].copy()
 result = result.sort_values(["season", "week", "team"]).reset_index(drop=True)
 
 out_path = Path("exports/features.parquet")
