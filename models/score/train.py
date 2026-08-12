@@ -24,7 +24,7 @@ CV_TRAIN_START = 2016
 CV_TEST_SEASONS = [2020, 2021, 2022, 2023, 2024, 2025]
 
 # Offensive features (this team's rolling stats)
-OFF_COLS = ["points_scored_rolling"]
+OFF_COLS = ["points_scored_rolling", "qbr_rolling", "plays_per_game_rolling"]
 
 # Defensive features (opponent's rolling stats)
 DEF_COLS = ["points_allowed_rolling"]
