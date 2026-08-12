@@ -615,6 +615,43 @@ for col in PERSONNEL_COLS:
         .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
     )
 
+# Opponent-adjusted EPA: off_epa_per_play minus the opponent's def_epa_rolling going into that game.
+# This measures how much better/worse the offense performed relative to what that defense typically allows.
+# Uses the opponent's PRIOR rolling defensive EPA (no leakage — same shift-1 window).
+all_games_sched = schedules[schedules["game_type"].isin(["REG", "WC", "DIV", "CON", "SB"])].copy()
+all_games_sched["home_team"] = all_games_sched["home_team"].replace(TEAM_MAP)
+all_games_sched["away_team"] = all_games_sched["away_team"].replace(TEAM_MAP)
+opp_map_home = all_games_sched[["season", "week", "home_team", "away_team"]].rename(
+    columns={"home_team": "team", "away_team": "opponent"}
+)
+opp_map_away = all_games_sched[["season", "week", "away_team", "home_team"]].rename(
+    columns={"away_team": "team", "home_team": "opponent"}
+)
+opp_map = pd.concat([opp_map_home, opp_map_away], ignore_index=True)
+
+# Look up opponent's def_epa_rolling going into this game
+opp_def_rolling = game_epa[["season", "week", "team", "def_epa_rolling", "def_vs_11_epa_rolling", "def_vs_12_epa_rolling"]].rename(
+    columns={"team": "opponent", "def_epa_rolling": "opp_def_epa_rolling",
+             "def_vs_11_epa_rolling": "opp_def_vs_11_epa_rolling",
+             "def_vs_12_epa_rolling": "opp_def_vs_12_epa_rolling"}
+)
+opp_map = opp_map.merge(opp_def_rolling, on=["season", "week", "opponent"], how="left")
+game_epa = game_epa.merge(opp_map, on=["season", "week", "team"], how="left")
+
+# Adjusted raw EPA values (game-level, before rolling)
+game_epa["off_epa_adj"] = game_epa["off_epa_per_play"] - game_epa["opp_def_epa_rolling"]
+game_epa["off_11_epa_adj"] = game_epa["off_11_epa"] - game_epa["opp_def_vs_11_epa_rolling"]
+game_epa["off_12_epa_adj"] = game_epa["off_12_epa"] - game_epa["opp_def_vs_12_epa_rolling"]
+
+game_epa = game_epa.sort_values(["team", "season", "week"]).reset_index(drop=True)
+
+# Roll the adjusted values
+for _col in ["off_epa_adj", "off_11_epa_adj", "off_12_epa_adj"]:
+    game_epa[f"{_col}_rolling"] = (
+        game_epa.groupby(["team", "season"])[_col]
+        .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
+    )
+
 # 5-game rolling window versions
 W5_STATS = {
     "off_epa_rolling_w5": "off_epa_per_play",
@@ -1140,7 +1177,10 @@ result = game_epa[["season", "week", "team",
                     "rush_epa", "rush_epa_rolling",
                     "rush_first_down_rate", "rush_first_down_rate_rolling",
                     "rush_explosive_rate", "rush_explosive_rate_rolling",
-                    "tfl_rate", "tfl_rate_rolling"]].copy()
+                    "tfl_rate", "tfl_rate_rolling",
+                    "off_epa_adj", "off_epa_adj_rolling",
+                    "off_11_epa_adj", "off_11_epa_adj_rolling",
+                    "off_12_epa_adj", "off_12_epa_adj_rolling"]].copy()
 result = result.sort_values(["season", "week", "team"]).reset_index(drop=True)
 
 out_path = Path("exports/features.parquet")
