@@ -74,6 +74,11 @@ Each feature is tagged with its **perspective**:
 | `rush_explosive_rate_rolling` | posteam | % of designed runs gaining 10+ yards |
 | `qb_rush_yards_pg_rolling` | posteam | QB scramble yards per game |
 | `stuff_rate_rolling` | posteam | % of the primary team's runs stopped at or behind the line of scrimmage |
+| `def_rush_yards_pg_rolling` | defteam | Rushing yards allowed per game (designed runs only) |
+| `def_rush_ypc_rolling` | defteam | Rushing yards allowed per carry (designed runs only) |
+| `def_rush_epa_rolling` | defteam | EPA per designed run allowed |
+| `def_rush_first_down_rate_rolling` | defteam | % of designed runs against this defense that gain a first down |
+| `def_rush_explosive_rate_rolling` | defteam | % of designed runs against this defense gaining 10+ yards |
 | `def_tfl_rate_rolling` | defteam | How often this team's defense generates a tackle for loss per rush attempt faced |
 
 ## Scoring & Turnover

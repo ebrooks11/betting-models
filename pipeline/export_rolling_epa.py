@@ -267,6 +267,43 @@ rush_explosive_rate = (
     .rename(columns={"posteam": "team"})
 )
 
+# Defensive rushing counterparts (defteam perspective — yards/EPA allowed per carry)
+def_rush_yards_pg = (
+    designed_runs.groupby(["season", "week", "defteam"])
+    .agg(def_rush_yards_pg=("rushing_yards", "sum"))
+    .reset_index().rename(columns={"defteam": "team"})
+)
+
+def_rush_ypc = (
+    designed_runs.groupby(["season", "week", "defteam"])
+    .agg(rush_attempts=("rush_attempt", "sum"), rush_yards=("rushing_yards", "sum"))
+    .assign(def_rush_ypc=lambda d: d["rush_yards"] / d["rush_attempts"].replace(0, float("nan")))
+    .reset_index()[["season", "week", "defteam", "def_rush_ypc"]]
+    .rename(columns={"defteam": "team"})
+)
+
+def_rush_epa = (
+    designed_runs.groupby(["season", "week", "defteam"])
+    .agg(def_rush_epa=("epa", "mean"))
+    .reset_index().rename(columns={"defteam": "team"})
+)
+
+def_rush_first_down_rate = (
+    designed_runs[designed_runs["first_down_rush"].notna()]
+    .groupby(["season", "week", "defteam"])
+    .agg(rush_fds=("first_down_rush", "sum"), rush_atts=("first_down_rush", "count"))
+    .assign(def_rush_first_down_rate=lambda d: d["rush_fds"] / d["rush_atts"].replace(0, float("nan")))
+    .reset_index()[["season", "week", "defteam", "def_rush_first_down_rate"]]
+    .rename(columns={"defteam": "team"})
+)
+
+def_rush_explosive_rate = (
+    designed_runs.groupby(["season", "week", "defteam"])
+    .apply(lambda g: (g["rushing_yards"] >= 10).sum() / len(g), include_groups=False)
+    .reset_index(name="def_rush_explosive_rate")
+    .rename(columns={"defteam": "team"})
+)
+
 # Defensive: TFL rate (from defteam perspective) — how often this team's defense generates a TFL per rush attempt faced
 tfl_allowed = (
     designed_runs[designed_runs["tackled_for_loss"].notna()]
@@ -494,6 +531,11 @@ game_epa = game_epa.merge(rush_ypc, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(rush_epa, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(rush_first_down_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(rush_explosive_rate, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(def_rush_yards_pg, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(def_rush_ypc, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(def_rush_epa, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(def_rush_first_down_rate, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(def_rush_explosive_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(tfl_allowed, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(top, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(sack_rate, on=["season", "week", "team"], how="left")
@@ -554,7 +596,10 @@ for _col in ["ypa", "adot", "pass_attempts_pg", "completions_pg",
              "qb_rush_yards_pg", "explosive_plays_pg", "first_downs_pg", "third_down_rate",
              "fourth_down_attempt_rate",
              "rush_yards_pg", "rush_ypc", "rush_epa", "rush_first_down_rate",
-             "rush_explosive_rate", "def_tfl_rate", "def_sack_rate"]:
+             "rush_explosive_rate",
+             "def_rush_yards_pg", "def_rush_ypc", "def_rush_epa",
+             "def_rush_first_down_rate", "def_rush_explosive_rate",
+             "def_tfl_rate", "def_sack_rate"]:
     game_epa[f"{_col}_rolling"] = (
         game_epa.groupby(["team", "season"])[_col]
         .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
@@ -1235,6 +1280,11 @@ result = game_epa[["season", "week", "team",
                     "rush_epa", "rush_epa_rolling",
                     "rush_first_down_rate", "rush_first_down_rate_rolling",
                     "rush_explosive_rate", "rush_explosive_rate_rolling",
+                    "def_rush_yards_pg", "def_rush_yards_pg_rolling",
+                    "def_rush_ypc", "def_rush_ypc_rolling",
+                    "def_rush_epa", "def_rush_epa_rolling",
+                    "def_rush_first_down_rate", "def_rush_first_down_rate_rolling",
+                    "def_rush_explosive_rate", "def_rush_explosive_rate_rolling",
                     "def_tfl_rate", "def_tfl_rate_rolling",
                     "def_sack_rate", "def_sack_rate_rolling",
                     "off_epa_adj", "off_epa_adj_rolling",
