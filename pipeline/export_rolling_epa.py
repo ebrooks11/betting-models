@@ -267,13 +267,13 @@ rush_explosive_rate = (
     .rename(columns={"posteam": "team"})
 )
 
-# Defensive: TFL rate allowed (from defteam perspective)
+# Defensive: TFL rate (from defteam perspective) — how often this team's defense generates a TFL per rush attempt faced
 tfl_allowed = (
     designed_runs[designed_runs["tackled_for_loss"].notna()]
     .groupby(["season", "week", "defteam"])
     .agg(tfls=("tackled_for_loss", "sum"), rush_atts_def=("tackled_for_loss", "count"))
-    .assign(tfl_rate=lambda d: d["tfls"] / d["rush_atts_def"].replace(0, float("nan")))
-    .reset_index()[["season", "week", "defteam", "tfl_rate"]]
+    .assign(def_tfl_rate=lambda d: d["tfls"] / d["rush_atts_def"].replace(0, float("nan")))
+    .reset_index()[["season", "week", "defteam", "def_tfl_rate"]]
     .rename(columns={"defteam": "team"})
 )
 
@@ -389,6 +389,15 @@ sack_rate = (
     .rename(columns={"posteam": "team"})
 )
 
+# Defensive sack rate: how often this team's defense generates a sack per pass play (defteam perspective)
+def_sack_rate = (
+    pass_plays_ol.groupby(["season", "week", "defteam"])
+    .agg(def_sacks=("sack", "sum"), def_pass_atts=("sack", "count"))
+    .assign(def_sack_rate=lambda d: d["def_sacks"] / d["def_pass_atts"])
+    .reset_index()[["season", "week", "defteam", "def_sack_rate"]]
+    .rename(columns={"defteam": "team"})
+)
+
 qb_hit_rate = (
     pass_plays_ol.groupby(["season", "week", "posteam"])
     .agg(qb_hits=("qb_hit", "sum"), pass_attempts_ol=("qb_hit", "count"))
@@ -488,6 +497,7 @@ game_epa = game_epa.merge(rush_explosive_rate, on=["season", "week", "team"], ho
 game_epa = game_epa.merge(tfl_allowed, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(top, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(sack_rate, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(def_sack_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(qb_hit_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(def_qb_hit_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(stuff_rate, on=["season", "week", "team"], how="left")
@@ -544,7 +554,7 @@ for _col in ["ypa", "adot", "pass_attempts_pg", "completions_pg",
              "qb_rush_yards_pg", "explosive_plays_pg", "first_downs_pg", "third_down_rate",
              "fourth_down_attempt_rate",
              "rush_yards_pg", "rush_ypc", "rush_epa", "rush_first_down_rate",
-             "rush_explosive_rate", "tfl_rate"]:
+             "rush_explosive_rate", "def_tfl_rate", "def_sack_rate"]:
     game_epa[f"{_col}_rolling"] = (
         game_epa.groupby(["team", "season"])[_col]
         .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
@@ -1225,7 +1235,8 @@ result = game_epa[["season", "week", "team",
                     "rush_epa", "rush_epa_rolling",
                     "rush_first_down_rate", "rush_first_down_rate_rolling",
                     "rush_explosive_rate", "rush_explosive_rate_rolling",
-                    "tfl_rate", "tfl_rate_rolling",
+                    "def_tfl_rate", "def_tfl_rate_rolling",
+                    "def_sack_rate", "def_sack_rate_rolling",
                     "off_epa_adj", "off_epa_adj_rolling",
                     "off_11_epa_adj", "off_11_epa_adj_rolling",
                     "off_12_epa_adj", "off_12_epa_adj_rolling",
