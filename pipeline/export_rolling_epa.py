@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import numpy as np
 import pandas as pd
 from src.data_loader import get_pbp_data, get_schedule_data, get_qbr_data
 from config import SEASONS
@@ -652,6 +653,53 @@ for _col in ["off_epa_adj", "off_11_epa_adj", "off_12_epa_adj"]:
         .transform(lambda x: x.shift(1).rolling(WINDOW, min_periods=1).mean())
     )
 
+# Iterative opponent-adjusted EPA (season-to-date, converging over N_ITER rounds).
+# For each team going into week W, adjust their season-to-date off/def EPA by the quality
+# of opponents faced: adj_off[team] = mean(raw_off_game - adj_def[opponent]) over prior games.
+# Iterating ensures opponent defensive EPA is itself corrected for opponent quality.
+N_ITER = 5
+
+iter_game_data = game_epa[["season", "week", "team", "opponent",
+                            "off_epa_per_play", "def_epa_per_play"]].copy()
+
+iter_results = []
+for season in sorted(iter_game_data["season"].dropna().unique()):
+    sg = iter_game_data[iter_game_data["season"] == season].copy()
+    weeks = sorted(sg["week"].dropna().unique())
+    league_avg_off_season = sg["off_epa_per_play"].mean()
+    league_avg_def_season = sg["def_epa_per_play"].mean()
+    for week in weeks:
+        prior = sg[sg["week"] < week].dropna(subset=["off_epa_per_play", "def_epa_per_play", "opponent"])
+        teams_this_week = sg[sg["week"] == week]["team"].unique()
+        if len(prior) == 0:
+            for team in teams_this_week:
+                iter_results.append({"season": season, "week": week, "team": team,
+                                     "off_epa_iter_adj": np.nan, "def_epa_iter_adj": np.nan})
+            continue
+        # Initialize from raw means
+        adj_off = prior.groupby("team")["off_epa_per_play"].mean().to_dict()
+        adj_def = prior.groupby("team")["def_epa_per_play"].mean().to_dict()
+        # Iterate: adjust each game's EPA by the opponent's adjusted EPA at that point
+        for _ in range(N_ITER):
+            new_adj_off, new_adj_def = {}, {}
+            for team in prior["team"].unique():
+                tg = prior[prior["team"] == team]
+                off_vals, def_vals = [], []
+                for _, row in tg.iterrows():
+                    opp = row["opponent"]
+                    off_vals.append(row["off_epa_per_play"] - adj_def.get(opp, league_avg_def_season))
+                    def_vals.append(row["def_epa_per_play"] - adj_off.get(opp, league_avg_off_season))
+                new_adj_off[team] = float(np.mean(off_vals))
+                new_adj_def[team] = float(np.mean(def_vals))
+            adj_off, adj_def = new_adj_off, new_adj_def
+        for team in teams_this_week:
+            iter_results.append({"season": season, "week": week, "team": team,
+                                 "off_epa_iter_adj": adj_off.get(team, np.nan),
+                                 "def_epa_iter_adj": adj_def.get(team, np.nan)})
+
+iter_df = pd.DataFrame(iter_results)
+game_epa = game_epa.merge(iter_df, on=["season", "week", "team"], how="left")
+
 # 5-game rolling window versions
 W5_STATS = {
     "off_epa_rolling_w5": "off_epa_per_play",
@@ -1180,7 +1228,8 @@ result = game_epa[["season", "week", "team",
                     "tfl_rate", "tfl_rate_rolling",
                     "off_epa_adj", "off_epa_adj_rolling",
                     "off_11_epa_adj", "off_11_epa_adj_rolling",
-                    "off_12_epa_adj", "off_12_epa_adj_rolling"]].copy()
+                    "off_12_epa_adj", "off_12_epa_adj_rolling",
+                    "off_epa_iter_adj", "def_epa_iter_adj"]].copy()
 result = result.sort_values(["season", "week", "team"]).reset_index(drop=True)
 
 out_path = Path("exports/features.parquet")
