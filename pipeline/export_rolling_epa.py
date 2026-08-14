@@ -56,6 +56,14 @@ cpoe = (
     .rename(columns={"posteam": "team"})
 )
 
+# Defensive CPOE allowed: avg CPOE of passes thrown against this defense (defteam perspective)
+def_cpoe_allowed = (
+    pass_plays.groupby(["season", "week", "defteam"])
+    .agg(def_cpoe_allowed=("cpoe", "mean"))
+    .reset_index()
+    .rename(columns={"defteam": "team"})
+)
+
 offense_no_to = (
     non_to_plays.groupby(["season", "week", "posteam"])
     .agg(off_epa_no_to=("epa", "mean"))
@@ -156,6 +164,15 @@ ypa_per_game = (
     .assign(ypa=lambda d: d["pass_yards"] / d["pass_attempts_count"].replace(0, float("nan")))
     .reset_index()[["season", "week", "posteam", "ypa"]]
     .rename(columns={"posteam": "team"})
+)
+
+# Defensive YPA allowed: yards per pass attempt allowed (defteam perspective)
+def_ypa_allowed = (
+    pass_att_plays.groupby(["season", "week", "defteam"])
+    .agg(def_pass_yards=("yards_gained", "sum"), def_pass_atts=("pass_attempt", "sum"))
+    .assign(def_ypa_allowed=lambda d: d["def_pass_yards"] / d["def_pass_atts"].replace(0, float("nan")))
+    .reset_index()[["season", "week", "defteam", "def_ypa_allowed"]]
+    .rename(columns={"defteam": "team"})
 )
 
 adot_per_game = (
@@ -505,6 +522,7 @@ TEAM_MAP = {
 
 game_epa = offense.merge(defense, on=["season", "week", "team"], how="outer")
 game_epa = game_epa.merge(cpoe, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(def_cpoe_allowed, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(offense_no_to, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(defense_no_to, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(offense_early, on=["season", "week", "team"], how="left")
@@ -518,6 +536,7 @@ game_epa = game_epa.merge(defense_second_long, on=["season", "week", "team"], ho
 game_epa = game_epa.merge(plays_per_game, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(first_down_rate, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(ypa_per_game, on=["season", "week", "team"], how="left")
+game_epa = game_epa.merge(def_ypa_allowed, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(adot_per_game, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(pass_attempts_per_game, on=["season", "week", "team"], how="left")
 game_epa = game_epa.merge(completions_per_game, on=["season", "week", "team"], how="left")
@@ -753,11 +772,15 @@ def compute_iter_adj(df, off_col, def_col, out_off, out_def, n_iter=N_ITER):
 
 # Pairs: (off_col, def_col, out_off_name, out_def_name)
 ITER_ADJ_PAIRS = [
-    ("off_epa_per_play", "def_epa_per_play",   "off_epa_iter_adj",      "def_epa_iter_adj"),
-    ("rush_ypc",         "def_rush_ypc",        "rush_ypc_iter_adj",     "def_rush_ypc_iter_adj"),
-    ("rush_epa",         "def_rush_epa",        "rush_epa_iter_adj",     "def_rush_epa_iter_adj"),
-    ("off_11_epa",       "def_vs_11_epa",       "off_11_epa_iter_adj",   "def_vs_11_epa_iter_adj"),
-    ("off_12_epa",       "def_vs_12_epa",       "off_12_epa_iter_adj",   "def_vs_12_epa_iter_adj"),
+    ("off_epa_per_play", "def_epa_per_play",   "off_epa_iter_adj",        "def_epa_iter_adj"),
+    ("rush_ypc",         "def_rush_ypc",        "rush_ypc_iter_adj",       "def_rush_ypc_iter_adj"),
+    ("rush_epa",         "def_rush_epa",        "rush_epa_iter_adj",       "def_rush_epa_iter_adj"),
+    ("off_11_epa",       "def_vs_11_epa",       "off_11_epa_iter_adj",     "def_vs_11_epa_iter_adj"),
+    ("off_12_epa",       "def_vs_12_epa",       "off_12_epa_iter_adj",     "def_vs_12_epa_iter_adj"),
+    ("cpoe_per_game",    "def_cpoe_allowed",    "cpoe_iter_adj",           "def_cpoe_iter_adj"),
+    ("ypa",              "def_ypa_allowed",     "ypa_iter_adj",            "def_ypa_iter_adj"),
+    ("qb_hit_rate",      "def_qb_hit_rate",     "qb_hit_rate_iter_adj",    "def_qb_hit_rate_iter_adj"),
+    ("sack_rate",        "def_sack_rate",       "sack_rate_iter_adj",      "def_sack_rate_iter_adj"),
 ]
 
 print("Computing iterative opponent-adjusted metrics...")
@@ -1311,7 +1334,11 @@ result = game_epa[["season", "week", "team",
                     "rush_epa_iter_adj", "def_rush_epa_iter_adj",
                     "off_11_epa_iter_adj", "def_vs_11_epa_iter_adj",
                     "off_12_epa_iter_adj", "def_vs_12_epa_iter_adj",
-                    "points_scored_iter_adj", "points_allowed_iter_adj"]].copy()
+                    "points_scored_iter_adj", "points_allowed_iter_adj",
+                    "cpoe_iter_adj", "def_cpoe_iter_adj",
+                    "ypa_iter_adj", "def_ypa_iter_adj",
+                    "qb_hit_rate_iter_adj", "def_qb_hit_rate_iter_adj",
+                    "sack_rate_iter_adj", "def_sack_rate_iter_adj"]].copy()
 result = result.sort_values(["season", "week", "team"]).reset_index(drop=True)
 
 out_path = Path("exports/features.parquet")

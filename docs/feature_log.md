@@ -38,13 +38,25 @@ Each feature is tagged with its **perspective**:
 | `def_vs_12_epa_iter_adj` | defteam | Season-to-date 12-personnel EPA allowed adjusted iteratively for opponent 12-personnel offense quality (5 iterations) |
 | `points_scored_iter_adj` | posteam | Season-to-date points scored adjusted iteratively for opponent defensive quality (5 iterations) |
 | `points_allowed_iter_adj` | defteam | Season-to-date points allowed adjusted iteratively for opponent offensive quality (5 iterations) |
+| `cpoe_iter_adj` | posteam | Season-to-date CPOE adjusted iteratively for opponent coverage quality (5 iterations) |
+| `def_cpoe_iter_adj` | defteam | Season-to-date CPOE allowed adjusted iteratively for opponent QB quality (5 iterations) |
+| `ypa_iter_adj` | posteam | Season-to-date yards per attempt adjusted iteratively for opponent pass defense quality (5 iterations) |
+| `def_ypa_iter_adj` | defteam | Season-to-date yards per attempt allowed adjusted iteratively for opponent passing quality (5 iterations) |
+| `qb_hit_rate_iter_adj` | posteam | Season-to-date QB hit rate allowed adjusted iteratively for opponent pass rush quality (5 iterations) |
+| `def_qb_hit_rate_iter_adj` | defteam | Season-to-date QB hit rate generated adjusted iteratively for opponent OL quality (5 iterations) |
+| `sack_rate_iter_adj` | posteam | Season-to-date sack rate allowed adjusted iteratively for opponent pass rush quality (5 iterations) |
+| `def_sack_rate_iter_adj` | defteam | Season-to-date sack rate generated adjusted iteratively for opponent OL quality (5 iterations) |
 
 ## Passing
 
 | Feature | Perspective | Description |
 |---------|-------------|-------------|
 | `cpoe_rolling` | posteam | Completion % over expected — QB accuracy relative to throw difficulty |
+| `def_cpoe_allowed` | defteam | Average CPOE of passes thrown against this defense (raw game-level) |
+| `def_cpoe_allowed_rolling` | defteam | 3-game rolling avg CPOE allowed by this defense |
 | `ypa_rolling` | posteam | Yards per pass attempt |
+| `def_ypa_allowed` | defteam | Yards per pass attempt allowed (raw game-level) |
+| `def_ypa_allowed_rolling` | defteam | 3-game rolling avg yards per attempt allowed |
 | `adot_rolling` | posteam | Average depth of target (how far downfield throws go) |
 | `pass_attempts_pg_rolling` | posteam | Pass attempts per game |
 | `completions_pg_rolling` | posteam | Completions per game |
