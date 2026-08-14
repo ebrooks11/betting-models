@@ -28,6 +28,16 @@ Each feature is tagged with its **perspective**:
 | `def_epa_first_down_rolling` | defteam | Defensive EPA allowed on 1st down only |
 | `off_epa_iter_adj` | posteam | Season-to-date offensive EPA adjusted iteratively for opponent defensive quality (5 iterations) |
 | `def_epa_iter_adj` | defteam | Season-to-date defensive EPA adjusted iteratively for opponent offensive quality (5 iterations) |
+| `rush_ypc_iter_adj` | posteam | Season-to-date rushing yards per carry adjusted iteratively for opponent defensive quality (5 iterations) |
+| `def_rush_ypc_iter_adj` | defteam | Season-to-date rushing yards per carry allowed adjusted iteratively for opponent offensive quality (5 iterations) |
+| `rush_epa_iter_adj` | posteam | Season-to-date rush EPA per play adjusted iteratively for opponent defensive quality (5 iterations) |
+| `def_rush_epa_iter_adj` | defteam | Season-to-date rush EPA allowed per play adjusted iteratively for opponent offensive quality (5 iterations) |
+| `off_11_epa_iter_adj` | posteam | Season-to-date 11-personnel EPA adjusted iteratively for opponent 11-personnel defense quality (5 iterations) |
+| `def_vs_11_epa_iter_adj` | defteam | Season-to-date 11-personnel EPA allowed adjusted iteratively for opponent 11-personnel offense quality (5 iterations) |
+| `off_12_epa_iter_adj` | posteam | Season-to-date 12-personnel EPA adjusted iteratively for opponent 12-personnel defense quality (5 iterations) |
+| `def_vs_12_epa_iter_adj` | defteam | Season-to-date 12-personnel EPA allowed adjusted iteratively for opponent 12-personnel offense quality (5 iterations) |
+| `points_scored_iter_adj` | posteam | Season-to-date points scored adjusted iteratively for opponent defensive quality (5 iterations) |
+| `points_allowed_iter_adj` | defteam | Season-to-date points allowed adjusted iteratively for opponent offensive quality (5 iterations) |
 
 ## Passing
 
