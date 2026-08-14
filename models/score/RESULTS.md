@@ -9,6 +9,32 @@ Opponent features are prefixed `opp_` by the dataset builder.
 
 ---
 
+## Named Models
+
+### Base Model
+4 features + `is_home`. All four EPA iter_adj perspectives — primary offense, primary defense, opponent offense, opponent defense.
+
+| Side | Features |
+|------|----------|
+| Primary | `off_epa_iter_adj`, `def_epa_iter_adj` |
+| Opponent | `off_epa_iter_adj`, `def_epa_iter_adj` |
+
+**MAE = 7.6220 · σ = 3.20**
+
+---
+
+### 8-Base Model
+8 features + `is_home`. Base model extended with both points iter_adj perspectives on each side.
+
+| Side | Features |
+|------|----------|
+| Primary | `off_epa_iter_adj`, `def_epa_iter_adj`, `points_scored_iter_adj`, `points_allowed_iter_adj` |
+| Opponent | `off_epa_iter_adj`, `def_epa_iter_adj`, `points_scored_iter_adj`, `points_allowed_iter_adj` |
+
+**MAE = 7.5963 · σ = 3.20**
+
+---
+
 ## Rankings (by overall MAE, ascending)
 
 | Rank | MAE | Pred σ | Primary Features | Opponent Features |
