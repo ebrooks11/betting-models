@@ -64,7 +64,7 @@ SEASONS = range(2016, 2026)
 BASE_URL = "https://www.sportsoddshistory.com/nfl-win/?y={year}&sa=nfl&t=win&o=t"
 
 
-def _parse_line(text: str) -> float | None:
+def _parse_line(text: str):
     """Extract a numeric win total from a string like '9.5', '10', '-'."""
     text = text.strip()
     if not text or text in ("-", "N/A", ""):
