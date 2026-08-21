@@ -8,6 +8,7 @@ An NFL ATS (against the spread) prediction model using play-by-play data from nf
 - [ ] **Injury adjustments for power ratings** — preseason win totals assume full health; adjust ratings down when key players (especially QB) are out or limited.
 - [ ] **Prop models** — starting with rush yards, then receiving yards.
 - [ ] **Model gap analysis** — review what the current margin and score models are capturing and identify blind spots.
+- [ ] **Preseason win total in opponent strength** — incorporate preseason win totals into the iterative opponent-adjustment calculation alongside EPA, so opponent quality reflects market-assessed talent not just in-season performance.
 
 ## Game Filters
 
