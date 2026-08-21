@@ -2,6 +2,13 @@
 
 An NFL ATS (against the spread) prediction model using play-by-play data from nflverse (2016–2025) via `nfl_data_py`, with scikit-learn for modeling. Train set: 2016–2022, test set: 2023–2025.
 
+## To-Do
+
+- [ ] **Power rating system** — single points-based team rating derived from preseason win totals, QB quality, coaching, and iterative performance against opponents (power records). Rating difference = predicted margin.
+- [ ] **Injury adjustments for power ratings** — preseason win totals assume full health; adjust ratings down when key players (especially QB) are out or limited.
+- [ ] **Prop models** — starting with rush yards, then receiving yards.
+- [ ] **Model gap analysis** — review what the current margin and score models are capturing and identify blind spots.
+
 ## Game Filters
 
 All models are evaluated on the home-team perspective (one row per game). The following games are excluded from both train and test sets:
