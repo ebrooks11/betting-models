@@ -231,7 +231,7 @@ first_downs_per_game = (
 # Third down rate: fraction of offensive plays that are 3rd down (lower = better, team converting earlier downs)
 third_down_rate = (
     plays.groupby(["season", "week", "posteam"])
-    .apply(lambda g: (g["down"] == 3).sum() / len(g), include_groups=False)
+    .apply(lambda g: (g["down"] == 3).sum() / len(g))
     .reset_index(name="third_down_rate")
     .rename(columns={"posteam": "team"})
 )
@@ -240,7 +240,7 @@ third_down_rate = (
 all_fourth = pbp[(pbp["down"] == 4) & pbp["posteam"].notna()].copy()
 fourth_down_rate = (
     all_fourth.groupby(["season", "week", "posteam"])
-    .apply(lambda g: (g["play_type"].isin(["run", "pass"])).sum() / len(g), include_groups=False)
+    .apply(lambda g: (g["play_type"].isin(["run", "pass"])).sum() / len(g))
     .reset_index(name="fourth_down_attempt_rate")
     .rename(columns={"posteam": "team"})
 )
@@ -279,7 +279,7 @@ rush_first_down_rate = (
 
 rush_explosive_rate = (
     designed_runs.groupby(["season", "week", "posteam"])
-    .apply(lambda g: (g["rushing_yards"] >= 10).sum() / len(g), include_groups=False)
+    .apply(lambda g: (g["rushing_yards"] >= 10).sum() / len(g))
     .reset_index(name="rush_explosive_rate")
     .rename(columns={"posteam": "team"})
 )
@@ -316,7 +316,7 @@ def_rush_first_down_rate = (
 
 def_rush_explosive_rate = (
     designed_runs.groupby(["season", "week", "defteam"])
-    .apply(lambda g: (g["rushing_yards"] >= 10).sum() / len(g), include_groups=False)
+    .apply(lambda g: (g["rushing_yards"] >= 10).sum() / len(g))
     .reset_index(name="def_rush_explosive_rate")
     .rename(columns={"defteam": "team"})
 )
