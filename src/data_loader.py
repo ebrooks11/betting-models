@@ -366,9 +366,12 @@ def get_win_totals(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
 
     all_rows = []
     for year in seasons:
-        rows = scrape_season(year, session)
-        print(f"  {year}: {len(rows)} teams")
-        all_rows.extend(rows)
+        try:
+            rows = scrape_season(year, session)
+            print(f"  {year}: {len(rows)} teams")
+            all_rows.extend(rows)
+        except Exception as e:
+            print(f"  {year}: ERROR — {e}")
         time.sleep(1.0)
 
     totals = pd.DataFrame(all_rows).sort_values(["season", "team"]).reset_index(drop=True)

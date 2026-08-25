@@ -1342,13 +1342,13 @@ result = game_epa[["season", "week", "team",
 result = result.sort_values(["season", "week", "team"]).reset_index(drop=True)
 
 # Merge preseason win totals (season-level, same value for every week)
-_win_totals_path = Path("exports/win_totals.csv")
+_win_totals_path = Path("data/win_totals.parquet")
 if _win_totals_path.exists():
-    _wt = pd.read_csv(_win_totals_path)[["season", "team", "win_total"]]
+    _wt = pd.read_parquet(_win_totals_path)[["season", "team", "win_total"]]
     result = result.merge(_wt, on=["season", "team"], how="left")
     print(f"Merged preseason win totals ({_wt['season'].nunique()} seasons)")
 else:
-    print("Warning: exports/win_totals.csv not found — skipping win total merge")
+    print("Warning: data/win_totals.parquet not found — skipping win total merge")
 
 out_path = Path("exports/features.parquet")
 out_path.parent.mkdir(exist_ok=True)

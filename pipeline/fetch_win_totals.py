@@ -1,6 +1,7 @@
 """
 Scrapes historical NFL preseason win totals from sportsoddshistory.com.
-Outputs exports/win_totals.csv with one row per team per season.
+scrape_season() below is the scraping implementation; src.data_loader.get_win_totals()
+calls it and caches the result to data/win_totals.parquet with one row per team per season.
 
 Run locally (blocked in remote containers):
     python3 pipeline/fetch_win_totals.py
@@ -17,10 +18,8 @@ Columns:
 Table columns on site: Team | Win Total | Over Odds | Under Odds | Week bet settled | Actual Wins | Result
 """
 
-import time
 import re
-import pandas as pd
-import requests
+
 from bs4 import BeautifulSoup
 
 # sportsoddshistory.com team name → nflverse abbreviation
@@ -143,25 +142,9 @@ def scrape_season(year, session):
 
 
 def main():
-    out_path = "exports/win_totals.csv"
-    session = requests.Session()
-    session.headers.update({"User-Agent": "Mozilla/5.0 (research scraper)"})
+    from src.data_loader import get_win_totals
 
-    all_rows = []
-    for year in SEASONS:
-        print(f"Fetching {year}...")
-        try:
-            rows = scrape_season(year, session)
-            print(f"  {year}: {len(rows)} teams")
-            all_rows.extend(rows)
-        except Exception as e:
-            print(f"  {year}: ERROR — {e}")
-        time.sleep(1.0)
-
-    df = pd.DataFrame(all_rows)
-    df = df.sort_values(["season", "team"]).reset_index(drop=True)
-    df.to_csv(out_path, index=False)
-    print(f"\nWrote {len(df)} rows to {out_path}")
+    df = get_win_totals(list(SEASONS), refresh=True)
     print(df.head(10).to_string(index=False))
 
 
