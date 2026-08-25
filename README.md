@@ -16,7 +16,6 @@ All models are evaluated on the home-team perspective (one row per game). The fo
 
 - **Weeks 1–3**: Dropped — rolling windows require at least 3 prior games; early-season features are too noisy.
 - **Final week of each season**: Dropped — week 18 (2021+) and week 17 (pre-2021). Resting starters and meaningless games destroy signal.
-- **Backup QB starts (injury or benching)**: Dropped — rolling EPA features are built from the starter's history. When a backup plays, those features no longer represent the team on the field. See `exports/backup_qb_games.csv` for the full list. Only injury and benched starts are excluded; controversy and returning QB situations remain in the dataset.
 
 See `models/margin/RESULTS.md` for the full margin model leaderboard.
 
@@ -46,8 +45,7 @@ betting-models/
 ├── deprecated/                      # Superseded experiment files and old src code
 │
 ├── exports/                         # Generated artifacts (not committed)
-│   ├── features.parquet             # Master feature store
-│   └── backup_qb_games.csv         # Identified backup QB starts
+│   └── features.parquet             # Master feature store
 │
 ├── data/                            # Raw cached nflverse downloads (not committed)
 ├── docs/                            # Browser UI (GitHub Pages)
