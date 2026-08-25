@@ -1,10 +1,12 @@
 """Fetch and cache NFL data from nflverse via nfl_data_py."""
 
 import os
+import time
 from pathlib import Path
 
 import nfl_data_py as nfl
 import pandas as pd
+import requests
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
@@ -345,19 +347,31 @@ def get_sc_lines(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
 
 
 def get_win_totals(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
-    """Preseason win-total market lines, direct from nfl_data_py.
+    """Preseason win-total market lines, scraped from sportsoddshistory.com.
 
-    Distinct from exports/win_totals.csv (pipeline/fetch_win_totals.py's
-    sportsoddshistory.com scrape) — nfl_data_py's own source has been
-    flaky/incomplete for recent seasons (it warns the source is "in flux"
-    and has returned 0 rows for some years even when others succeed).
+    Delegates to pipeline/fetch_win_totals.py's scrape_season() rather than
+    nfl_data_py's import_win_totals() — that source has been flaky/incomplete
+    for recent seasons (it warns the source is "in flux" and has returned 0
+    rows for some years even when others succeed).
     """
     cache_path = DATA_DIR / "win_totals.parquet"
     if cache_path.exists() and not refresh:
         return pd.read_parquet(cache_path)
 
-    print(f"Downloading win totals for {seasons[0]}-{seasons[-1]}...")
-    totals = nfl.import_win_totals(seasons)
+    from pipeline.fetch_win_totals import scrape_season
+
+    print(f"Scraping win totals for {seasons[0]}-{seasons[-1]}...")
+    session = requests.Session()
+    session.headers.update({"User-Agent": "Mozilla/5.0 (research scraper)"})
+
+    all_rows = []
+    for year in seasons:
+        rows = scrape_season(year, session)
+        print(f"  {year}: {len(rows)} teams")
+        all_rows.extend(rows)
+        time.sleep(1.0)
+
+    totals = pd.DataFrame(all_rows).sort_values(["season", "team"]).reset_index(drop=True)
     os.makedirs(DATA_DIR, exist_ok=True)
     totals.to_parquet(cache_path, index=False)
     print(f"Cached {len(totals):,} win total rows to {cache_path}")
