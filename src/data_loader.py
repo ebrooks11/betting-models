@@ -11,6 +11,36 @@ import requests
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 
+def _stringify_mixed(v):
+    if pd.isna(v):
+        return None
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    return str(v)
+
+
+def _safe_to_parquet(df: pd.DataFrame, path: Path) -> None:
+    """Write a DataFrame to parquet, working around two failure modes:
+
+    1. Some nflverse columns (e.g. jersey_number) are typed inconsistently
+       across seasons — str in some, float in others — which produces a
+       mixed-type object column that fastparquet can't encode and fails on
+       mid-write. Normalize any such column to a consistent string first.
+    2. A failed write shouldn't leave a corrupt file sitting at `path`
+       looking like a valid cache. Write to a temp file and rename into
+       place only on success.
+    """
+    df = df.copy()
+    for col in df.select_dtypes(include="object").columns:
+        non_null_types = set(df[col].dropna().map(type))
+        if len(non_null_types) > 1:
+            df[col] = df[col].map(_stringify_mixed)
+
+    tmp_path = path.with_suffix(".tmp.parquet")
+    df.to_parquet(tmp_path, index=False)
+    tmp_path.replace(path)
+
+
 def get_pbp_data(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
     cache_path = DATA_DIR / "pbp.parquet"
     if cache_path.exists() and not refresh:
@@ -19,7 +49,7 @@ def get_pbp_data(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
     print(f"Downloading play-by-play data for {seasons[0]}-{seasons[-1]}...")
     pbp = nfl.import_pbp_data(seasons)
     os.makedirs(DATA_DIR, exist_ok=True)
-    pbp.to_parquet(cache_path, index=False)
+    _safe_to_parquet(pbp, cache_path)
     print(f"Cached {len(pbp):,} plays to {cache_path}")
     return pbp
 
@@ -32,7 +62,7 @@ def get_schedule_data(seasons: list[int], refresh: bool = False) -> pd.DataFrame
     print(f"Downloading schedule data for {seasons[0]}-{seasons[-1]}...")
     schedules = nfl.import_schedules(seasons)
     os.makedirs(DATA_DIR, exist_ok=True)
-    schedules.to_parquet(cache_path, index=False)
+    _safe_to_parquet(schedules, cache_path)
     print(f"Cached {len(schedules):,} games to {cache_path}")
     return schedules
 
@@ -45,7 +75,7 @@ def get_qbr_data(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
     print(f"Downloading QBR data for {seasons[0]}-{seasons[-1]}...")
     qbr = nfl.import_qbr(seasons, level="nfl", frequency="weekly")
     os.makedirs(DATA_DIR, exist_ok=True)
-    qbr.to_parquet(cache_path, index=False)
+    _safe_to_parquet(qbr, cache_path)
     print(f"Cached {len(qbr):,} QB-game rows to {cache_path}")
     return qbr
 
@@ -58,7 +88,7 @@ def get_roster_data(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
     print(f"Downloading roster data for {seasons[0]}-{seasons[-1]}...")
     rosters = nfl.import_players()
     os.makedirs(DATA_DIR, exist_ok=True)
-    rosters.to_parquet(cache_path, index=False)
+    _safe_to_parquet(rosters, cache_path)
     print(f"Cached {len(rosters):,} roster rows to {cache_path}")
     return rosters
 
@@ -68,10 +98,11 @@ def get_snap_counts(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
     if cache_path.exists() and not refresh:
         return pd.read_parquet(cache_path)
 
-    print(f"Downloading snap count data for {seasons[0]}-{seasons[-1]}...")
-    snaps = nfl.import_snap_counts(seasons)
+    snap_seasons = [s for s in seasons if s >= 2012]  # not available before 2012
+    print(f"Downloading snap count data for {snap_seasons[0]}-{snap_seasons[-1]}...")
+    snaps = nfl.import_snap_counts(snap_seasons)
     os.makedirs(DATA_DIR, exist_ok=True)
-    snaps.to_parquet(cache_path, index=False)
+    _safe_to_parquet(snaps, cache_path)
     print(f"Cached {len(snaps):,} snap count rows to {cache_path}")
     return snaps
 
@@ -98,7 +129,7 @@ def get_pfr_advstats(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
 
     combined = pd.concat(dfs, ignore_index=True)
     os.makedirs(DATA_DIR, exist_ok=True)
-    combined.to_parquet(cache_path, index=False)
+    _safe_to_parquet(combined, cache_path)
     print(f"Cached {len(combined):,} PFR rows to {cache_path}")
     return combined
 
@@ -109,9 +140,16 @@ def get_weekly_data(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
         return pd.read_parquet(cache_path)
 
     print(f"Downloading weekly player data for {seasons[0]}-{seasons[-1]}...")
-    weekly = nfl.import_weekly_data(seasons)
+    dfs = []
+    for year in seasons:
+        try:
+            dfs.append(nfl.import_weekly_data([year]))
+        except Exception as e:
+            print(f"  {year}: skipped ({e})")
+
+    weekly = pd.concat(dfs, ignore_index=True)
     os.makedirs(DATA_DIR, exist_ok=True)
-    weekly.to_parquet(cache_path, index=False)
+    _safe_to_parquet(weekly, cache_path)
     print(f"Cached {len(weekly):,} weekly player rows to {cache_path}")
     return weekly
 
@@ -122,9 +160,16 @@ def get_seasonal_data(seasons: list[int], refresh: bool = False) -> pd.DataFrame
         return pd.read_parquet(cache_path)
 
     print(f"Downloading seasonal player data for {seasons[0]}-{seasons[-1]}...")
-    seasonal = nfl.import_seasonal_data(seasons)
+    dfs = []
+    for year in seasons:
+        try:
+            dfs.append(nfl.import_seasonal_data([year]))
+        except Exception as e:
+            print(f"  {year}: skipped ({e})")
+
+    seasonal = pd.concat(dfs, ignore_index=True)
     os.makedirs(DATA_DIR, exist_ok=True)
-    seasonal.to_parquet(cache_path, index=False)
+    _safe_to_parquet(seasonal, cache_path)
     print(f"Cached {len(seasonal):,} seasonal player rows to {cache_path}")
     return seasonal
 
@@ -137,7 +182,7 @@ def get_seasonal_rosters(seasons: list[int], refresh: bool = False) -> pd.DataFr
     print(f"Downloading seasonal rosters for {seasons[0]}-{seasons[-1]}...")
     rosters = nfl.import_seasonal_rosters(seasons)
     os.makedirs(DATA_DIR, exist_ok=True)
-    rosters.to_parquet(cache_path, index=False)
+    _safe_to_parquet(rosters, cache_path)
     print(f"Cached {len(rosters):,} seasonal roster rows to {cache_path}")
     return rosters
 
@@ -150,7 +195,7 @@ def get_weekly_rosters(seasons: list[int], refresh: bool = False) -> pd.DataFram
     print(f"Downloading weekly rosters for {seasons[0]}-{seasons[-1]}...")
     rosters = nfl.import_weekly_rosters(seasons)
     os.makedirs(DATA_DIR, exist_ok=True)
-    rosters.to_parquet(cache_path, index=False)
+    _safe_to_parquet(rosters, cache_path)
     print(f"Cached {len(rosters):,} weekly roster rows to {cache_path}")
     return rosters
 
@@ -163,7 +208,7 @@ def get_depth_charts(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
     print(f"Downloading depth charts for {seasons[0]}-{seasons[-1]}...")
     charts = nfl.import_depth_charts(seasons)
     os.makedirs(DATA_DIR, exist_ok=True)
-    charts.to_parquet(cache_path, index=False)
+    _safe_to_parquet(charts, cache_path)
     print(f"Cached {len(charts):,} depth chart rows to {cache_path}")
     return charts
 
@@ -173,10 +218,11 @@ def get_injuries(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
     if cache_path.exists() and not refresh:
         return pd.read_parquet(cache_path)
 
-    print(f"Downloading injury reports for {seasons[0]}-{seasons[-1]}...")
-    injuries = nfl.import_injuries(seasons)
+    injury_seasons = [s for s in seasons if s >= 2009]  # not available before 2009
+    print(f"Downloading injury reports for {injury_seasons[0]}-{injury_seasons[-1]}...")
+    injuries = nfl.import_injuries(injury_seasons)
     os.makedirs(DATA_DIR, exist_ok=True)
-    injuries.to_parquet(cache_path, index=False)
+    _safe_to_parquet(injuries, cache_path)
     print(f"Cached {len(injuries):,} injury report rows to {cache_path}")
     return injuries
 
@@ -196,7 +242,7 @@ def get_ngs_data(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
 
     combined = pd.concat(dfs, ignore_index=True)
     os.makedirs(DATA_DIR, exist_ok=True)
-    combined.to_parquet(cache_path, index=False)
+    _safe_to_parquet(combined, cache_path)
     print(f"Cached {len(combined):,} NGS rows to {cache_path}")
     return combined
 
@@ -210,7 +256,7 @@ def get_ftn_data(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
     print(f"Downloading FTN charting data for {ftn_seasons[0]}-{ftn_seasons[-1]}...")
     ftn = nfl.import_ftn_data(ftn_seasons)
     os.makedirs(DATA_DIR, exist_ok=True)
-    ftn.to_parquet(cache_path, index=False)
+    _safe_to_parquet(ftn, cache_path)
     print(f"Cached {len(ftn):,} FTN rows to {cache_path}")
     return ftn
 
@@ -237,7 +283,7 @@ def get_seasonal_pfr(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
 
     combined = pd.concat(dfs, ignore_index=True)
     os.makedirs(DATA_DIR, exist_ok=True)
-    combined.to_parquet(cache_path, index=False)
+    _safe_to_parquet(combined, cache_path)
     print(f"Cached {len(combined):,} PFR seasonal rows to {cache_path}")
     return combined
 
@@ -250,7 +296,7 @@ def get_combine_data(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
     print(f"Downloading combine data for {seasons[0]}-{seasons[-1]}...")
     combine = nfl.import_combine_data(seasons)
     os.makedirs(DATA_DIR, exist_ok=True)
-    combine.to_parquet(cache_path, index=False)
+    _safe_to_parquet(combine, cache_path)
     print(f"Cached {len(combine):,} combine rows to {cache_path}")
     return combine
 
@@ -263,7 +309,7 @@ def get_draft_picks(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
     print(f"Downloading draft picks for {seasons[0]}-{seasons[-1]}...")
     picks = nfl.import_draft_picks(seasons)
     os.makedirs(DATA_DIR, exist_ok=True)
-    picks.to_parquet(cache_path, index=False)
+    _safe_to_parquet(picks, cache_path)
     print(f"Cached {len(picks):,} draft pick rows to {cache_path}")
     return picks
 
@@ -276,7 +322,7 @@ def get_draft_values(refresh: bool = False) -> pd.DataFrame:
     print("Downloading draft pick values...")
     values = nfl.import_draft_values()
     os.makedirs(DATA_DIR, exist_ok=True)
-    values.to_parquet(cache_path, index=False)
+    _safe_to_parquet(values, cache_path)
     print(f"Cached {len(values):,} draft value rows to {cache_path}")
     return values
 
@@ -289,7 +335,7 @@ def get_contracts(refresh: bool = False) -> pd.DataFrame:
     print("Downloading historical contract data...")
     contracts = nfl.import_contracts()
     os.makedirs(DATA_DIR, exist_ok=True)
-    contracts.to_parquet(cache_path, index=False)
+    _safe_to_parquet(contracts, cache_path)
     print(f"Cached {len(contracts):,} contract rows to {cache_path}")
     return contracts
 
@@ -302,7 +348,7 @@ def get_officials(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
     print(f"Downloading game officials for {seasons[0]}-{seasons[-1]}...")
     officials = nfl.import_officials(seasons)
     os.makedirs(DATA_DIR, exist_ok=True)
-    officials.to_parquet(cache_path, index=False)
+    _safe_to_parquet(officials, cache_path)
     print(f"Cached {len(officials):,} official rows to {cache_path}")
     return officials
 
@@ -315,7 +361,7 @@ def get_team_desc(refresh: bool = False) -> pd.DataFrame:
     print("Downloading team descriptive data...")
     teams = nfl.import_team_desc()
     os.makedirs(DATA_DIR, exist_ok=True)
-    teams.to_parquet(cache_path, index=False)
+    _safe_to_parquet(teams, cache_path)
     print(f"Cached {len(teams):,} team rows to {cache_path}")
     return teams
 
@@ -328,7 +374,7 @@ def get_ids(refresh: bool = False) -> pd.DataFrame:
     print("Downloading cross-provider ID mapping table...")
     ids = nfl.import_ids()
     os.makedirs(DATA_DIR, exist_ok=True)
-    ids.to_parquet(cache_path, index=False)
+    _safe_to_parquet(ids, cache_path)
     print(f"Cached {len(ids):,} id mapping rows to {cache_path}")
     return ids
 
@@ -341,7 +387,7 @@ def get_sc_lines(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
     print(f"Downloading weekly scoring lines for {seasons[0]}-{seasons[-1]}...")
     lines = nfl.import_sc_lines(seasons)
     os.makedirs(DATA_DIR, exist_ok=True)
-    lines.to_parquet(cache_path, index=False)
+    _safe_to_parquet(lines, cache_path)
     print(f"Cached {len(lines):,} scoring line rows to {cache_path}")
     return lines
 
@@ -376,7 +422,7 @@ def get_win_totals(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
 
     totals = pd.DataFrame(all_rows).sort_values(["season", "team"]).reset_index(drop=True)
     os.makedirs(DATA_DIR, exist_ok=True)
-    totals.to_parquet(cache_path, index=False)
+    _safe_to_parquet(totals, cache_path)
     print(f"Cached {len(totals):,} win total rows to {cache_path}")
     return totals
 
