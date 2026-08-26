@@ -80,6 +80,19 @@ def get_qbr_data(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
     return qbr
 
 
+def get_qbr_season_data(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
+    cache_path = DATA_DIR / "qbr_season.parquet"
+    if cache_path.exists() and not refresh:
+        return pd.read_parquet(cache_path)
+
+    print(f"Downloading season-level QBR data for {seasons[0]}-{seasons[-1]}...")
+    qbr = nfl.import_qbr(seasons, level="nfl", frequency="season")
+    os.makedirs(DATA_DIR, exist_ok=True)
+    _safe_to_parquet(qbr, cache_path)
+    print(f"Cached {len(qbr):,} QB-season rows to {cache_path}")
+    return qbr
+
+
 def get_roster_data(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
     cache_path = DATA_DIR / "rosters.parquet"
     if cache_path.exists() and not refresh:
@@ -432,6 +445,7 @@ ALL_LOADERS = [
     (get_pbp_data, True),
     (get_schedule_data, True),
     (get_qbr_data, True),
+    (get_qbr_season_data, True),
     (get_roster_data, True),
     (get_snap_counts, True),
     (get_pfr_advstats, True),
