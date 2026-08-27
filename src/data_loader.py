@@ -3,6 +3,7 @@
 import os
 import time
 from pathlib import Path
+from typing import Optional
 
 import nfl_data_py as nfl
 import pandas as pd
@@ -440,6 +441,43 @@ def get_win_totals(seasons: list[int], refresh: bool = False) -> pd.DataFrame:
     return totals
 
 
+def get_coordinators(seasons: list[int], teams: Optional[list[str]] = None, refresh: bool = False) -> pd.DataFrame:
+    """Offensive/defensive coordinators by team-season, scraped from Wikipedia's
+    per-team-season articles. Delegates to pipeline/fetch_coordinators.py's
+    scrape_team_season() — see that module's docstring for parsing details
+    and known limitations (e.g. no OC row when a head coach calls his own
+    plays; role titles vary and are kept in role_raw alongside a normalized
+    role_category of OC/DC).
+    """
+    cache_path = DATA_DIR / "coordinators.parquet"
+    if cache_path.exists() and not refresh:
+        return pd.read_parquet(cache_path)
+
+    from pipeline.fetch_coordinators import scrape_team_season, ALL_TEAMS
+
+    teams = teams or ALL_TEAMS
+    print(f"Scraping coordinators for {seasons[0]}-{seasons[-1]} ({len(teams)} teams)...")
+    session = requests.Session()
+    session.headers.update({"User-Agent": "Mozilla/5.0 (research scraper)"})
+
+    all_rows = []
+    for season in seasons:
+        for team in teams:
+            try:
+                rows = scrape_team_season(team, season, session)
+                all_rows.extend(rows)
+            except Exception as e:
+                print(f"  {season} {team}: ERROR — {e}")
+            time.sleep(0.4)
+        print(f"  {season}: {sum(r['season'] == season for r in all_rows)} rows so far")
+
+    coords = pd.DataFrame(all_rows).sort_values(["season", "team", "role_category"]).reset_index(drop=True)
+    os.makedirs(DATA_DIR, exist_ok=True)
+    _safe_to_parquet(coords, cache_path)
+    print(f"Cached {len(coords):,} coordinator rows to {cache_path}")
+    return coords
+
+
 # (loader function, needs `seasons` arg) — every raw source fetch_all() pulls.
 ALL_LOADERS = [
     (get_pbp_data, True),
@@ -467,15 +505,19 @@ ALL_LOADERS = [
     (get_ids, False),
     (get_sc_lines, True),
     (get_win_totals, True),
+    (get_coordinators, True),
 ]
 
 
 def fetch_all(seasons: list[int], refresh: bool = False) -> dict[str, pd.DataFrame]:
-    """Call every loader in this module, caching each source to its own parquet file.
+    """Call every loader in this module, caching each source to its own parquet file,
+    then rebuild data/nfl.duckdb from the refreshed parquet files.
 
     Returns a dict of {function name: DataFrame} for whatever succeeded.
     A single source failing (e.g. an nflverse endpoint being down) doesn't
-    stop the rest from being fetched.
+    stop the rest from being fetched, and a failed duckdb rebuild (e.g. the
+    file is locked open in DBeaver) doesn't affect the returned data — it's
+    just reported.
     """
     results = {}
     for loader, needs_seasons in ALL_LOADERS:
@@ -487,6 +529,14 @@ def fetch_all(seasons: list[int], refresh: bool = False) -> dict[str, pd.DataFra
             print(f"{df.shape[0]:,} rows, {df.shape[1]} columns\n")
         except Exception as e:
             print(f"  skipped ({e})\n")
+
+    print("=== build_duckdb ===")
+    try:
+        from pipeline.build_duckdb import build_duckdb
+        build_duckdb()
+    except Exception as e:
+        print(f"  skipped ({e}) — is DBeaver still connected to data/nfl.duckdb?\n")
+
     return results
 
 
