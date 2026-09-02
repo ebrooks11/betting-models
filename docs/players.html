@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NFL Model · Player Explorer</title>
+<style>
+/* ── Tokens (matches site palette) ─────────────────────────── */
+:root {
+  --bg:         #f0f2f7;
+  --surface:    #ffffff;
+  --surface-2:  #f5f7fc;
+  --surface-3:  #eaecf4;
+  --border:     #d8dce8;
+  --border-hi:  #b8c0d4;
+  --text:       #1a2035;
+  --text-muted: #5a6480;
+  --text-dim:   #9aa0b4;
+  --accent:     #d4890a;
+  --accent-dim: rgba(212,137,10,.1);
+  --good:       #1e9e6e;
+  --good-dim:   rgba(30,158,110,.12);
+  --bad:        #cc3a3a;
+  --bad-dim:    rgba(204,58,58,.10);
+  --neutral:    #7080a0;
+  --font-mono:  "JetBrains Mono","Fira Code","Cascadia Code",ui-monospace,monospace;
+  --font-sans:  -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  --font-cond:  "Arial Narrow","Helvetica Neue",Arial,sans-serif;
+  --r:          5px;
+  --r-lg:       9px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:#0d1117; --surface:#161b22; --surface-2:#1e242e; --surface-3:#252c38;
+    --border:#2a3140; --border-hi:#3a4458; --text:#e2e8f4; --text-muted:#6b7a99;
+    --text-dim:#4a5568; --accent:#f0a500; --accent-dim:rgba(240,165,0,.12);
+    --good:#3fb68a; --good-dim:rgba(63,182,138,.15);
+    --bad:#e05656; --bad-dim:rgba(224,86,86,.13); --neutral:#5a7099;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:#0d1117; --surface:#161b22; --surface-2:#1e242e; --surface-3:#252c38;
+  --border:#2a3140; --border-hi:#3a4458; --text:#e2e8f4; --text-muted:#6b7a99;
+  --text-dim:#4a5568; --accent:#f0a500; --accent-dim:rgba(240,165,0,.12);
+  --good:#3fb68a; --good-dim:rgba(63,182,138,.15);
+  --bad:#e05656; --bad-dim:rgba(224,86,86,.13); --neutral:#5a7099;
+}
+
+/* ── Reset ──────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; }
+body { font-family: var(--font-sans); background: var(--bg); color: var(--text); min-height: 100vh; }
+button, input, select { font-family: inherit; }
+button { cursor: pointer; }
+
+/* ── Page shell ─────────────────────────────────────────────── */
+.page { max-width: 100%; padding: 22px 20px 60px; }
+
+/* ── Header ─────────────────────────────────────────────────── */
+.site-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; margin-bottom: 18px; padding-bottom: 16px;
+  border-bottom: 1px solid var(--border); flex-wrap: wrap;
+}
+.site-title {
+  font-family: var(--font-cond); font-size: 1.25rem; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--text);
+}
+.site-title span { color: var(--accent); }
+.header-right { display: flex; align-items: center; gap: 8px; }
+.nav-link, .theme-toggle {
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--r); color: var(--text-muted); font-size: .72rem;
+  padding: 4px 10px; line-height: 1; text-decoration: none; display: inline-block;
+}
+.nav-link:hover, .theme-toggle:hover { color: var(--text); border-color: var(--border-hi); }
+
+/* ── Position tabs ──────────────────────────────────────────── */
+.pos-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.pos-tab {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); color: var(--text-muted); font-family: var(--font-cond);
+  font-size: .85rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  padding: 8px 20px;
+}
+.pos-tab:hover { color: var(--text); border-color: var(--border-hi); }
+.pos-tab.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+/* ── Filter Panel ───────────────────────────────────────────── */
+.filter-panel {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); margin-bottom: 14px; overflow: hidden;
+}
+.quick-row {
+  display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start;
+  padding: 10px 14px;
+}
+.qf-group { display: flex; align-items: center; gap: 6px; }
+.qf-label {
+  font-size: .62rem; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text-dim); font-family: var(--font-mono); white-space: nowrap;
+}
+.qf-input, .qf-select {
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--r); color: var(--text); font-family: var(--font-mono);
+  font-size: .72rem; padding: 3px 7px; height: 26px;
+}
+.qf-input:focus, .qf-select:focus { outline: none; border-color: var(--accent); }
+.qf-input.wide { width: 160px; }
+.btn-sm {
+  background: var(--surface-3); border: 1px solid var(--border);
+  border-radius: var(--r); color: var(--text-muted); font-size: .7rem;
+  padding: 3px 9px; line-height: 1.4;
+}
+.btn-sm:hover { color: var(--text); border-color: var(--border-hi); }
+
+/* ── Season chips ───────────────────────────────────────────── */
+.season-chips { display: flex; flex-wrap: wrap; gap: 4px; max-width: 460px; }
+.season-chip {
+  background: var(--surface-3); border: 1px solid var(--border);
+  border-radius: 20px; color: var(--text-muted); cursor: pointer;
+  font-family: var(--font-mono); font-size: .68rem; padding: 2px 9px;
+  user-select: none;
+}
+.season-chip:hover { border-color: var(--border-hi); color: var(--text); }
+.season-chip.selected {
+  background: var(--accent-dim); border-color: var(--accent); color: var(--accent); font-weight: 600;
+}
+
+/* ── Table Controls ─────────────────────────────────────────── */
+.table-controls {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 8px; flex-wrap: wrap;
+}
+.table-meta { font-size: .68rem; font-family: var(--font-mono); color: var(--text-muted); }
+.table-meta strong { color: var(--text); }
+.page-size-wrap { display: flex; align-items: center; gap: 6px; }
+.page-size-label { font-size: .62rem; color: var(--text-dim); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .06em; }
+
+/* ── Data Table ─────────────────────────────────────────────── */
+.table-outer { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-lg); }
+table {
+  border-collapse: collapse; font-family: var(--font-mono); font-size: .72rem;
+  min-width: 100%; white-space: nowrap;
+}
+thead th {
+  background: var(--surface-2); border-bottom: 2px solid var(--border);
+  border-right: 1px solid var(--border); padding: 6px 9px;
+  font-size: .58rem; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text-dim); font-weight: 600; vertical-align: bottom;
+  text-align: right; cursor: pointer; user-select: none; position: sticky; top: 0; z-index: 2;
+}
+thead th.left { text-align: left; }
+thead th:hover { color: var(--text); background: var(--surface-3); }
+thead th.sort-asc, thead th.sort-desc { color: var(--accent); }
+.sort-icon { display: inline-block; margin-left: 3px; font-size: .6em; opacity: .5; }
+thead th.sort-asc .sort-icon, thead th.sort-desc .sort-icon { opacity: 1; color: var(--accent); }
+.sticky-col { position: sticky; left: 0; z-index: 1; background: var(--surface); }
+thead th.sticky-col { z-index: 3; background: var(--surface-2); }
+.sticky-col-1 { left: 0; min-width: 52px; }
+.sticky-col-2 { left: 52px; min-width: 42px; }
+.sticky-col-3 { left: 94px; min-width: 130px; box-shadow: 2px 0 4px rgba(0,0,0,.06); }
+tbody tr { background: var(--surface); border-bottom: 1px solid var(--border); }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--surface-2); }
+tbody tr:hover .sticky-col { background: var(--surface-2); }
+tbody td {
+  padding: 5px 9px; border-right: 1px solid var(--border);
+  text-align: right; color: var(--text); vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+}
+tbody td.left { text-align: left; }
+
+/* ── Pagination ─────────────────────────────────────────────── */
+.pagination { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 14px; flex-wrap: wrap; }
+.page-btn {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); color: var(--text-muted); font-size: .7rem;
+  font-family: var(--font-mono); padding: 4px 10px; min-width: 32px;
+}
+.page-btn:hover { color: var(--text); border-color: var(--border-hi); }
+.page-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+.page-btn:disabled { opacity: .35; cursor: default; }
+
+.state-msg { text-align: center; padding: 60px 20px; color: var(--text-muted); font-family: var(--font-mono); font-size: .85rem; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="site-header">
+    <div class="site-title">NFL <span>MODEL</span> · Player Explorer</div>
+    <div class="header-right">
+      <a class="nav-link" href="index.html">← Week View</a>
+      <a class="nav-link" href="season.html">Season Rollup</a>
+      <a class="nav-link" href="explore.html">Game Explorer</a>
+      <button class="theme-toggle" onclick="toggleTheme()">Toggle theme</button>
+    </div>
+  </header>
+
+  <div class="pos-tabs" id="pos-tabs">
+    <button class="pos-tab active" data-pos="qb" onclick="setPosition('qb')">QB</button>
+    <button class="pos-tab" data-pos="rb" onclick="setPosition('rb')">RB</button>
+    <button class="pos-tab" data-pos="wr" onclick="setPosition('wr')">WR</button>
+    <button class="pos-tab" data-pos="te" onclick="setPosition('te')">TE</button>
+  </div>
+
+  <div class="filter-panel">
+    <div class="quick-row">
+      <div class="qf-group" style="align-items:flex-start">
+        <span class="qf-label" style="margin-top:4px">Season</span>
+        <div class="season-chips" id="f-season"></div>
+      </div>
+      <div class="qf-group">
+        <span class="qf-label">Player</span>
+        <input class="qf-input wide" id="f-player" placeholder="Search name…" oninput="onFilterChange()">
+      </div>
+      <div class="qf-group">
+        <span class="qf-label">Team</span>
+        <input class="qf-input" id="f-team" placeholder="e.g. KC" style="width:60px" oninput="onFilterChange()">
+      </div>
+      <div class="qf-group" style="margin-left:auto">
+        <button class="btn-sm" onclick="clearAllFilters()">Clear filters</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-controls">
+    <div class="table-meta" id="table-meta">Loading…</div>
+    <div class="page-size-wrap">
+      <span class="page-size-label">Rows</span>
+      <select class="qf-select" id="page-size" onchange="onPageSizeChange()">
+        <option value="25">25</option>
+        <option value="50" selected>50</option>
+        <option value="100">100</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="main-content">
+    <div class="state-msg" id="loading-msg">Loading player data…</div>
+  </div>
+
+</div>
+
+<script>
+/* ── State ──────────────────────────────────────────────────── */
+const CACHE = {};      // position -> {n, columns, data}
+let position = 'qb';
+let DATA = null;
+let COLS = [];
+let filteredIdx = [];
+let sortCol = 'season';
+let sortDir = -1;      // -1 = desc, 1 = asc
+let page = 0;
+let pageSize = 50;
+let selectedSeasons = new Set(); // empty = all
+
+/* Sticky leading columns, shared across all four position tables */
+const STICKY_COLS = ['season', 'team', 'player_name'];
+
+function toggleTheme() {
+  const r = document.documentElement;
+  r.dataset.theme = r.dataset.theme === 'light' ? 'dark' : 'light';
+}
+
+async function loadPosition(pos) {
+  if (CACHE[pos]) return CACHE[pos];
+  const res = await fetch(`./data/players_${pos}.json?v=1`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  CACHE[pos] = data;
+  return data;
+}
+
+async function setPosition(pos) {
+  document.querySelectorAll('.pos-tab').forEach(b => b.classList.toggle('active', b.dataset.pos === pos));
+  position = pos;
+  document.getElementById('loading-msg') && (document.getElementById('main-content').innerHTML = '<div class="state-msg">Loading player data…</div>');
+  try {
+    DATA = await loadPosition(pos);
+    COLS = DATA.columns;
+    sortCol = 'season';
+    sortDir = -1;
+    buildSeasonFilter();
+    applyAndRender();
+  } catch (e) {
+    document.getElementById('main-content').innerHTML = `<div class="state-msg">Error loading data: ${e.message}</div>`;
+  }
+}
+
+function buildSeasonFilter() {
+  const seasons = [...new Set(DATA.data['season'])].sort((a, b) => b - a);
+  const container = document.getElementById('f-season');
+  container.innerHTML = '';
+  selectedSeasons = new Set(seasons); // default: all seasons selected
+  seasons.forEach(s => {
+    const chip = document.createElement('button');
+    chip.className = 'season-chip selected';
+    chip.textContent = s;
+    chip.dataset.season = s;
+    chip.onclick = () => toggleSeason(s, chip);
+    container.appendChild(chip);
+  });
+}
+
+function toggleSeason(s, chip) {
+  if (selectedSeasons.has(s)) { selectedSeasons.delete(s); chip.classList.remove('selected'); }
+  else { selectedSeasons.add(s); chip.classList.add('selected'); }
+  onFilterChange();
+}
+
+/* ── Filtering ──────────────────────────────────────────────── */
+function getVal(key, i) { return DATA.data[key][i]; }
+
+function matchesFilters(i) {
+  const player = document.getElementById('f-player').value.trim().toLowerCase();
+  const team = document.getElementById('f-team').value.trim().toUpperCase();
+
+  const seasons = DATA.data['season'];
+  if (selectedSeasons.size > 0 && !selectedSeasons.has(seasons[i])) return false;
+
+  if (player) {
+    const name = (getVal('player_name', i) || '').toLowerCase();
+    if (!name.includes(player)) return false;
+  }
+  if (team) {
+    if ((getVal('team', i) || '') !== team) return false;
+  }
+  return true;
+}
+
+function applyAndRender() {
+  const n = DATA.n;
+  filteredIdx = [];
+  for (let i = 0; i < n; i++) {
+    if (matchesFilters(i)) filteredIdx.push(i);
+  }
+  sortFilteredIdx();
+  page = 0;
+  renderAll();
+}
+
+function sortFilteredIdx() {
+  const d = DATA.data[sortCol];
+  filteredIdx.sort((a, b) => {
+    const av = d[a], bv = d[b];
+    if (av === null && bv === null) return 0;
+    if (av === null) return 1;
+    if (bv === null) return -1;
+    if (typeof av === 'string') {
+      return av < bv ? sortDir : av > bv ? -sortDir : 0;
+    }
+    return av < bv ? sortDir : av > bv ? -sortDir : 0;
+  });
+}
+
+/* ── Table rendering ────────────────────────────────────────── */
+function sortArrow(key) {
+  if (sortCol !== key) return '<span class="sort-icon">⇅</span>';
+  return `<span class="sort-icon">${sortDir === -1 ? '↓' : '↑'}</span>`;
+}
+
+function buildTableHeader() {
+  const nonSticky = COLS.filter(c => !STICKY_COLS.includes(c.key));
+  let headerRow = '<tr>';
+  STICKY_COLS.forEach((k, i) => {
+    const col = COLS.find(c => c.key === k);
+    if (!col) return;
+    const cls = `sticky-col sticky-col-${i + 1} left${sortCol === k ? ' sort-' + (sortDir === -1 ? 'desc' : 'asc') : ''}`;
+    headerRow += `<th class="${cls}" onclick="onSort('${k}')">${col.label}${sortArrow(k)}</th>`;
+  });
+  nonSticky.forEach(col => {
+    const cls = sortCol === col.key ? ' sort-' + (sortDir === -1 ? 'desc' : 'asc') : '';
+    headerRow += `<th class="${cls}" onclick="onSort('${col.key}')">${col.label}${sortArrow(col.key)}</th>`;
+  });
+  headerRow += '</tr>';
+  return `<thead>${headerRow}</thead>`;
+}
+
+function formatVal(v, col) {
+  if (v === null || v === undefined) return '—';
+  if (col.type === 'float') return v.toFixed(v === Math.round(v) ? 0 : 2);
+  if (col.type === 'bool') return v ? 'Yes' : 'No';
+  return String(v);
+}
+
+function renderRow(i) {
+  const nonSticky = COLS.filter(c => !STICKY_COLS.includes(c.key));
+  let cells = '';
+  STICKY_COLS.forEach((k, idx) => {
+    const col = COLS.find(c => c.key === k);
+    if (!col) return;
+    const v = getVal(k, i);
+    cells += `<td class="sticky-col sticky-col-${idx + 1} left">${formatVal(v, col)}</td>`;
+  });
+  nonSticky.forEach(col => {
+    const v = getVal(col.key, i);
+    cells += `<td>${formatVal(v, col)}</td>`;
+  });
+  return `<tr>${cells}</tr>`;
+}
+
+function renderTable() {
+  const start = page * pageSize;
+  const end = Math.min(start + pageSize, filteredIdx.length);
+  const pageIdx = filteredIdx.slice(start, end);
+
+  const header = buildTableHeader();
+  const rows = pageIdx.map(i => renderRow(i)).join('');
+  document.getElementById('main-content').innerHTML =
+    `<div class="table-outer"><table>${header}<tbody>${rows}</tbody></table></div>`;
+}
+
+function renderPagination() {
+  const nPages = Math.ceil(filteredIdx.length / pageSize);
+  if (nPages <= 1) return;
+
+  let html = `<button class="page-btn" onclick="goPage(${page - 1})" ${page === 0 ? 'disabled' : ''}>‹</button>`;
+  const range = pageRange(page, nPages);
+  let prev = null;
+  range.forEach(p => {
+    if (prev !== null && p !== prev + 1) html += '<span style="color:var(--text-dim);font-size:.7rem;padding:0 4px">…</span>';
+    html += `<button class="page-btn${p === page ? ' active' : ''}" onclick="goPage(${p})">${p + 1}</button>`;
+    prev = p;
+  });
+  html += `<button class="page-btn" onclick="goPage(${page + 1})" ${page === nPages - 1 ? 'disabled' : ''}>›</button>`;
+
+  const el = document.createElement('div');
+  el.className = 'pagination';
+  el.innerHTML = html;
+  document.getElementById('main-content').appendChild(el);
+}
+
+function pageRange(cur, total) {
+  const pages = new Set();
+  [0, 1, total - 2, total - 1].forEach(p => { if (p >= 0 && p < total) pages.add(p); });
+  for (let p = Math.max(0, cur - 2); p <= Math.min(total - 1, cur + 2); p++) pages.add(p);
+  return [...pages].sort((a, b) => a - b);
+}
+
+function renderMeta() {
+  const start = filteredIdx.length ? page * pageSize + 1 : 0;
+  const end = Math.min((page + 1) * pageSize, filteredIdx.length);
+  document.getElementById('table-meta').innerHTML =
+    `Showing <strong>${start}–${end}</strong> of <strong>${filteredIdx.length.toLocaleString()}</strong> player-seasons`;
+}
+
+function renderAll() {
+  renderMeta();
+  renderTable();
+  renderPagination();
+}
+
+/* ── Controls ───────────────────────────────────────────────── */
+function onSort(col) {
+  if (sortCol === col) { sortDir *= -1; }
+  else { sortCol = col; sortDir = -1; }
+  page = 0;
+  sortFilteredIdx();
+  renderAll();
+}
+
+function goPage(p) {
+  const nPages = Math.ceil(filteredIdx.length / pageSize);
+  if (p < 0 || p >= nPages) return;
+  page = p;
+  renderTable();
+  renderPagination();
+  renderMeta();
+}
+
+function onFilterChange() { applyAndRender(); }
+
+function clearAllFilters() {
+  document.getElementById('f-player').value = '';
+  document.getElementById('f-team').value = '';
+  const seasons = [...new Set(DATA.data['season'])];
+  selectedSeasons = new Set(seasons);
+  document.querySelectorAll('.season-chip').forEach(chip => chip.classList.add('selected'));
+  applyAndRender();
+}
+
+function onPageSizeChange() {
+  pageSize = parseInt(document.getElementById('page-size').value);
+  page = 0;
+  renderAll();
+}
+
+setPosition('qb');
+</script>
+</body>
+</html>
