@@ -23,6 +23,21 @@ TABLES = [
     ("te", "tight_ends.parquet"),
 ]
 
+# Per-position column trims for the UI (JSON only omits these — the
+# underlying parquet tables are untouched).
+EXCLUDE_COLS = {
+    "qb": {
+        "gsis_id", "football_name", "jersey_number", "birth_date", "college",
+        "avg_air_yards_to_sticks", "avg_time_to_los",
+        "percent_attempts_gte_eight_defenders", "scrambles",
+        # everything after oc_name (background/draft/combine/contract)
+        "draft_round", "draft_pick", "draft_year",
+        "forty", "bench", "vertical", "broad_jump", "cone", "shuttle",
+        "combine_height", "combine_weight",
+        "contract_apy", "contract_year_signed", "contract_years",
+    },
+}
+
 # Preserve known abbreviations/acronyms when humanizing snake_case column
 # names into display labels; anything else is just title-cased.
 ABBR = {
@@ -71,6 +86,10 @@ def _cell(v, col_type):
 
 def build_one(position: str, filename: str):
     df = pd.read_parquet(DATA_DIR / filename)
+
+    exclude = EXCLUDE_COLS.get(position, set())
+    if exclude:
+        df = df.drop(columns=[c for c in exclude if c in df.columns])
 
     columns_meta = []
     cols = {}
