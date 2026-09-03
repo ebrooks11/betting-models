@@ -30,6 +30,9 @@ EXCLUDE_COLS = {
         "gsis_id", "football_name", "jersey_number", "birth_date", "college",
         "avg_air_yards_to_sticks", "avg_time_to_los",
         "percent_attempts_gte_eight_defenders", "scrambles",
+        # ESPN QBR data — not published for 2024/2025, blank for those rows
+        "qbr_total", "qbr_raw", "pts_added", "qbr_epa_total",
+        "qbr_pass_epa", "qbr_run_epa", "qb_plays", "qbr_qualified",
         # everything after oc_name (background/draft/combine/contract)
         "draft_round", "draft_pick", "draft_year",
         "forty", "bench", "vertical", "broad_jump", "cone", "shuttle",
@@ -38,16 +41,61 @@ EXCLUDE_COLS = {
     },
 }
 
-# Preserve known abbreviations/acronyms when humanizing snake_case column
-# names into display labels; anything else is just title-cased.
+# Preserve known abbreviations/acronyms, and shorten common long words, when
+# humanizing snake_case column names into display labels — the table has a
+# lot of columns and long headers make it unusably wide. Anything not in
+# this map is just title-cased as-is.
 ABBR = {
     "epa": "EPA", "qbr": "QBR", "pfr": "PFR", "ppr": "PPR", "apy": "APY",
     "id": "ID", "td": "TD", "tds": "TDs", "pct": "%", "yac": "YAC",
     "oc": "OC", "2pt": "2PT", "pacr": "PACR", "gsis": "GSIS", "los": "LOS",
+    "years": "Yrs", "year": "Yr",
+    "passing": "Pass", "rushing": "Rush", "receiving": "Rec", "receptions": "Rec",
+    "completions": "Comp", "completion": "Comp",
+    "attempts": "Att",
+    "interceptions": "Int",
+    "yards": "Yds",
+    "fumbles": "Fum",
+    "first": "1st",
+    "downs": "Dwn",
+    "conversions": "Conv",
+    "differential": "Diff",
+    "percentage": "%", "percent": "%",
+    "expected": "Exp", "expectation": "Exp",
+    "above": "Abv",
+    "before": "Bfr", "after": "Aft",
+    "broken": "Brkn", "tackles": "Tkl", "tackle": "Tkl",
+    "target": "Tgt", "targets": "Tgt",
+    "intended": "Intnd",
+    "share": "Shr",
+    "cushion": "Cush",
+    "separation": "Sep",
+    "blitzed": "Blitz",
+    "signed": "Sgnd",
+    "aggressiveness": "Aggr",
+    "total": "Tot",
+    "points": "Pts",
+    "with": "w/",
+    "pa": "PA",    # play-action
+    "rpo": "RPO",  # run-pass option
+    "combine": "Cmb", "height": "Ht", "weight": "Wt",
+    "round": "Rnd",
+    "efficiency": "Eff",
+    "contact": "Cntct",
+    "depth": "Dpth",
+}
+
+# Full-key overrides for labels that don't read well built word-by-word.
+LABEL_OVERRIDES = {
+    "percent_attempts_gte_eight_defenders": "% vs 8+ Box",
+    "player_name": "Player",
+    "oc_name": "OC",
 }
 
 
 def _humanize(key: str) -> str:
+    if key in LABEL_OVERRIDES:
+        return LABEL_OVERRIDES[key]
     words = []
     for part in key.split("_"):
         low = part.lower()
