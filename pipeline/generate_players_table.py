@@ -90,6 +90,10 @@ LABEL_OVERRIDES = {
     "percent_attempts_gte_eight_defenders": "% vs 8+ Box",
     "player_name": "Player",
     "oc_name": "OC",
+    "pa_pass_att": "PA Att",
+    "pa_pass_yards": "PA Yds",
+    "rpo_pass_att": "RPO Att",
+    "rpo_pass_yards": "RPO Yds",
 }
 
 

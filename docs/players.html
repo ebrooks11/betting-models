@@ -293,10 +293,11 @@ function buildSeasonFilter() {
   const seasons = [...new Set(DATA.data['season'])].sort((a, b) => b - a);
   const container = document.getElementById('f-season');
   container.innerHTML = '';
-  selectedSeasons = new Set(seasons); // default: all seasons selected
+  // Default: only the latest season selected (2025 if present, else the most recent one available)
+  selectedSeasons = new Set(seasons.includes(2025) ? [2025] : seasons.slice(0, 1));
   seasons.forEach(s => {
     const chip = document.createElement('button');
-    chip.className = 'season-chip selected';
+    chip.className = 'season-chip' + (selectedSeasons.has(s) ? ' selected' : '');
     chip.textContent = s;
     chip.dataset.season = s;
     chip.onclick = () => toggleSeason(s, chip);
@@ -476,8 +477,10 @@ function clearAllFilters() {
   document.getElementById('f-player').value = '';
   document.getElementById('f-team').value = '';
   const seasons = [...new Set(DATA.data['season'])];
-  selectedSeasons = new Set(seasons);
-  document.querySelectorAll('.season-chip').forEach(chip => chip.classList.add('selected'));
+  selectedSeasons = new Set(seasons.includes(2025) ? [2025] : seasons.sort((a, b) => b - a).slice(0, 1));
+  document.querySelectorAll('.season-chip').forEach(chip => {
+    chip.classList.toggle('selected', selectedSeasons.has(parseInt(chip.dataset.season)));
+  });
   applyAndRender();
 }
 
