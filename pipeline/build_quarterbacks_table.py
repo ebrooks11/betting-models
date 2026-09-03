@@ -28,7 +28,8 @@ nflverse's own seasonal.parquet would have produced:
     calculation. QB receiving stats aren't tracked (trick-play catches by a
     QB are rare enough to ignore), so all three scoring variants are the
     same value here — PPR/half-PPR only differ from standard when
-    receptions are involved.
+    receptions are involved. fantasy_points_per_game = fantasy_points/games
+    (NULL when games is 0).
   - A "sack" in raw pbp is flagged with pass_attempt=1 (confirmed by direct
     inspection), so pass attempts/completions/yards all explicitly exclude
     sack plays (sack=0) to match traditional passing-stat conventions —
@@ -269,6 +270,7 @@ SELECT
     s.carries, s.rushing_yards, s.rushing_tds, s.rushing_fumbles, s.rushing_fumbles_lost,
     s.rushing_first_downs, s.rushing_epa, s.rushing_2pt_conversions,
     s.fantasy_points, s.fantasy_points AS fantasy_points_ppr, s.fantasy_points AS fantasy_points_half_ppr, g.games,
+    s.fantasy_points / NULLIF(g.games, 0) AS fantasy_points_per_game,
 
     ngs.avg_time_to_throw, ngs.avg_completed_air_yards, ngs.avg_intended_air_yards,
     ngs.avg_air_yards_differential, ngs.aggressiveness, ngs.avg_air_yards_to_sticks,

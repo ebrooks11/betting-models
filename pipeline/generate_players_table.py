@@ -41,6 +41,17 @@ EXCLUDE_COLS = {
     },
 }
 
+# Per-position column ordering for the UI: these come first, in this order;
+# every other (non-excluded) column follows in its existing relative order.
+COLUMN_ORDER = {
+    "qb": [
+        "season", "team", "player_name", "games",
+        "fantasy_points", "fantasy_points_per_game",
+        "completion_percentage_above_expectation", "oc_name",
+        "on_tgt_pct", "bad_throw_pct",
+    ],
+}
+
 # Preserve known abbreviations/acronyms, and shorten common long words, when
 # humanizing snake_case column names into display labels — the table has a
 # lot of columns and long headers make it unusably wide. Anything not in
@@ -142,6 +153,11 @@ def build_one(position: str, filename: str):
     exclude = EXCLUDE_COLS.get(position, set())
     if exclude:
         df = df.drop(columns=[c for c in exclude if c in df.columns])
+
+    front = [c for c in COLUMN_ORDER.get(position, []) if c in df.columns]
+    if front:
+        rest = [c for c in df.columns if c not in front]
+        df = df[front + rest]
 
     columns_meta = []
     cols = {}
