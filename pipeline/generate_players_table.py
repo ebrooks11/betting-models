@@ -94,6 +94,7 @@ ABBR = {
     "efficiency": "Eff",
     "contact": "Cntct",
     "depth": "Dpth",
+    "fantasy": "Fan",
 }
 
 # Full-key overrides for labels that don't read well built word-by-word.
@@ -105,6 +106,11 @@ LABEL_OVERRIDES = {
     "pa_pass_yards": "PA Yds",
     "rpo_pass_att": "RPO Att",
     "rpo_pass_yards": "RPO Yds",
+    "fantasy_points_per_game": "Fan PPG",
+    "completion_percentage_above_expectation": "CPOE",
+    "passing_air_yards": "Air Yds",
+    "passing_yards_after_catch": "YAC",
+    "times_blitzed": "Blitzed",
 }
 
 
