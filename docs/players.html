@@ -203,6 +203,7 @@ tbody td.left { text-align: left; }
     <button class="pos-tab" data-pos="rb" onclick="setPosition('rb')">RB</button>
     <button class="pos-tab" data-pos="wr" onclick="setPosition('wr')">WR</button>
     <button class="pos-tab" data-pos="te" onclick="setPosition('te')">TE</button>
+    <button class="pos-tab" data-pos="oc" onclick="setPosition('oc')">OC</button>
   </div>
 
   <div class="filter-panel">
@@ -212,7 +213,7 @@ tbody td.left { text-align: left; }
         <div class="season-chips" id="f-season"></div>
       </div>
       <div class="qf-group">
-        <span class="qf-label">Player</span>
+        <span class="qf-label" id="f-player-label">Player</span>
         <input class="qf-input wide" id="f-player" placeholder="Search name…" oninput="onFilterChange()">
       </div>
       <div class="qf-group">
@@ -256,8 +257,11 @@ let page = 0;
 let pageSize = 50;
 let selectedSeasons = new Set(); // empty = all
 
-/* Sticky leading columns, shared across all four position tables */
-const STICKY_COLS = ['season', 'team', 'player_name'];
+/* The player tables are keyed on player_name; the OC table has no single
+   player, it's keyed on oc_name instead — used for the sticky 3rd column
+   and for what the "Player"/name search box filters on. */
+const NAME_FIELD = { qb: 'player_name', rb: 'player_name', wr: 'player_name', te: 'player_name', oc: 'oc_name' };
+function getStickyCols() { return ['season', 'team', NAME_FIELD[position]]; }
 
 function toggleTheme() {
   const r = document.documentElement;
@@ -276,6 +280,8 @@ async function loadPosition(pos) {
 async function setPosition(pos) {
   document.querySelectorAll('.pos-tab').forEach(b => b.classList.toggle('active', b.dataset.pos === pos));
   position = pos;
+  document.getElementById('f-player-label').textContent = pos === 'oc' ? 'Coordinator' : 'Player';
+  document.getElementById('f-player').placeholder = pos === 'oc' ? 'Search OC name…' : 'Search name…';
   document.getElementById('loading-msg') && (document.getElementById('main-content').innerHTML = '<div class="state-msg">Loading player data…</div>');
   try {
     DATA = await loadPosition(pos);
@@ -322,7 +328,7 @@ function matchesFilters(i) {
   if (selectedSeasons.size > 0 && !selectedSeasons.has(seasons[i])) return false;
 
   if (player) {
-    const name = (getVal('player_name', i) || '').toLowerCase();
+    const name = (getVal(NAME_FIELD[position], i) || '').toLowerCase();
     if (!name.includes(player)) return false;
   }
   if (team) {
@@ -363,9 +369,10 @@ function sortArrow(key) {
 }
 
 function buildTableHeader() {
-  const nonSticky = COLS.filter(c => !STICKY_COLS.includes(c.key));
+  const stickyCols = getStickyCols();
+  const nonSticky = COLS.filter(c => !stickyCols.includes(c.key));
   let headerRow = '<tr>';
-  STICKY_COLS.forEach((k, i) => {
+  stickyCols.forEach((k, i) => {
     const col = COLS.find(c => c.key === k);
     if (!col) return;
     const cls = `sticky-col sticky-col-${i + 1} left${sortCol === k ? ' sort-' + (sortDir === -1 ? 'desc' : 'asc') : ''}`;
@@ -387,9 +394,10 @@ function formatVal(v, col) {
 }
 
 function renderRow(i) {
-  const nonSticky = COLS.filter(c => !STICKY_COLS.includes(c.key));
+  const stickyCols = getStickyCols();
+  const nonSticky = COLS.filter(c => !stickyCols.includes(c.key));
   let cells = '';
-  STICKY_COLS.forEach((k, idx) => {
+  stickyCols.forEach((k, idx) => {
     const col = COLS.find(c => c.key === k);
     if (!col) return;
     const v = getVal(k, i);
