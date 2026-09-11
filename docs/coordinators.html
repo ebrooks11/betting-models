@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NFL Model · Player Explorer</title>
+<title>NFL Model · Coordinators</title>
 <style>
 /* ── Tokens (matches site palette) ─────────────────────────── */
 :root {
@@ -75,17 +75,6 @@ button { cursor: pointer; }
 }
 .nav-link:hover, .theme-toggle:hover { color: var(--text); border-color: var(--border-hi); }
 
-/* ── Position tabs ──────────────────────────────────────────── */
-.pos-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
-.pos-tab {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--r-lg); color: var(--text-muted); font-family: var(--font-cond);
-  font-size: .85rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
-  padding: 8px 20px;
-}
-.pos-tab:hover { color: var(--text); border-color: var(--border-hi); }
-.pos-tab.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
-
 /* ── Filter Panel ───────────────────────────────────────────── */
 .filter-panel {
   background: var(--surface); border: 1px solid var(--border);
@@ -106,7 +95,7 @@ button { cursor: pointer; }
   font-size: .72rem; padding: 3px 7px; height: 26px;
 }
 .qf-input:focus, .qf-select:focus { outline: none; border-color: var(--accent); }
-.qf-input.wide { width: 160px; }
+.qf-input.wide { width: 180px; }
 .btn-sm {
   background: var(--surface-3); border: 1px solid var(--border);
   border-radius: var(--r); color: var(--text-muted); font-size: .7rem;
@@ -159,7 +148,7 @@ thead th.sort-asc .sort-icon, thead th.sort-desc .sort-icon { opacity: 1; color:
 thead th.sticky-col { z-index: 3; background: var(--surface-2); }
 .sticky-col-1 { left: 0; min-width: 52px; }
 .sticky-col-2 { left: 52px; min-width: 42px; }
-.sticky-col-3 { left: 94px; min-width: 130px; box-shadow: 2px 0 4px rgba(0,0,0,.06); }
+.sticky-col-3 { left: 94px; min-width: 160px; box-shadow: 2px 0 4px rgba(0,0,0,.06); }
 tbody tr { background: var(--surface); border-bottom: 1px solid var(--border); }
 tbody tr:last-child { border-bottom: none; }
 tbody tr:hover { background: var(--surface-2); }
@@ -170,6 +159,11 @@ tbody td {
   font-variant-numeric: tabular-nums;
 }
 tbody td.left { text-align: left; }
+/* Visually group each position's stat block */
+th.grp-qb, td.grp-qb { background: color-mix(in srgb, var(--accent-dim) 55%, transparent); }
+th.grp-rb, td.grp-rb { }
+th.grp-wr, td.grp-wr { background: var(--surface-2); }
+th.grp-te, td.grp-te { }
 
 /* ── Pagination ─────────────────────────────────────────────── */
 .pagination { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 14px; flex-wrap: wrap; }
@@ -189,22 +183,15 @@ tbody td.left { text-align: left; }
 <div class="page">
 
   <header class="site-header">
-    <div class="site-title">NFL <span>MODEL</span> · Player Explorer</div>
+    <div class="site-title">NFL <span>MODEL</span> · Coordinators</div>
     <div class="header-right">
       <a class="nav-link" href="index.html">← Week View</a>
       <a class="nav-link" href="season.html">Season Rollup</a>
       <a class="nav-link" href="explore.html">Game Explorer</a>
-      <a class="nav-link" href="coordinators.html">Coordinators</a>
+      <a class="nav-link" href="players.html">Player Explorer</a>
       <button class="theme-toggle" onclick="toggleTheme()">Toggle theme</button>
     </div>
   </header>
-
-  <div class="pos-tabs" id="pos-tabs">
-    <button class="pos-tab active" data-pos="qb" onclick="setPosition('qb')">QB</button>
-    <button class="pos-tab" data-pos="rb" onclick="setPosition('rb')">RB</button>
-    <button class="pos-tab" data-pos="wr" onclick="setPosition('wr')">WR</button>
-    <button class="pos-tab" data-pos="te" onclick="setPosition('te')">TE</button>
-  </div>
 
   <div class="filter-panel">
     <div class="quick-row">
@@ -213,8 +200,8 @@ tbody td.left { text-align: left; }
         <div class="season-chips" id="f-season"></div>
       </div>
       <div class="qf-group">
-        <span class="qf-label">Player</span>
-        <input class="qf-input wide" id="f-player" placeholder="Search name…" oninput="onFilterChange()">
+        <span class="qf-label">Coordinator</span>
+        <input class="qf-input wide" id="f-oc" placeholder="Search OC name…" oninput="onFilterChange()">
       </div>
       <div class="qf-group">
         <span class="qf-label">Team</span>
@@ -239,15 +226,13 @@ tbody td.left { text-align: left; }
   </div>
 
   <div id="main-content">
-    <div class="state-msg" id="loading-msg">Loading player data…</div>
+    <div class="state-msg" id="loading-msg">Loading coordinator data…</div>
   </div>
 
 </div>
 
 <script>
 /* ── State ──────────────────────────────────────────────────── */
-const CACHE = {};      // position -> {n, columns, data}
-let position = 'qb';
 let DATA = null;
 let COLS = [];
 let filteredIdx = [];
@@ -257,32 +242,29 @@ let page = 0;
 let pageSize = 50;
 let selectedSeasons = new Set(); // empty = all
 
-/* Sticky leading columns, shared across all four position tables */
-const STICKY_COLS = ['season', 'team', 'player_name'];
+const STICKY_COLS = ['season', 'team', 'oc_name'];
+
+// Which position each qb_/rb_/wr_/te_-prefixed column belongs to, for the
+// alternating stat-block background shading in the table.
+function groupClass(key) {
+  if (key.startsWith('qb_')) return 'grp-qb';
+  if (key.startsWith('rb_')) return 'grp-rb';
+  if (key.startsWith('wr_')) return 'grp-wr';
+  if (key.startsWith('te_')) return 'grp-te';
+  return '';
+}
 
 function toggleTheme() {
   const r = document.documentElement;
   r.dataset.theme = r.dataset.theme === 'light' ? 'dark' : 'light';
 }
 
-async function loadPosition(pos) {
-  if (CACHE[pos]) return CACHE[pos];
-  const res = await fetch(`./data/players_${pos}.json?v=1`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  CACHE[pos] = data;
-  return data;
-}
-
-async function setPosition(pos) {
-  document.querySelectorAll('.pos-tab').forEach(b => b.classList.toggle('active', b.dataset.pos === pos));
-  position = pos;
-  document.getElementById('loading-msg') && (document.getElementById('main-content').innerHTML = '<div class="state-msg">Loading player data…</div>');
+async function init() {
   try {
-    DATA = await loadPosition(pos);
+    const res = await fetch('./data/coordinators.json?v=1');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    DATA = await res.json();
     COLS = DATA.columns;
-    sortCol = 'season';
-    sortDir = -1;
     buildSeasonFilter();
     applyAndRender();
   } catch (e) {
@@ -316,15 +298,15 @@ function toggleSeason(s, chip) {
 function getVal(key, i) { return DATA.data[key][i]; }
 
 function matchesFilters(i) {
-  const player = document.getElementById('f-player').value.trim().toLowerCase();
+  const oc = document.getElementById('f-oc').value.trim().toLowerCase();
   const team = document.getElementById('f-team').value.trim().toUpperCase();
 
   const seasons = DATA.data['season'];
   if (selectedSeasons.size > 0 && !selectedSeasons.has(seasons[i])) return false;
 
-  if (player) {
-    const name = (getVal('player_name', i) || '').toLowerCase();
-    if (!name.includes(player)) return false;
+  if (oc) {
+    const name = (getVal('oc_name', i) || '').toLowerCase();
+    if (!name.includes(oc)) return false;
   }
   if (team) {
     if ((getVal('team', i) || '') !== team) return false;
@@ -350,9 +332,6 @@ function sortFilteredIdx() {
     if (av === null && bv === null) return 0;
     if (av === null) return 1;
     if (bv === null) return -1;
-    if (typeof av === 'string') {
-      return av < bv ? sortDir : av > bv ? -sortDir : 0;
-    }
     return av < bv ? sortDir : av > bv ? -sortDir : 0;
   });
 }
@@ -373,7 +352,7 @@ function buildTableHeader() {
     headerRow += `<th class="${cls}" onclick="onSort('${k}')">${col.label}${sortArrow(k)}</th>`;
   });
   nonSticky.forEach(col => {
-    const cls = sortCol === col.key ? ' sort-' + (sortDir === -1 ? 'desc' : 'asc') : '';
+    const cls = `${groupClass(col.key)}${sortCol === col.key ? ' sort-' + (sortDir === -1 ? 'desc' : 'asc') : ''}`;
     headerRow += `<th class="${cls}" onclick="onSort('${col.key}')">${col.label}${sortArrow(col.key)}</th>`;
   });
   headerRow += '</tr>';
@@ -398,7 +377,7 @@ function renderRow(i) {
   });
   nonSticky.forEach(col => {
     const v = getVal(col.key, i);
-    cells += `<td>${formatVal(v, col)}</td>`;
+    cells += `<td class="${groupClass(col.key)}">${formatVal(v, col)}</td>`;
   });
   return `<tr>${cells}</tr>`;
 }
@@ -445,7 +424,7 @@ function renderMeta() {
   const start = filteredIdx.length ? page * pageSize + 1 : 0;
   const end = Math.min((page + 1) * pageSize, filteredIdx.length);
   document.getElementById('table-meta').innerHTML =
-    `Showing <strong>${start}–${end}</strong> of <strong>${filteredIdx.length.toLocaleString()}</strong> player-seasons`;
+    `Showing <strong>${start}–${end}</strong> of <strong>${filteredIdx.length.toLocaleString()}</strong> team-seasons`;
 }
 
 function renderAll() {
@@ -475,7 +454,7 @@ function goPage(p) {
 function onFilterChange() { applyAndRender(); }
 
 function clearAllFilters() {
-  document.getElementById('f-player').value = '';
+  document.getElementById('f-oc').value = '';
   document.getElementById('f-team').value = '';
   const seasons = [...new Set(DATA.data['season'])];
   selectedSeasons = new Set(seasons.includes(2025) ? [2025] : seasons.sort((a, b) => b - a).slice(0, 1));
@@ -491,7 +470,7 @@ function onPageSizeChange() {
   renderAll();
 }
 
-setPosition('qb');
+init();
 </script>
 </body>
 </html>

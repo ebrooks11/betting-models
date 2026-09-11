@@ -21,7 +21,6 @@ TABLES = [
     ("rb", "running_backs.parquet"),
     ("wr", "wide_receivers.parquet"),
     ("te", "tight_ends.parquet"),
-    ("oc", "offensive_coordinators.parquet"),
 ]
 
 # Per-position column trims for the UI (JSON only omits these — the
@@ -96,8 +95,6 @@ ABBR = {
     "contact": "Cntct",
     "depth": "Dpth",
     "fantasy": "Fan",
-    "qb": "QB", "rb": "RB", "wr": "WR", "te": "TE",
-    "cpoe": "CPOE",
 }
 
 # Full-key overrides for labels that don't read well built word-by-word.
@@ -114,10 +111,6 @@ LABEL_OVERRIDES = {
     "passing_air_yards": "Air Yds",
     "passing_yards_after_catch": "YAC",
     "times_blitzed": "Blitzed",
-    "qb_fantasy_points_per_game": "QB PPG",
-    "rb_fantasy_points_per_game": "RB PPG",
-    "wr_fantasy_points_per_game": "WR PPG",
-    "te_fantasy_points_per_game": "TE PPG",
 }
 
 
