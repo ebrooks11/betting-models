@@ -211,33 +211,10 @@ pfr_rb_ybc AS (
 )
 SELECT
     oc.season, oc.team, oc.oc_name,
-    wt.win_total AS preseason_win_total,
 
-    qb.player_name AS qb_name, qb.games AS qb_games, qb.attempts AS qb_attempts,
-    qb.passing_yards AS qb_passing_yards, qb.passing_tds AS qb_passing_tds,
-    qb.interceptions AS qb_interceptions, qb.passing_epa AS qb_passing_epa,
-    qb.cpoe AS qb_cpoe, qb.fantasy_points AS qb_fantasy_points,
-    qb.fantasy_points_per_game AS qb_fantasy_points_per_game,
-
-    rb.player_name AS rb_name, rb.games AS rb_games, rb.carries AS rb_carries,
-    rb.rushing_yards AS rb_rushing_yards, rb.rushing_tds AS rb_rushing_tds,
-    rb.rushing_epa AS rb_rushing_epa, rb.targets AS rb_targets,
-    rb.receiving_yards AS rb_receiving_yards, rb.fantasy_points AS rb_fantasy_points,
-    rb.fantasy_points_per_game AS rb_fantasy_points_per_game,
     rb.carries / NULLIF(tpr.rush_plays, 0) AS primary_rb_rush_share,
-
     rb2.player_name AS secondary_rb_name, rb2.carries AS secondary_rb_carries,
     rb2.carries / NULLIF(tpr.rush_plays, 0) AS secondary_rb_rush_share,
-
-    wr.player_name AS wr_name, wr.games AS wr_games, wr.targets AS wr_targets,
-    wr.receptions AS wr_receptions, wr.receiving_yards AS wr_receiving_yards,
-    wr.receiving_tds AS wr_receiving_tds, wr.receiving_epa AS wr_receiving_epa,
-    wr.fantasy_points AS wr_fantasy_points, wr.fantasy_points_per_game AS wr_fantasy_points_per_game,
-
-    te.player_name AS te_name, te.games AS te_games, te.targets AS te_targets,
-    te.receptions AS te_receptions, te.receiving_yards AS te_receiving_yards,
-    te.receiving_tds AS te_receiving_tds, te.receiving_epa AS te_receiving_epa,
-    te.fantasy_points AS te_fantasy_points, te.fantasy_points_per_game AS te_fantasy_points_per_game,
 
     tpr.rush_plays / NULLIF(tpr.rush_plays + tpr.pass_plays, 0) AS run_rate,
     tpr.rush_rz20 / NULLIF(tpr.rush_rz20 + tpr.pass_rz20, 0) AS rush_rate_inside_20,
@@ -274,7 +251,31 @@ SELECT
     fs.f_jumbo_success AS formation_jumbo_success_rate,
     fs.f_wildcat_n / NULLIF(fs.formation_known_plays, 0) AS formation_wildcat_rate,
     fs.f_wildcat_epa AS formation_wildcat_epa,
-    fs.f_wildcat_success AS formation_wildcat_success_rate
+    fs.f_wildcat_success AS formation_wildcat_success_rate,
+
+    wt.win_total AS preseason_win_total,
+
+    qb.player_name AS qb_name, qb.games AS qb_games, qb.attempts AS qb_attempts,
+    qb.passing_yards AS qb_passing_yards, qb.passing_tds AS qb_passing_tds,
+    qb.interceptions AS qb_interceptions, qb.passing_epa AS qb_passing_epa,
+    qb.cpoe AS qb_cpoe, qb.fantasy_points AS qb_fantasy_points,
+    qb.fantasy_points_per_game AS qb_fantasy_points_per_game,
+
+    rb.player_name AS rb_name, rb.games AS rb_games, rb.carries AS rb_carries,
+    rb.rushing_yards AS rb_rushing_yards, rb.rushing_tds AS rb_rushing_tds,
+    rb.rushing_epa AS rb_rushing_epa, rb.targets AS rb_targets,
+    rb.receiving_yards AS rb_receiving_yards, rb.fantasy_points AS rb_fantasy_points,
+    rb.fantasy_points_per_game AS rb_fantasy_points_per_game,
+
+    wr.player_name AS wr_name, wr.games AS wr_games, wr.targets AS wr_targets,
+    wr.receptions AS wr_receptions, wr.receiving_yards AS wr_receiving_yards,
+    wr.receiving_tds AS wr_receiving_tds, wr.receiving_epa AS wr_receiving_epa,
+    wr.fantasy_points AS wr_fantasy_points, wr.fantasy_points_per_game AS wr_fantasy_points_per_game,
+
+    te.player_name AS te_name, te.games AS te_games, te.targets AS te_targets,
+    te.receptions AS te_receptions, te.receiving_yards AS te_receiving_yards,
+    te.receiving_tds AS te_receiving_tds, te.receiving_epa AS te_receiving_epa,
+    te.fantasy_points AS te_fantasy_points, te.fantasy_points_per_game AS te_fantasy_points_per_game
 
 FROM oc
 LEFT JOIN primary_qb qb ON oc.team = qb.team AND oc.season = qb.season
