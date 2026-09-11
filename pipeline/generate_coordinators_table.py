@@ -35,7 +35,10 @@ ABBR = {
     "total": "Tot",
     "points": "Pts",
     "fantasy": "Fan",
-    "targets": "Tgt",
+    "targets": "Tgt", "target": "Tgt",
+    "rush": "Rush", "share": "Shr",
+    "formation": "Fmn", "success": "Succ",
+    "ybc": "YBC", "explosive": "Expl",
 }
 
 LABEL_OVERRIDES = {
