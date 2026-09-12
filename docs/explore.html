@@ -556,7 +556,7 @@ function applyAndRender() {
     if (av === null && bv === null) return 0;
     if (av === null) return 1;
     if (bv === null) return -1;
-    return av < bv ? sortDir : av > bv ? -sortDir : 0;
+    return av < bv ? -sortDir : av > bv ? sortDir : 0;
   });
 
   page = 0;
@@ -860,7 +860,7 @@ function onSort(col) {
     if (av === null && bv === null) return 0;
     if (av === null) return 1;
     if (bv === null) return -1;
-    return av < bv ? sortDir : av > bv ? -sortDir : 0;
+    return av < bv ? -sortDir : av > bv ? sortDir : 0;
   });
   renderAll();
 }

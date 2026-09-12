@@ -75,6 +75,17 @@ button { cursor: pointer; }
 }
 .nav-link:hover, .theme-toggle:hover { color: var(--text); border-color: var(--border-hi); }
 
+/* ── View mode tabs ─────────────────────────────────────────── */
+.pos-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.pos-tab {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); color: var(--text-muted); font-family: var(--font-cond);
+  font-size: .85rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  padding: 8px 20px;
+}
+.pos-tab:hover { color: var(--text); border-color: var(--border-hi); }
+.pos-tab.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
 /* ── Filter Panel ───────────────────────────────────────────── */
 .filter-panel {
   background: var(--surface); border: 1px solid var(--border);
@@ -193,9 +204,14 @@ th.grp-te, td.grp-te { }
     </div>
   </header>
 
+  <div class="pos-tabs" id="view-tabs">
+    <button class="pos-tab active" data-view="season" onclick="setViewMode('season')">Season</button>
+    <button class="pos-tab" data-view="career" onclick="setViewMode('career')">Career</button>
+  </div>
+
   <div class="filter-panel">
     <div class="quick-row">
-      <div class="qf-group" style="align-items:flex-start">
+      <div class="qf-group" id="f-season-group" style="align-items:flex-start">
         <span class="qf-label" style="margin-top:4px">Season</span>
         <div class="season-chips" id="f-season"></div>
       </div>
@@ -242,7 +258,11 @@ let page = 0;
 let pageSize = 50;
 let selectedSeasons = new Set(); // empty = all
 
-const STICKY_COLS = ['season', 'team', 'oc_name'];
+let viewMode = 'season'; // 'season' | 'career'
+const VIEW_URLS = { season: './data/coordinators.json?v=1', career: './data/oc_careers.json?v=1' };
+const VIEW_STICKY_COLS = { season: ['season', 'team', 'oc_name'], career: ['oc_name'] };
+const VIEW_DEFAULT_SORT = { season: 'season', career: 'career_ppg' };
+function getStickyCols() { return VIEW_STICKY_COLS[viewMode]; }
 
 // Which position each qb_/rb_/wr_/te_-prefixed column belongs to, for the
 // alternating stat-block background shading in the table.
@@ -259,18 +279,27 @@ function toggleTheme() {
   r.dataset.theme = r.dataset.theme === 'light' ? 'dark' : 'light';
 }
 
-async function init() {
+async function setViewMode(mode) {
+  viewMode = mode;
+  document.querySelectorAll('#view-tabs .pos-tab').forEach(b => b.classList.toggle('active', b.dataset.view === mode));
+  document.getElementById('f-season-group').style.display = mode === 'season' ? '' : 'none';
+  document.getElementById('main-content').innerHTML = '<div class="state-msg">Loading coordinator data…</div>';
   try {
-    const res = await fetch('./data/coordinators.json?v=1');
+    const res = await fetch(VIEW_URLS[mode]);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     DATA = await res.json();
     COLS = DATA.columns;
-    buildSeasonFilter();
+    sortCol = VIEW_DEFAULT_SORT[mode];
+    sortDir = -1;
+    if (mode === 'season') buildSeasonFilter();
+    else selectedSeasons = new Set(); // career rows have no `season` column to filter on
     applyAndRender();
   } catch (e) {
     document.getElementById('main-content').innerHTML = `<div class="state-msg">Error loading data: ${e.message}</div>`;
   }
 }
+
+function init() { setViewMode('season'); }
 
 function buildSeasonFilter() {
   const seasons = [...new Set(DATA.data['season'])].sort((a, b) => b - a);
@@ -301,15 +330,23 @@ function matchesFilters(i) {
   const oc = document.getElementById('f-oc').value.trim().toLowerCase();
   const team = document.getElementById('f-team').value.trim().toUpperCase();
 
-  const seasons = DATA.data['season'];
-  if (selectedSeasons.size > 0 && !selectedSeasons.has(seasons[i])) return false;
+  if (viewMode === 'season') {
+    const seasons = DATA.data['season'];
+    if (selectedSeasons.size > 0 && !selectedSeasons.has(seasons[i])) return false;
+  }
 
   if (oc) {
     const name = (getVal('oc_name', i) || '').toLowerCase();
     if (!name.includes(oc)) return false;
   }
   if (team) {
-    if ((getVal('team', i) || '') !== team) return false;
+    if (viewMode === 'season') {
+      if ((getVal('team', i) || '') !== team) return false;
+    } else {
+      // career rows: `teams` is a comma-separated list ("BAL, BUF, LAC, SF")
+      const teams = (getVal('teams', i) || '').toUpperCase();
+      if (!teams.includes(team)) return false;
+    }
   }
   return true;
 }
@@ -332,7 +369,7 @@ function sortFilteredIdx() {
     if (av === null && bv === null) return 0;
     if (av === null) return 1;
     if (bv === null) return -1;
-    return av < bv ? sortDir : av > bv ? -sortDir : 0;
+    return av < bv ? -sortDir : av > bv ? sortDir : 0;
   });
 }
 
@@ -343,9 +380,10 @@ function sortArrow(key) {
 }
 
 function buildTableHeader() {
-  const nonSticky = COLS.filter(c => !STICKY_COLS.includes(c.key));
+  const stickyCols = getStickyCols();
+  const nonSticky = COLS.filter(c => !stickyCols.includes(c.key));
   let headerRow = '<tr>';
-  STICKY_COLS.forEach((k, i) => {
+  stickyCols.forEach((k, i) => {
     const col = COLS.find(c => c.key === k);
     if (!col) return;
     const cls = `sticky-col sticky-col-${i + 1} left${sortCol === k ? ' sort-' + (sortDir === -1 ? 'desc' : 'asc') : ''}`;
@@ -367,9 +405,10 @@ function formatVal(v, col) {
 }
 
 function renderRow(i) {
-  const nonSticky = COLS.filter(c => !STICKY_COLS.includes(c.key));
+  const stickyCols = getStickyCols();
+  const nonSticky = COLS.filter(c => !stickyCols.includes(c.key));
   let cells = '';
-  STICKY_COLS.forEach((k, idx) => {
+  stickyCols.forEach((k, idx) => {
     const col = COLS.find(c => c.key === k);
     if (!col) return;
     const v = getVal(k, i);
@@ -423,8 +462,9 @@ function pageRange(cur, total) {
 function renderMeta() {
   const start = filteredIdx.length ? page * pageSize + 1 : 0;
   const end = Math.min((page + 1) * pageSize, filteredIdx.length);
+  const noun = viewMode === 'season' ? 'team-seasons' : 'coordinators';
   document.getElementById('table-meta').innerHTML =
-    `Showing <strong>${start}–${end}</strong> of <strong>${filteredIdx.length.toLocaleString()}</strong> team-seasons`;
+    `Showing <strong>${start}–${end}</strong> of <strong>${filteredIdx.length.toLocaleString()}</strong> ${noun}`;
 }
 
 function renderAll() {
@@ -456,11 +496,13 @@ function onFilterChange() { applyAndRender(); }
 function clearAllFilters() {
   document.getElementById('f-oc').value = '';
   document.getElementById('f-team').value = '';
-  const seasons = [...new Set(DATA.data['season'])];
-  selectedSeasons = new Set(seasons.includes(2025) ? [2025] : seasons.sort((a, b) => b - a).slice(0, 1));
-  document.querySelectorAll('.season-chip').forEach(chip => {
-    chip.classList.toggle('selected', selectedSeasons.has(parseInt(chip.dataset.season)));
-  });
+  if (viewMode === 'season') {
+    const seasons = [...new Set(DATA.data['season'])];
+    selectedSeasons = new Set(seasons.includes(2025) ? [2025] : seasons.sort((a, b) => b - a).slice(0, 1));
+    document.querySelectorAll('.season-chip').forEach(chip => {
+      chip.classList.toggle('selected', selectedSeasons.has(parseInt(chip.dataset.season)));
+    });
+  }
   applyAndRender();
 }
 

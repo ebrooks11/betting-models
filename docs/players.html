@@ -351,9 +351,9 @@ function sortFilteredIdx() {
     if (av === null) return 1;
     if (bv === null) return -1;
     if (typeof av === 'string') {
-      return av < bv ? sortDir : av > bv ? -sortDir : 0;
+      return av < bv ? -sortDir : av > bv ? sortDir : 0;
     }
-    return av < bv ? sortDir : av > bv ? -sortDir : 0;
+    return av < bv ? -sortDir : av > bv ? sortDir : 0;
   });
 }
 

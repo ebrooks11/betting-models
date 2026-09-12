@@ -113,6 +113,16 @@ primary_te AS (
         FROM read_parquet('{DATA_DIR}/tight_ends.parquet')
     ) WHERE rn = 1
 ),
+-- team_games.parquet is already team-season aggregated correctly (built
+-- from schedules.parquet with the same team-code normalization) — read
+-- from it directly rather than re-deriving points scored from schedules
+-- here, so this table and team_games/oc_careers stay consistent by
+-- construction instead of three independent queries against raw schedules.
+team_scoring AS (
+    SELECT team, season, AVG(points_scored) AS team_points_per_game
+    FROM read_parquet('{DATA_DIR}/team_games.parquet')
+    GROUP BY team, season
+),
 -- pbp.posteam and seasonal_pfr.tm are both already canonical team codes
 -- (verified directly — unlike seasonal_rosters, no _TEAM_NORM needed here).
 rb_lookup AS (
@@ -211,6 +221,7 @@ pfr_rb_ybc AS (
 )
 SELECT
     oc.season, oc.team, oc.oc_name,
+    tsc.team_points_per_game,
 
     rb.carries / NULLIF(tpr.rush_plays, 0) AS primary_rb_rush_share,
     rb2.player_name AS secondary_rb_name, rb2.carries AS secondary_rb_carries,
@@ -278,6 +289,7 @@ SELECT
     te.fantasy_points AS te_fantasy_points, te.fantasy_points_per_game AS te_fantasy_points_per_game
 
 FROM oc
+LEFT JOIN team_scoring tsc ON oc.team = tsc.team AND oc.season = tsc.season
 LEFT JOIN primary_qb qb ON oc.team = qb.team AND oc.season = qb.season
 LEFT JOIN primary_rb rb ON oc.team = rb.team AND oc.season = rb.season
 LEFT JOIN secondary_rb rb2 ON oc.team = rb2.team AND oc.season = rb2.season
