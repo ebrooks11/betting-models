@@ -133,6 +133,17 @@ to exclude NGS's own week=0 season-aggregate rows and playoff weeks,
 joined on (season, week, team) since NGS has no game_id. team_abbr uses
 'LAR' for the Rams where every other table in this pipeline uses 'LA' —
 normalized here the same way home_team/away_team are normalized above.
+
+Expected completion percentage (expected_completion_percentage)
+--------------------------------------------------------------------
+Same NGS source and team-week join as expected_rush_yards above, but for
+passing (stat_type='passing') — floors at 2016 and is essentially fully
+populated every season (checked directly: 100% non-null in every season
+except one row in 2017), unlike the rushing model which is null before
+2018. Attempt-weighted across every QB who threw for the team that week
+(SUM(expected_completion_percentage * attempts) / SUM(attempts)) rather
+than a plain average, so a case where a backup QB comes in for a handful
+of mop-up attempts doesn't get equal weight with the starter's full game.
 """
 
 from pathlib import Path
@@ -244,6 +255,15 @@ ngs_rush AS (
     WHERE stat_type = 'rushing' AND season_type = 'REG' AND week BETWEEN 1 AND 18
     GROUP BY season, week, team_abbr
 ),
+ngs_pass AS (
+    SELECT
+        season, week,
+        {_TEAM_NORM_NGS} AS team,
+        SUM(expected_completion_percentage * attempts) / NULLIF(SUM(attempts), 0) AS expected_completion_percentage
+    FROM read_parquet('{DATA_DIR}/ngs.parquet')
+    WHERE stat_type = 'passing' AND season_type = 'REG' AND week BETWEEN 1 AND 18
+    GROUP BY season, week, team_abbr
+),
 personnel AS (
     SELECT
         game_id, posteam AS team,
@@ -312,6 +332,7 @@ SELECT
     ef.plays_40plus,
 
     ngs.expected_rush_yards,
+    ngsp.expected_completion_percentage,
 
     ps.personnel_known_plays,
     ps.personnel_11_plays / NULLIF(ps.personnel_known_plays, 0) AS personnel_11_rate,
@@ -333,6 +354,7 @@ LEFT JOIN oc ON tg.team = oc.team AND tg.season = oc.season
 LEFT JOIN play_rates pr ON tg.game_id = pr.game_id AND tg.team = pr.team
 LEFT JOIN efficiency ef ON tg.game_id = ef.game_id AND tg.team = ef.team
 LEFT JOIN ngs_rush ngs ON tg.season = ngs.season AND tg.week = ngs.week AND tg.team = ngs.team
+LEFT JOIN ngs_pass ngsp ON tg.season = ngsp.season AND tg.week = ngsp.week AND tg.team = ngsp.team
 LEFT JOIN personnel_stats ps ON tg.game_id = ps.game_id AND tg.team = ps.team
 ORDER BY tg.season, tg.week, tg.team
 """
