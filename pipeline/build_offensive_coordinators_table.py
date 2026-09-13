@@ -9,13 +9,27 @@ build_tight_ends_table.py) have been built — this script only reads their
 output plus coordinators.parquet and win_totals.parquet, no raw pbp work.
     python3 pipeline/build_offensive_coordinators_table.py
 
-Grain: one row per (team, season) that has an OC on record in
-coordinators.parquet. Mid-season OC changes (e.g. Carolina 2019) are
-combined into one "Name A; Name B" string per team-season, same convention
-already used for the oc_name column embedded in the position tables — the
-underlying player stats are already only available at team-season
-granularity, not split by coordinator tenure, so a finer grain isn't
-buildable from what we have.
+Grain: one row per (team, season) that played a REG season game (driven by
+team_scoring, itself derived from team_games.parquet/schedules.parquet —
+not by which team-seasons happen to have an OC on record), so a team-season
+with no titled OC still gets a row instead of silently disappearing. This
+matters because "no titled OC" isn't always a scrape gap: some head coaches
+call their own offense with no separate OC title at all (e.g. Kyle
+Shanahan/SF, Sean McVay/LA) — see hc_name below and fetch_coordinators.py's
+docstring. Both oc_name and hc_name can be null on the same row (~11
+team-seasons where the Wikipedia scrape found no staff table at all).
+Mid-season OC/HC changes (e.g. Carolina 2019's OC) are combined into one
+"Name A; Name B" string per team-season, same convention already used for
+the oc_name column embedded in the position tables — the underlying player
+stats are already only available at team-season granularity, not split by
+coordinator tenure, so a finer grain isn't buildable from what we have.
+
+hc_name is the team's head coach that season (from coordinators.parquet's
+role_category='HC' rows) — it is NOT a claim that this person calls the
+offensive plays. Most head coaches don't; attributing play-calling credit
+to a head coach specifically (vs. an OC, vs. shared/committee calling) is
+a separate, not-yet-built step. hc_name is provided so that step (or the
+reader) has the information to make that judgment, not as a pre-made one.
 
 "Primary" player per position = whoever led that team-season in the
 position's main usage stat: attempts for QB, carries for RB, targets for
@@ -70,6 +84,12 @@ WITH oc AS (
     SELECT team, season, string_agg(DISTINCT name, '; ') AS oc_name
     FROM read_parquet('{DATA_DIR}/coordinators.parquet')
     WHERE role_category = 'OC'
+    GROUP BY team, season
+),
+hc AS (
+    SELECT team, season, string_agg(DISTINCT name, '; ') AS hc_name
+    FROM read_parquet('{DATA_DIR}/coordinators.parquet')
+    WHERE role_category = 'HC'
     GROUP BY team, season
 ),
 primary_qb AS (
@@ -220,7 +240,7 @@ pfr_rb_ybc AS (
     GROUP BY tm, season
 )
 SELECT
-    oc.season, oc.team, oc.oc_name,
+    tsc.season, tsc.team, oc.oc_name, hc.hc_name,
     tsc.team_points_per_game,
 
     rb.carries / NULLIF(tpr.rush_plays, 0) AS primary_rb_rush_share,
@@ -288,22 +308,23 @@ SELECT
     te.receiving_tds AS te_receiving_tds, te.receiving_epa AS te_receiving_epa,
     te.fantasy_points AS te_fantasy_points, te.fantasy_points_per_game AS te_fantasy_points_per_game
 
-FROM oc
-LEFT JOIN team_scoring tsc ON oc.team = tsc.team AND oc.season = tsc.season
-LEFT JOIN primary_qb qb ON oc.team = qb.team AND oc.season = qb.season
-LEFT JOIN primary_rb rb ON oc.team = rb.team AND oc.season = rb.season
-LEFT JOIN secondary_rb rb2 ON oc.team = rb2.team AND oc.season = rb2.season
-LEFT JOIN primary_wr wr ON oc.team = wr.team AND oc.season = wr.season
-LEFT JOIN primary_te te ON oc.team = te.team AND oc.season = te.season
+FROM team_scoring tsc
+LEFT JOIN oc ON tsc.team = oc.team AND tsc.season = oc.season
+LEFT JOIN hc ON tsc.team = hc.team AND tsc.season = hc.season
+LEFT JOIN primary_qb qb ON tsc.team = qb.team AND tsc.season = qb.season
+LEFT JOIN primary_rb rb ON tsc.team = rb.team AND tsc.season = rb.season
+LEFT JOIN secondary_rb rb2 ON tsc.team = rb2.team AND tsc.season = rb2.season
+LEFT JOIN primary_wr wr ON tsc.team = wr.team AND tsc.season = wr.season
+LEFT JOIN primary_te te ON tsc.team = te.team AND tsc.season = te.season
 LEFT JOIN read_parquet('{DATA_DIR}/win_totals.parquet') wt
-    ON oc.team = wt.team AND oc.season = wt.season
-LEFT JOIN team_play_rates tpr ON oc.team = tpr.team AND oc.season = tpr.season
-LEFT JOIN formation_stats fs ON oc.team = fs.team AND oc.season = fs.season
-LEFT JOIN screen_stats scr ON oc.team = scr.team AND oc.season = scr.season
-LEFT JOIN rb_rush_stats rrs ON oc.team = rrs.team AND oc.season = rrs.season
-LEFT JOIN rb_target_stats rbt ON oc.team = rbt.team AND oc.season = rbt.season
-LEFT JOIN pfr_rb_ybc ybc ON oc.team = ybc.team AND oc.season = ybc.season
-ORDER BY oc.season DESC, oc.team
+    ON tsc.team = wt.team AND tsc.season = wt.season
+LEFT JOIN team_play_rates tpr ON tsc.team = tpr.team AND tsc.season = tpr.season
+LEFT JOIN formation_stats fs ON tsc.team = fs.team AND tsc.season = fs.season
+LEFT JOIN screen_stats scr ON tsc.team = scr.team AND tsc.season = scr.season
+LEFT JOIN rb_rush_stats rrs ON tsc.team = rrs.team AND tsc.season = rrs.season
+LEFT JOIN rb_target_stats rbt ON tsc.team = rbt.team AND tsc.season = rbt.season
+LEFT JOIN pfr_rb_ybc ybc ON tsc.team = ybc.team AND tsc.season = ybc.season
+ORDER BY tsc.season DESC, tsc.team
 """
 
 

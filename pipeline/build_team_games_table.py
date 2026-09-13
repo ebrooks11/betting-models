@@ -28,6 +28,12 @@ week-level data, so every game in a split season shows the same combined
 string; a game log for such a season is not a clean per-OC split, it's the
 team's full schedule with all of that season's OCs listed for every game.
 
+hc_name is the team's head coach that season, same source and team-season
+granularity as oc_name — see offensive_coordinators.parquet's docstring
+for why this exists (some head coaches call their own offense with no
+titled OC at all, e.g. Kyle Shanahan/SF) and why hc_name is NOT itself a
+claim that this person calls the plays.
+
 Play-calling mix (rushes/passes/rates)
 ---------------------------------------
 Computed from pbp.parquet per game, joined on (game_id, posteam=team) —
@@ -190,6 +196,12 @@ WITH oc AS (
     WHERE role_category = 'OC'
     GROUP BY team, season
 ),
+hc AS (
+    SELECT team, season, string_agg(DISTINCT name, '; ') AS hc_name
+    FROM read_parquet('{DATA_DIR}/coordinators.parquet')
+    WHERE role_category = 'HC'
+    GROUP BY team, season
+),
 team_games AS (
     SELECT
         game_id, season, week, game_type,
@@ -308,7 +320,7 @@ personnel_stats AS (
 )
 SELECT
     tg.season, tg.week, tg.team, tg.opponent, tg.is_home,
-    oc.oc_name,
+    oc.oc_name, hc.hc_name,
     tg.points_scored, tg.points_allowed,
 
     pr.rushes, pr.passes,
@@ -351,6 +363,7 @@ SELECT
     tg.game_id
 FROM team_games tg
 LEFT JOIN oc ON tg.team = oc.team AND tg.season = oc.season
+LEFT JOIN hc ON tg.team = hc.team AND tg.season = hc.season
 LEFT JOIN play_rates pr ON tg.game_id = pr.game_id AND tg.team = pr.team
 LEFT JOIN efficiency ef ON tg.game_id = ef.game_id AND tg.team = ef.team
 LEFT JOIN ngs_rush ngs ON tg.season = ngs.season AND tg.week = ngs.week AND tg.team = ngs.team

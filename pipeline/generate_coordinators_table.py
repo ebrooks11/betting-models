@@ -43,6 +43,7 @@ ABBR = {
 
 LABEL_OVERRIDES = {
     "oc_name": "OC",
+    "hc_name": "HC",
     "qb_fantasy_points_per_game": "QB PPG",
     "rb_fantasy_points_per_game": "RB PPG",
     "wr_fantasy_points_per_game": "WR PPG",

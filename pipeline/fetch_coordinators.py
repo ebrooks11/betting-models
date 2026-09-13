@@ -3,6 +3,11 @@ Scrapes historical NFL offensive/defensive coordinators by team-season from
 Wikipedia's per-team-season articles (e.g. "2023 San Francisco 49ers season").
 src.data_loader.get_coordinators() calls scrape_team_season() below and caches
 the combined result to data/coordinators.parquet, one row per team/season/role.
+Also captures the "Head Coaches" staff-table category as role_category='HC'.
+That category includes "Assistant head coach/..." rows alongside the actual
+head coach — _select_head_coach_rows() filters to just an exact "Head coach"
+or "Interim head coach" title (a different filter from OC/DC's "contains
+coordinator" one, since a head coach's title never contains "coordinator").
 
 Wikipedia's season articles embed staff info two different ways depending on
 when the article was last edited:
@@ -19,7 +24,12 @@ when the article was last edited:
 Notes / known limitations:
 - When a head coach calls his own plays, there may be no titled "offensive
   coordinator" at all (e.g. Kyle Shanahan, 49ers) — that's a real football
-  fact, not a scraping bug. Those team-seasons will have no OC row.
+  fact, not a scraping bug. Those team-seasons will have no OC row, though
+  they will have an HC row (see above) — the head coach's name alone isn't
+  enough to know he's also the play-caller, since some HCs with no titled
+  OC still have play-calling split among sub-specialist coaches instead of
+  concentrated in the HC himself. Attributing play-calling credit to a head
+  coach is a separate, not-yet-built step, not something this scrape claims.
 - Mid-season coordinator changes can produce two rows for one team-season.
 - Role titles vary ("Offensive coordinator", "Co-offensive coordinator",
   "Passing game coordinator/quarterbacks coach", etc.) — anything containing
@@ -107,6 +117,15 @@ def _extract_names(text: str) -> str:
 
 _PRIMARY_COORDINATOR = re.compile(r"^(co-)?(offensive|defensive) coordinator\b", re.I)
 _ANY_COORDINATOR = re.compile(r"coordinator", re.I)
+_HEAD_COACH_TITLE = re.compile(r"^(interim\s+)?head coach$", re.I)
+
+
+def _select_head_coach_rows(pairs: list[tuple[str, str]]):
+    """pairs: (role_raw, name) tuples from the "Head Coaches" staff-table
+    category. That category also includes "Assistant head coach/..." and
+    "Assistant to the head coach" rows for the same season — only the
+    actual (interim) head coach's row should be kept."""
+    return [p for p in pairs if _HEAD_COACH_TITLE.match(p[0].strip())]
 
 
 def _split_role_name(line: str):
@@ -249,12 +268,17 @@ def scrape_team_season(abbr: str, season: int, session: requests.Session) -> lis
     for key, pairs in blocks.items():
         key_lower = key.lower()
         if key_lower.startswith("offensive"):
+            selected = _select_coordinator_rows(pairs)
             category = "OC"
         elif key_lower.startswith("defensive"):
+            selected = _select_coordinator_rows(pairs)
             category = "DC"
+        elif key_lower.startswith("head"):
+            selected = _select_head_coach_rows(pairs)
+            category = "HC"
         else:
             continue
-        for role_raw, coach_name in _select_coordinator_rows(pairs):
+        for role_raw, coach_name in selected:
             rows.append({
                 "season": season,
                 "team": abbr,

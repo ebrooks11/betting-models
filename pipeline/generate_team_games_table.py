@@ -29,6 +29,7 @@ ABBR = {
 
 LABEL_OVERRIDES = {
     "oc_name": "OC",
+    "hc_name": "HC",
     "is_home": "Home",
     "points_scored": "Pts For",
     "points_allowed": "Pts Against",
