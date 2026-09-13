@@ -207,6 +207,7 @@ th.grp-te, td.grp-te { }
   <div class="pos-tabs" id="view-tabs">
     <button class="pos-tab active" data-view="season" onclick="setViewMode('season')">Season</button>
     <button class="pos-tab" data-view="career" onclick="setViewMode('career')">Career</button>
+    <button class="pos-tab" data-view="game" onclick="setViewMode('game')">Game Log</button>
   </div>
 
   <div class="filter-panel">
@@ -258,10 +259,12 @@ let page = 0;
 let pageSize = 50;
 let selectedSeasons = new Set(); // empty = all
 
-let viewMode = 'season'; // 'season' | 'career'
-const VIEW_URLS = { season: './data/coordinators.json?v=1', career: './data/oc_careers.json?v=1' };
-const VIEW_STICKY_COLS = { season: ['season', 'team', 'oc_name'], career: ['oc_name'] };
-const VIEW_DEFAULT_SORT = { season: 'season', career: 'career_ppg' };
+let viewMode = 'season'; // 'season' | 'career' | 'game'
+const VIEW_URLS = { season: './data/coordinators.json?v=1', career: './data/oc_careers.json?v=1', game: './data/team_games.json?v=1' };
+const VIEW_STICKY_COLS = { season: ['season', 'team', 'oc_name'], career: ['oc_name'], game: ['season', 'week', 'team'] };
+const VIEW_DEFAULT_SORT = { season: 'season', career: 'career_ppg', game: 'season' };
+const VIEW_HAS_SEASON_FILTER = { season: true, career: false, game: true };
+const VIEW_NOUN = { season: 'team-seasons', career: 'coordinators', game: 'team-games' };
 function getStickyCols() { return VIEW_STICKY_COLS[viewMode]; }
 
 // Which position each qb_/rb_/wr_/te_-prefixed column belongs to, for the
@@ -282,7 +285,7 @@ function toggleTheme() {
 async function setViewMode(mode) {
   viewMode = mode;
   document.querySelectorAll('#view-tabs .pos-tab').forEach(b => b.classList.toggle('active', b.dataset.view === mode));
-  document.getElementById('f-season-group').style.display = mode === 'season' ? '' : 'none';
+  document.getElementById('f-season-group').style.display = VIEW_HAS_SEASON_FILTER[mode] ? '' : 'none';
   document.getElementById('main-content').innerHTML = '<div class="state-msg">Loading coordinator data…</div>';
   try {
     const res = await fetch(VIEW_URLS[mode]);
@@ -291,7 +294,7 @@ async function setViewMode(mode) {
     COLS = DATA.columns;
     sortCol = VIEW_DEFAULT_SORT[mode];
     sortDir = -1;
-    if (mode === 'season') buildSeasonFilter();
+    if (VIEW_HAS_SEASON_FILTER[mode]) buildSeasonFilter();
     else selectedSeasons = new Set(); // career rows have no `season` column to filter on
     applyAndRender();
   } catch (e) {
@@ -330,7 +333,7 @@ function matchesFilters(i) {
   const oc = document.getElementById('f-oc').value.trim().toLowerCase();
   const team = document.getElementById('f-team').value.trim().toUpperCase();
 
-  if (viewMode === 'season') {
+  if (VIEW_HAS_SEASON_FILTER[viewMode]) {
     const seasons = DATA.data['season'];
     if (selectedSeasons.size > 0 && !selectedSeasons.has(seasons[i])) return false;
   }
@@ -340,12 +343,12 @@ function matchesFilters(i) {
     if (!name.includes(oc)) return false;
   }
   if (team) {
-    if (viewMode === 'season') {
-      if ((getVal('team', i) || '') !== team) return false;
-    } else {
+    if (viewMode === 'career') {
       // career rows: `teams` is a comma-separated list ("BAL, BUF, LAC, SF")
       const teams = (getVal('teams', i) || '').toUpperCase();
       if (!teams.includes(team)) return false;
+    } else {
+      if ((getVal('team', i) || '') !== team) return false;
     }
   }
   return true;
@@ -462,7 +465,7 @@ function pageRange(cur, total) {
 function renderMeta() {
   const start = filteredIdx.length ? page * pageSize + 1 : 0;
   const end = Math.min((page + 1) * pageSize, filteredIdx.length);
-  const noun = viewMode === 'season' ? 'team-seasons' : 'coordinators';
+  const noun = VIEW_NOUN[viewMode];
   document.getElementById('table-meta').innerHTML =
     `Showing <strong>${start}–${end}</strong> of <strong>${filteredIdx.length.toLocaleString()}</strong> ${noun}`;
 }
@@ -496,7 +499,7 @@ function onFilterChange() { applyAndRender(); }
 function clearAllFilters() {
   document.getElementById('f-oc').value = '';
   document.getElementById('f-team').value = '';
-  if (viewMode === 'season') {
+  if (VIEW_HAS_SEASON_FILTER[viewMode]) {
     const seasons = [...new Set(DATA.data['season'])];
     selectedSeasons = new Set(seasons.includes(2025) ? [2025] : seasons.sort((a, b) => b - a).slice(0, 1));
     document.querySelectorAll('.season-chip').forEach(chip => {
