@@ -116,6 +116,23 @@ empty backfield, etc.) is bucketed as "other" rather than enumerated, same
 simplification the existing parser already makes. personnel_known_plays is
 the denominator (plays with a non-null offense_personnel) so rates are
 computed only over games/seasons where this data actually exists.
+
+Expected rush yards (expected_rush_yards)
+--------------------------------------------
+Team total from ngs.parquet (NextGen Stats' tracking-data-based rushing
+expectation model — a related but distinct concept from PFR's charted
+yards-before-contact). NGS publishes a row per rushing player per team per
+week going back to 2016, but expected_rush_yards itself is null in every
+2016-2017 row — checked directly, floors at 2018. Even from 2018 on,
+coverage isn't 100%: NGS's own feed is missing some team-weeks entirely
+(e.g. 468 of a possible 544 team-weeks in 2024 — about 86%), presumably a
+minimum-attempts publication threshold on NGS's end, not a join bug here.
+This is SUM(expected_rush_yards) across every rusher NGS did publish for
+that team-week — filtered to season_type='REG' and week BETWEEN 1 AND 18
+to exclude NGS's own week=0 season-aggregate rows and playoff weeks,
+joined on (season, week, team) since NGS has no game_id. team_abbr uses
+'LAR' for the Rams where every other table in this pipeline uses 'LA' —
+normalized here the same way home_team/away_team are normalized above.
 """
 
 from pathlib import Path
@@ -134,6 +151,15 @@ _TEAM_NORM_HOME = """CASE home_team
     WHEN 'HST' THEN 'HOU' WHEN 'SL' THEN 'LA'
     ELSE home_team END"""
 _TEAM_NORM_AWAY = _TEAM_NORM_HOME.replace("home_team", "away_team")
+
+# ngs.parquet's team_abbr uses 'LAR' for the Rams (unlike every other table
+# in this pipeline, which uses 'LA' — see build_team_games_table.py's
+# module docstring, "Expected rush yards" section).
+_TEAM_NORM_NGS = """CASE team_abbr
+    WHEN 'OAK' THEN 'LV' WHEN 'SD' THEN 'LAC' WHEN 'STL' THEN 'LA' WHEN 'LAR' THEN 'LA'
+    WHEN 'ARZ' THEN 'ARI' WHEN 'BLT' THEN 'BAL' WHEN 'CLV' THEN 'CLE'
+    WHEN 'HST' THEN 'HOU' WHEN 'SL' THEN 'LA'
+    ELSE team_abbr END"""
 
 # "Neutral game script": within one score, and not in a clock-driven
 # situation (2-minute drill before half, 4-minute offense to close the
@@ -209,6 +235,15 @@ efficiency AS (
       AND two_point_attempt = 0 AND qb_kneel = 0 AND qb_spike = 0
     GROUP BY game_id, posteam
 ),
+ngs_rush AS (
+    SELECT
+        season, week,
+        {_TEAM_NORM_NGS} AS team,
+        SUM(expected_rush_yards) AS expected_rush_yards
+    FROM read_parquet('{DATA_DIR}/ngs.parquet')
+    WHERE stat_type = 'rushing' AND season_type = 'REG' AND week BETWEEN 1 AND 18
+    GROUP BY season, week, team_abbr
+),
 personnel AS (
     SELECT
         game_id, posteam AS team,
@@ -276,6 +311,8 @@ SELECT
     ef.plays_20plus,
     ef.plays_40plus,
 
+    ngs.expected_rush_yards,
+
     ps.personnel_known_plays,
     ps.personnel_11_plays / NULLIF(ps.personnel_known_plays, 0) AS personnel_11_rate,
     ps.personnel_11_epa,
@@ -295,6 +332,7 @@ FROM team_games tg
 LEFT JOIN oc ON tg.team = oc.team AND tg.season = oc.season
 LEFT JOIN play_rates pr ON tg.game_id = pr.game_id AND tg.team = pr.team
 LEFT JOIN efficiency ef ON tg.game_id = ef.game_id AND tg.team = ef.team
+LEFT JOIN ngs_rush ngs ON tg.season = ngs.season AND tg.week = ngs.week AND tg.team = ngs.team
 LEFT JOIN personnel_stats ps ON tg.game_id = ps.game_id AND tg.team = ps.team
 ORDER BY tg.season, tg.week, tg.team
 """
