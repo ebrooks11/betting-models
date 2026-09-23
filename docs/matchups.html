@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NFL Model · Matchups</title>
+<style>
+/* ── Tokens (matches site palette) ─────────────────────────── */
+:root {
+  --bg:         #f0f2f7;
+  --surface:    #ffffff;
+  --surface-2:  #f5f7fc;
+  --surface-3:  #eaecf4;
+  --border:     #d8dce8;
+  --border-hi:  #b8c0d4;
+  --text:       #1a2035;
+  --text-muted: #5a6480;
+  --text-dim:   #9aa0b4;
+  --accent:     #d4890a;
+  --accent-dim: rgba(212,137,10,.1);
+  --good:       #1e9e6e;
+  --good-dim:   rgba(30,158,110,.12);
+  --bad:        #cc3a3a;
+  --bad-dim:    rgba(204,58,58,.10);
+  --neutral:    #7080a0;
+  --font-mono:  "JetBrains Mono","Fira Code","Cascadia Code",ui-monospace,monospace;
+  --font-sans:  -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  --font-cond:  "Arial Narrow","Helvetica Neue",Arial,sans-serif;
+  --r:          5px;
+  --r-lg:       9px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:#0d1117; --surface:#161b22; --surface-2:#1e242e; --surface-3:#252c38;
+    --border:#2a3140; --border-hi:#3a4458; --text:#e2e8f4; --text-muted:#6b7a99;
+    --text-dim:#4a5568; --accent:#f0a500; --accent-dim:rgba(240,165,0,.12);
+    --good:#3fb68a; --good-dim:rgba(63,182,138,.15);
+    --bad:#e05656; --bad-dim:rgba(224,86,86,.13); --neutral:#5a7099;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:#0d1117; --surface:#161b22; --surface-2:#1e242e; --surface-3:#252c38;
+  --border:#2a3140; --border-hi:#3a4458; --text:#e2e8f4; --text-muted:#6b7a99;
+  --text-dim:#4a5568; --accent:#f0a500; --accent-dim:rgba(240,165,0,.12);
+  --good:#3fb68a; --good-dim:rgba(63,182,138,.15);
+  --bad:#e05656; --bad-dim:rgba(224,86,86,.13); --neutral:#5a7099;
+}
+
+/* ── Reset ──────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; }
+body { font-family: var(--font-sans); background: var(--bg); color: var(--text); min-height: 100vh; }
+button, input, select { font-family: inherit; }
+button { cursor: pointer; }
+
+/* ── Page shell ─────────────────────────────────────────────── */
+.page { max-width: 1400px; margin: 0 auto; padding: 22px 20px 60px; }
+
+/* ── Header ─────────────────────────────────────────────────── */
+.site-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; margin-bottom: 18px; padding-bottom: 16px;
+  border-bottom: 1px solid var(--border); flex-wrap: wrap;
+}
+.site-title {
+  font-family: var(--font-cond); font-size: 1.25rem; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--text);
+}
+.site-title span { color: var(--accent); }
+.header-right { display: flex; align-items: center; gap: 8px; }
+.nav-link, .theme-toggle {
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--r); color: var(--text-muted); font-size: .72rem;
+  padding: 4px 10px; line-height: 1; text-decoration: none; display: inline-block;
+}
+.nav-link:hover, .theme-toggle:hover { color: var(--text); border-color: var(--border-hi); }
+
+/* ── Week picker ────────────────────────────────────────────── */
+.week-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+.week-chip {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); color: var(--text-muted); cursor: pointer;
+  font-family: var(--font-cond); font-size: .85rem; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase; padding: 8px 20px;
+}
+.week-chip:hover { color: var(--text); border-color: var(--border-hi); }
+.week-chip.selected { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+/* ── Game cards ─────────────────────────────────────────────── */
+.games-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(560px, 1fr)); gap: 14px; }
+.game-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
+.game-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; background: var(--surface-2); border-bottom: 1px solid var(--border);
+}
+.game-matchup { font-family: var(--font-cond); font-size: 1.1rem; font-weight: 700; letter-spacing: .03em; }
+.game-time { font-size: .7rem; color: var(--text-muted); font-family: var(--font-mono); }
+.game-body { display: grid; grid-template-columns: 1fr 1fr; }
+.team-col { padding: 10px 14px; }
+.team-col + .team-col { border-left: 1px solid var(--border); }
+.team-col-head {
+  font-family: var(--font-cond); font-weight: 700; font-size: .85rem;
+  letter-spacing: .04em; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase;
+}
+.sub-head {
+  font-size: .6rem; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text-dim); font-family: var(--font-mono); margin: 10px 0 4px;
+}
+.sub-head:first-child { margin-top: 0; }
+.inj-row { padding: 5px 0; border-bottom: 1px solid var(--border); font-size: .74rem; }
+.inj-row:last-child { border-bottom: none; }
+.inj-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.inj-player { font-weight: 600; }
+.inj-pos { color: var(--text-dim); font-family: var(--font-mono); font-size: .68rem; margin-left: 4px; }
+.inj-detail { color: var(--text-muted); font-size: .68rem; margin-top: 1px; }
+.inj-practice { font-family: var(--font-mono); font-size: .64rem; color: var(--text-dim); margin-top: 1px; }
+.status-badge {
+  font-family: var(--font-mono); font-size: .6rem; letter-spacing: .04em; text-transform: uppercase;
+  padding: 1px 7px; border-radius: 20px; white-space: nowrap; flex-shrink: 0;
+}
+.status-out, .status-doubtful { background: var(--bad-dim); color: var(--bad); }
+.status-questionable { background: var(--accent-dim); color: var(--accent); }
+.status-clear { background: var(--good-dim); color: var(--good); }
+.status-reserve { background: var(--surface-3); color: var(--text-dim); }
+.empty-note { color: var(--text-dim); font-size: .7rem; font-style: italic; }
+
+.state-msg { text-align: center; padding: 60px 20px; color: var(--text-muted); font-family: var(--font-mono); font-size: .85rem; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="site-header">
+    <div class="site-title">NFL <span>MODEL</span> · Matchups</div>
+    <div class="header-right">
+      <a class="nav-link" href="index.html">← Week View</a>
+      <a class="nav-link" href="season.html">Season Rollup</a>
+      <a class="nav-link" href="explore.html">Game Explorer</a>
+      <a class="nav-link" href="players.html">Player Explorer</a>
+      <a class="nav-link" href="coordinators.html">Coordinators</a>
+      <button class="theme-toggle" onclick="toggleTheme()">Toggle theme</button>
+    </div>
+  </header>
+
+  <div class="week-chips" id="week-chips"></div>
+
+  <div id="main-content">
+    <div class="state-msg" id="loading-msg">Loading matchups…</div>
+  </div>
+
+</div>
+
+<script>
+let DATA = null;
+let selectedWeek = null;
+
+function toggleTheme() {
+  const r = document.documentElement;
+  r.dataset.theme = r.dataset.theme === 'light' ? 'dark' : 'light';
+}
+
+async function init() {
+  try {
+    const res = await fetch('./data/matchups.json?v=1');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    DATA = await res.json();
+    selectedWeek = DATA.current_week;
+    buildWeekChips();
+    render();
+  } catch (e) {
+    document.getElementById('main-content').innerHTML = `<div class="state-msg">Error loading data: ${e.message}</div>`;
+  }
+}
+
+function buildWeekChips() {
+  const container = document.getElementById('week-chips');
+  container.innerHTML = '';
+  DATA.weeks.forEach(w => {
+    const chip = document.createElement('button');
+    chip.className = 'week-chip' + (w === selectedWeek ? ' selected' : '');
+    chip.textContent = `Week ${w}`;
+    chip.onclick = () => { selectedWeek = w; buildWeekChips(); render(); };
+    container.appendChild(chip);
+  });
+}
+
+// The four real weekly designations first (worst to best), then healthy
+// scratches, then season-long reserve-list entries — see
+// generate_matchups_table.py's docstring for why this ordering lives in
+// the JSON generator rather than here.
+const STATUS_CLASS = {
+  'Out': 'status-out',
+  'Doubtful': 'status-doubtful',
+  'Questionable': 'status-questionable',
+  'No designation': 'status-clear',
+  'Inactive (healthy/other)': 'status-reserve',
+};
+function statusClass(status) { return STATUS_CLASS[status] || 'status-reserve'; }
+
+const RESERVE_STATUSES = new Set(['Injured Reserve', 'IR - Designated to Return', 'PUP', 'NFI', 'Suspended']);
+
+function formatPractice(practice) {
+  const vals = practice.filter(Boolean);
+  if (!vals.length) return '';
+  return vals.join(' → ');
+}
+
+function renderInjuryRow(r) {
+  const detailParts = [];
+  if (r.injury) detailParts.push(r.injury);
+  if (r.expected_return) detailParts.push(`Return: ${r.expected_return}`);
+  const practiceStr = formatPractice(r.practice);
+  const inactiveTag = r.game_day_inactive ? ' · Inactive' : '';
+
+  return `
+    <div class="inj-row">
+      <div class="inj-top">
+        <span><span class="inj-player">${r.player}</span><span class="inj-pos">${r.pos || ''}</span></span>
+        <span class="status-badge ${statusClass(r.status)}">${r.status}${inactiveTag}</span>
+      </div>
+      ${detailParts.length ? `<div class="inj-detail">${detailParts.join(' · ')}</div>` : ''}
+      ${practiceStr ? `<div class="inj-practice">${practiceStr}</div>` : ''}
+    </div>`;
+}
+
+function renderTeamCol(team, injuries) {
+  const current = injuries.filter(r => !RESERVE_STATUSES.has(r.status));
+  const reserve = injuries.filter(r => RESERVE_STATUSES.has(r.status));
+
+  let html = `<div class="team-col-head">${team}</div>`;
+  if (!current.length && !reserve.length) {
+    html += `<div class="empty-note">No injuries reported</div>`;
+    return html;
+  }
+  if (current.length) {
+    html += current.map(renderInjuryRow).join('');
+  } else {
+    html += `<div class="empty-note">No injuries reported</div>`;
+  }
+  if (reserve.length) {
+    html += `<div class="sub-head">Reserve list</div>`;
+    html += reserve.map(renderInjuryRow).join('');
+  }
+  return html;
+}
+
+function renderGameCard(g) {
+  return `
+    <div class="game-card">
+      <div class="game-head">
+        <div class="game-matchup">${g.away_team} @ ${g.home_team}</div>
+        <div class="game-time">${g.game_date} · ${g.kickoff_et} ET</div>
+      </div>
+      <div class="game-body">
+        <div class="team-col">${renderTeamCol(g.away_team, g.away_injuries)}</div>
+        <div class="team-col">${renderTeamCol(g.home_team, g.home_injuries)}</div>
+      </div>
+    </div>`;
+}
+
+function render() {
+  const games = DATA.games_by_week[String(selectedWeek)] || [];
+  if (!games.length) {
+    document.getElementById('main-content').innerHTML = `<div class="state-msg">No games for Week ${selectedWeek}</div>`;
+    return;
+  }
+  document.getElementById('main-content').innerHTML =
+    `<div class="games-grid">${games.map(renderGameCard).join('')}</div>`;
+}
+
+init();
+</script>
+</body>
+</html>
