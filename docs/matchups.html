@@ -110,6 +110,10 @@ button { cursor: pointer; }
 .inj-row { padding: 5px 0; border-bottom: 1px solid var(--border); font-size: .74rem; }
 .inj-row:last-child { border-bottom: none; }
 .inj-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.inactive-dot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--bad); margin-right: 5px; vertical-align: middle;
+}
 .inj-player { font-weight: 600; }
 .inj-pos { color: var(--text-dim); font-family: var(--font-mono); font-size: .68rem; margin-left: 4px; }
 .inj-detail { color: var(--text-muted); font-size: .68rem; margin-top: 1px; }
@@ -210,13 +214,13 @@ function renderInjuryRow(r) {
   if (r.injury) detailParts.push(r.injury);
   if (r.expected_return) detailParts.push(`Return: ${r.expected_return}`);
   const practiceStr = formatPractice(r.practice);
-  const inactiveTag = r.game_day_inactive ? ' · Inactive' : '';
+  const dot = r.game_day_inactive ? '<span class="inactive-dot" title="Inactive"></span>' : '';
 
   return `
     <div class="inj-row">
       <div class="inj-top">
-        <span><span class="inj-player">${r.player}</span><span class="inj-pos">${r.pos || ''}</span></span>
-        <span class="status-badge ${statusClass(r.status)}">${r.status}${inactiveTag}</span>
+        <span>${dot}<span class="inj-player">${r.player}</span><span class="inj-pos">${r.pos || ''}</span></span>
+        <span class="status-badge ${statusClass(r.status)}">${r.status}</span>
       </div>
       ${detailParts.length ? `<div class="inj-detail">${detailParts.join(' · ')}</div>` : ''}
       ${practiceStr ? `<div class="inj-practice">${practiceStr}</div>` : ''}

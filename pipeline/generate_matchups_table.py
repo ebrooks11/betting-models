@@ -29,9 +29,12 @@ current_week = the max week present, used as the page's default selection —
 nearest not-yet-fully-played week (see build_injury_reports_table.py's
 docstring on how new weeks get added).
 
-Within each team's injury list, rows are ordered by _STATUS_RANK (the
-actual weekly game-status designations first — Out down to No designation —
-then healthy scratches, then season-long reserve-list entries), then by
+Within each team's injury list, rows are ordered by (1) confirmed
+game-day-inactive first — regardless of status/type, since "not playing
+today" is the single most actionable fact for a fantasy manager reading
+this ahead of kickoff — then (2) _STATUS_RANK (the actual weekly
+game-status designations first — Out down to No designation — then
+healthy scratches, then season-long reserve-list entries), then (3)
 player name. This ordering is a display judgment call made here, not
 baked into injury_reports.parquet itself, so it's easy to change later
 without rebuilding the underlying table.
@@ -78,8 +81,9 @@ def _player_row(r):
 
 def _team_injuries(df, season, week, game, team):
     rows = df[(df.season == season) & (df.week == week) & (df.game == game) & (df.team == team)].copy()
+    rows["_inactive_rank"] = ~rows["game_day_inactive"]
     rows["_rank"] = rows["status"].map(_STATUS_RANK).fillna(9)
-    rows = rows.sort_values(["_rank", "player"])
+    rows = rows.sort_values(["_inactive_rank", "_rank", "player"])
     return [_player_row(r) for _, r in rows.iterrows()]
 
 
