@@ -1,0 +1,29 @@
+name: Daily odds snapshot
+
+on:
+  schedule:
+    # 13:00 UTC ≈ 9:00 AM ET (8:00 AM during EDT) — GitHub Actions cron is
+    # always UTC and does not shift for daylight saving. Adjust if you
+    # want a different local time; cron minutes/hours only, no timezone.
+    - cron: "0 13 * * *"
+  workflow_dispatch: {}  # lets you trigger a run manually from the Actions tab
+
+jobs:
+  fetch-odds:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Fetch odds snapshot and append to Google Sheet
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          GCP_SA_KEY_JSON: ${{ secrets.GCP_SA_KEY_JSON }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+        run: python3 pipeline/fetch_odds_snapshot.py

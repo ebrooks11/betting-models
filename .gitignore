@@ -5,3 +5,7 @@ __pycache__/
 *.pyc
 .DS_Store
 !docs/data/
+
+# Local secrets — see pipeline/ODDS_SNAPSHOT_SETUP.md
+.env
+secrets/
