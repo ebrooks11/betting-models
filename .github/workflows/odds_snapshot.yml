@@ -2,9 +2,17 @@ name: Daily odds snapshot
 
 on:
   schedule:
-    # 13:07 UTC ≈ 9:07 AM ET during EDT (now) / 8:07 AM ET during EST
-    # (~Nov 1 onward) — GitHub Actions cron is always UTC and does not
-    # shift for daylight saving.
+    # Target: 8:07am ET daily (the extra 7 minutes is deliberate — see
+    # below). GitHub Actions cron is always UTC and doesn't shift for
+    # daylight saving, so this needs a manual flip twice a year:
+    #   12:07 UTC = 8:07am EDT — now through ~Nov 1, 2026
+    #   13:07 UTC = 8:07am EST — ~Nov 1, 2026 onward
+    # (see .github/workflows/injury_reports_sync.yml for a version of
+    # this schedule that lists both UTC equivalents permanently instead
+    # of needing this manual flip — not done here because that pattern
+    # means firing twice a day, once "right" and once an hour off, which
+    # is harmless for injury reports' change-detection logic but would
+    # mean two odds snapshots on the "wrong" days instead of one.)
     #
     # Deliberately NOT :00 — GitHub's own docs warn that the schedule
     # event is delayed most at "the start of every hour," since every
@@ -14,7 +22,7 @@ on:
     # third tick was dropped entirely — GitHub does not retroactively
     # run a missed schedule tick. Picking an off-the-hour minute is
     # GitHub's own recommended mitigation.
-    - cron: "7 13 * * *"
+    - cron: "7 12 * * *"
   workflow_dispatch: {}  # lets you trigger a run manually from the Actions tab
 
 jobs:
