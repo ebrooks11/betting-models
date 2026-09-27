@@ -1,5 +1,7 @@
 Ideas
 
+- Review NFELO
+
 - A matchups page that has each game with
   - Inactives
   - Side-by-side stats -- ** I need to figure these out **
