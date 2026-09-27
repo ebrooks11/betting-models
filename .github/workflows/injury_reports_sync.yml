@@ -31,10 +31,16 @@ jobs:
         run: python3 pipeline/fetch_injury_reports_from_drive.py
 
       - name: Commit and push if anything changed
+        # Only docs/data/matchups.json is committed — data/ (the raw CSVs
+        # and injury_reports.parquet) is gitignored repo-wide, same as
+        # every other pipeline script's output, so each run rebuilds them
+        # fresh from Drive rather than reusing a persisted copy. `git add`
+        # on a gitignored path exits non-zero, which would otherwise fail
+        # this step outright.
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/raw/injury_reports/*.csv data/injury_reports.parquet docs/data/matchups.json
+          git add docs/data/matchups.json
           if git diff --staged --quiet; then
             echo "No changes to commit."
           else

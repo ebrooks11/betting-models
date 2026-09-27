@@ -2,8 +2,11 @@
 Injury Reports 2026" Google Drive folder, save it as a raw CSV, and
 rebuild data/injury_reports.parquet + docs/data/matchups.json from it.
 Designed to run on a schedule via GitHub Actions
-(.github/workflows/injury_reports_sync.yml), which commits the changed
-files back to the repo so the (static) site actually serves the update.
+(.github/workflows/injury_reports_sync.yml), which commits only
+docs/data/matchups.json back to the repo — data/ (the raw CSVs and the
+parquet) is gitignored repo-wide, same as every other pipeline script's
+output, so the static site actually serves the update but the
+intermediate files aren't tracked.
 
 Run locally to test:
     python3 pipeline/fetch_injury_reports_from_drive.py
@@ -39,10 +42,16 @@ seen file ID is still the current one.
 Change detection
 ------------------
 Downloaded CSV content is compared byte-for-byte against whatever's
-already saved at data/raw/injury_reports/{season}_week{NN}.csv. The
-parquet/JSON rebuild only runs if at least one week's content actually
-changed, so a run that finds nothing new is a fast no-op (and, in the
-GitHub Actions workflow, produces no commit).
+already saved at data/raw/injury_reports/{season}_week{NN}.csv, and the
+parquet/JSON rebuild is skipped if nothing changed. Locally, where data/
+persists between runs, this makes a repeat run with no new sheet content
+a fast no-op. In GitHub Actions this comparison is moot every single
+run — data/ is gitignored (see above), so each run starts from a fresh
+checkout with no prior CSVs to compare against, and every week is always
+"changed" on the first pass. The rebuild happens every run regardless
+(cheap: a handful of small CSVs), and the workflow's own `git diff` right
+before committing is what actually prevents a no-op commit when the
+final matchups.json content hasn't meaningfully changed.
 """
 
 import json
@@ -149,6 +158,13 @@ def sync() -> bool:
         print("No injury-report sheets changed since last sync.")
         return False
 
+    # Run directly (python3 pipeline/fetch_injury_reports_from_drive.py,
+    # as both this file's docstring and the GitHub Actions workflow do),
+    # Python puts this script's own directory on sys.path, not the repo
+    # root — so "pipeline" as a package isn't otherwise importable from
+    # here. Add the repo root explicitly rather than requiring callers to
+    # invoke this via `python3 -m pipeline.fetch_injury_reports_from_drive`.
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from pipeline.build_injury_reports_table import build_injury_reports_table
     from pipeline.generate_matchups_table import build as build_matchups_json
 
