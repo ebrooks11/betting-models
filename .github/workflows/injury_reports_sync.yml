@@ -1,0 +1,43 @@
+name: Injury reports sync
+
+on:
+  schedule:
+    # Every 6 hours — injury statuses shift throughout game week
+    # (Mon-Fri practice reports, then Sunday/Thu/Mon inactives), unlike
+    # odds which only needs a daily snapshot. GitHub Actions cron is
+    # always UTC. Adjust if this cadence is more/less than you need.
+    - cron: "0 */6 * * *"
+  workflow_dispatch: {}  # lets you trigger a run manually from the Actions tab
+
+permissions:
+  contents: write  # needed to commit the rebuilt parquet/JSON back to the repo
+
+jobs:
+  sync-injury-reports:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Pull latest injury reports and rebuild matchups data
+        env:
+          GCP_SA_KEY_JSON: ${{ secrets.GCP_SA_KEY_JSON }}
+        run: python3 pipeline/fetch_injury_reports_from_drive.py
+
+      - name: Commit and push if anything changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/raw/injury_reports/*.csv data/injury_reports.parquet docs/data/matchups.json
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Sync injury reports from Google Drive"
+            git push
+          fi
