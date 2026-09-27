@@ -2,11 +2,33 @@ name: Injury reports sync
 
 on:
   schedule:
-    # Every 6 hours — injury statuses shift throughout game week
-    # (Mon-Fri practice reports, then Sunday/Thu/Mon inactives), unlike
-    # odds which only needs a daily snapshot. GitHub Actions cron is
-    # always UTC. Adjust if this cadence is more/less than you need.
-    - cron: "0 */6 * * *"
+    # Aligned to when the user's own scheduled task actually rebuilds the
+    # injury-report sheets, plus a ~10 minute buffer, rather than polling
+    # on a fixed interval:
+    #   Thu 7:15pm ET, Sun 12:05pm/3:05pm/7:20pm ET, Mon 7:15pm ET
+    #
+    # GitHub Actions cron is always UTC with no DST awareness, but this
+    # schedule spans the DST changeover (EDT now -> EST once clocks fall
+    # back ~Nov 1, for the rest of the season). Rather than requiring a
+    # manual edit then, both UTC equivalents for every slot are listed
+    # below — whichever one is "wrong" for the current DST phase just
+    # fires an hour off (either before the sheet's done, so this run
+    # finds nothing new, or an hour after, still catching the update)
+    # instead of failing, so nothing needs to change across the switch.
+
+    # --- EDT (UTC-4): now through ~Nov 1, 2026 ---
+    - cron: "25 23 * * 4"  # Thu 7:25pm ET
+    - cron: "15 16 * * 0"  # Sun 12:15pm ET
+    - cron: "15 19 * * 0"  # Sun 3:15pm ET
+    - cron: "30 23 * * 0"  # Sun 7:30pm ET
+    - cron: "25 23 * * 1"  # Mon 7:25pm ET
+
+    # --- EST (UTC-5): ~Nov 1, 2026 onward ---
+    - cron: "25 0 * * 5"   # Thu 7:25pm ET (-> Fri 00:25 UTC)
+    - cron: "15 17 * * 0"  # Sun 12:15pm ET
+    - cron: "15 20 * * 0"  # Sun 3:15pm ET
+    - cron: "30 0 * * 1"   # Sun 7:30pm ET (-> Mon 00:30 UTC)
+    - cron: "25 0 * * 2"   # Mon 7:25pm ET (-> Tue 00:25 UTC)
   workflow_dispatch: {}  # lets you trigger a run manually from the Actions tab
 
 permissions:
