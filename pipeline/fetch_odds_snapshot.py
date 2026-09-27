@@ -1,9 +1,13 @@
-"""Fetch a same-day snapshot of NFL odds (game lines + player props) from
-The Odds API and append it to a Google Sheet. Designed to run daily via
-GitHub Actions (.github/workflows/odds_snapshot.yml) — each run appends
-new rows rather than overwriting, so the Sheet accumulates a time series
-per (event, bookmaker, market, outcome): the lookahead line the week
-before, the Tuesday-morning line, and every day's movement into kickoff.
+"""Fetch a same-day snapshot of NFL game odds from The Odds API and append
+it to a Google Sheet. Designed to run daily via GitHub Actions
+(.github/workflows/odds_snapshot.yml) — each run appends new rows rather
+than overwriting, so the Sheet accumulates a time series per (event,
+bookmaker, market, outcome): the lookahead line the week before, the
+Tuesday-morning line, and every day's movement into kickoff.
+
+Player props are currently disabled (FETCH_PLAYER_PROPS = False below) —
+see that constant's comment for why. All the props-fetching code is still
+here, just not called, so it's a one-line flip to turn back on.
 
 Run locally to test:
     python3 pipeline/fetch_odds_snapshot.py
@@ -51,11 +55,13 @@ response header, logged below on every run).
 
 Sheet schema (tidy/long format, not wide)
 --------------------------------------------
-Two worksheets, "Game Odds" and "Player Props", each one row per
-(snapshot, event, bookmaker, market, outcome) — long format so a new
-snapshot is just appended rows, and so Sheets' own filter/pivot tools (or
-a future pipeline/build_odds_snapshots_table.py, if this ever gets pulled
-back into data/*.parquet) can slice by any of those dimensions without
+Two worksheets, "Game Odds" and "Player Props" (the latter unused while
+FETCH_PLAYER_PROPS is False — its tab and header logic are left in place,
+untouched, for whenever it's re-enabled). Each one row per (snapshot,
+event, bookmaker, market, outcome) — long format so a new snapshot is
+just appended rows, and so Sheets' own filter/pivot tools (or a future
+pipeline/build_odds_snapshots_table.py, if this ever gets pulled back
+into data/*.parquet) can slice by any of those dimensions without
 reshaping. Game Odds adds a `point` column (the spread/total line) that's
 null for h2h; Player Props adds `player` (join key back to this
 repo's other player-name columns is a separate, not-yet-solved problem —
@@ -90,6 +96,14 @@ PROP_MARKETS = [
 # Only fetch props for games starting within this many days — see the
 # module docstring's "Quota management" section.
 PROP_LOOKAHEAD_DAYS = 10
+
+# Player props are off for now — a busy day's props volume (every player
+# listed in every market, not just 2 outcomes per market like game odds)
+# was projected to eat the shared 10M-cell Google Sheets budget much
+# faster than game odds. Flip back to True once that's addressed (pruning
+# old rows, splitting sheets by season, or moving history out to
+# data/*.parquet) rather than running both indefinitely.
+FETCH_PLAYER_PROPS = False
 
 GAME_ODDS_SHEET = "Game Odds"
 PLAYER_PROPS_SHEET = "Player Props"
@@ -232,14 +246,17 @@ def main():
 
     print(f"Fetching odds snapshot for {snapshot_date}...")
     events = fetch_game_odds(api_key)
-    prop_events = fetch_player_props(api_key, events)
-
     game_rows = _rows_from_game_odds(events, snapshot_date, snapshot_dt)
-    prop_rows = _rows_from_player_props(prop_events, snapshot_date, snapshot_dt)
 
     spreadsheet = _open_sheet()
     _append_rows(spreadsheet, GAME_ODDS_SHEET, GAME_ODDS_HEADER, game_rows)
-    _append_rows(spreadsheet, PLAYER_PROPS_SHEET, PLAYER_PROPS_HEADER, prop_rows)
+
+    if FETCH_PLAYER_PROPS:
+        prop_events = fetch_player_props(api_key, events)
+        prop_rows = _rows_from_player_props(prop_events, snapshot_date, snapshot_dt)
+        _append_rows(spreadsheet, PLAYER_PROPS_SHEET, PLAYER_PROPS_HEADER, prop_rows)
+    else:
+        print("  Player props: skipped (FETCH_PLAYER_PROPS is False)")
 
     print("Done.")
 
