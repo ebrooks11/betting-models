@@ -1,0 +1,63 @@
+name: Weekly stats refresh
+
+on:
+  schedule:
+    # Tuesday 9:07am ET — after Monday Night Football wraps and nflverse
+    # has typically had a few hours to publish updated pbp for the week.
+    # Not :00 — see .github/workflows/odds_snapshot.yml's cron comment for
+    # why (GitHub's own docs: the schedule event is delayed most "at the
+    # start of every hour"). Both DST equivalents are listed permanently,
+    # same pattern as injury_reports_sync.yml: whichever one is "wrong"
+    # for the current phase just runs an hour early/late instead of
+    # failing — running this twice in one week is harmless (it recomputes
+    # the same current-season data; if nflverse hasn't published yet, the
+    # early run is just a no-op with nothing new to splice in).
+    - cron: "7 13 * * 2"  # 9:07am EDT (now through ~Nov 1, 2026)
+    - cron: "7 14 * * 2"  # 9:07am EST (~Nov 1, 2026 onward)
+  workflow_dispatch: {}  # lets you trigger a run manually from the Actions tab
+
+permissions:
+  contents: write  # needed to commit the refreshed team_games.parquet/coordinators.parquet/matchups.json
+
+jobs:
+  refresh-current-season:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Refresh current-season schedules/pbp/NGS/coordinators and splice into team_games.parquet
+        run: python3 pipeline/fetch_current_season_data.py
+
+      - name: Refresh game lines
+        env:
+          GCP_SA_KEY_JSON: ${{ secrets.GCP_SA_KEY_JSON }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+        run: python3 pipeline/fetch_game_lines_from_sheet.py
+
+      - name: Regenerate matchups.json
+        run: python3 pipeline/generate_matchups_table.py
+
+      - name: Commit and push if anything changed
+        # team_games.parquet and coordinators.parquet are the two
+        # exceptions carved out of data/'s usual gitignore (see .gitignore
+        # and pipeline/fetch_current_season_data.py's docstring) —
+        # everything else this run touches (schedules/pbp/ngs under
+        # data/raw/_current_season/, game_lines.parquet) stays untracked,
+        # same as every other pipeline output.
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/team_games.parquet data/coordinators.parquet docs/data/matchups.json
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Weekly refresh: current-season stats, coordinators, matchups"
+            git push
+          fi

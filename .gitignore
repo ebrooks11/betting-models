@@ -1,10 +1,21 @@
-data/
+# data/* (not data/) so the exceptions below actually take effect — a
+# directory-matching pattern like "data/" stops git from even looking
+# inside it, which silently defeats a per-file "!" negation.
+data/*
 # models/ contains source code — do not ignore
 venv/
 __pycache__/
 *.pyc
 .DS_Store
 !docs/data/
+
+# team_games.parquet and coordinators.parquet are the two exceptions to
+# "data/ is always regenerable, never committed" — both small (2MB/20KB)
+# and needed pre-populated with full history so CI can refresh just the
+# current season incrementally instead of re-fetching decades of pbp
+# every run. See pipeline/fetch_current_season_data.py.
+!data/team_games.parquet
+!data/coordinators.parquet
 
 # Local secrets — see pipeline/ODDS_SNAPSHOT_SETUP.md
 .env

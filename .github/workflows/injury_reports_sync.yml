@@ -50,6 +50,7 @@ jobs:
       - name: Pull latest injury reports and rebuild matchups data
         env:
           GCP_SA_KEY_JSON: ${{ secrets.GCP_SA_KEY_JSON }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
         run: python3 pipeline/fetch_injury_reports_from_drive.py
 
       - name: Commit and push if anything changed

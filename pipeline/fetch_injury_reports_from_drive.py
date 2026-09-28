@@ -166,9 +166,18 @@ def sync() -> bool:
     # invoke this via `python3 -m pipeline.fetch_injury_reports_from_drive`.
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from pipeline.build_injury_reports_table import build_injury_reports_table
+    from pipeline.fetch_game_lines_from_sheet import build as build_game_lines
     from pipeline.generate_matchups_table import build as build_matchups_json
 
     build_injury_reports_table()
+    # Refresh game lines here too (not just in the weekly team-stats job)
+    # so matchups.json always reflects a current line whenever it's being
+    # regenerated for any reason, not only on the odds workflow's own
+    # schedule. Cheap — one Sheet read.
+    try:
+        build_game_lines()
+    except SystemExit as e:
+        print(f"  Game lines refresh skipped: {e}")
     build_matchups_json()
     return True
 

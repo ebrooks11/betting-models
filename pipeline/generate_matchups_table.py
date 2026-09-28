@@ -1,7 +1,8 @@
 """
 Generate docs/data/matchups.json for docs/matchups.html, built from
-data/injury_reports.parquet, data/team_games.parquet, data/pbp.parquet,
-and data/game_lines.parquet. A full matchup view, not just injuries:
+data/injury_reports.parquet, data/team_games.parquet, and
+data/game_lines.parquet — deliberately never data/pbp.parquet directly
+(see "Starting QB" below for why). A full matchup view, not just injuries:
 each game shows the current line, and each team shows season-to-date
 point differential/EPA per play/success rate plus its head coach, both
 coordinators, and starting QB, with injuries as one section among several.
@@ -85,22 +86,29 @@ have replaced that name and Wikipedia just hasn't caught up here yet).
 
 Starting QB
 --------------
-Not sourced from any of the built position tables (quarterbacks.parquet
-depends on NGS/PFR/QBR data that may not exist yet for an in-progress
-season) — instead computed directly from pbp.parquet as whoever led the
-team in pass attempts (excluding two-point tries) in their most recent
-game before the one being shown. Deliberately the most recent single
-game's leader, not cumulative attempts across the season — a
-cumulative total is skewed toward whoever started earlier weeks even
-after being benched, injured, or replaced, so a team that changed
-starters recently would keep showing the old one for the rest of the
-season. Checked directly against a real case: Atlanta's cumulative
+Read from team_games.parquet's own starting_qb column (whoever led that
+team in pass attempts in that specific game — see that table's docstring
+for the full definition/reasoning), taking the value from each team's
+most recent game before the one being shown. Deliberately the most
+recent single game's starter, not a cumulative-attempts leader across
+the season — a cumulative total is skewed toward whoever started earlier
+weeks even after being benched, injured, or replaced, so a team that
+changed starters recently would keep showing the old one for the rest of
+the season. Checked directly against a real case: Atlanta's cumulative
 attempts leader through week 2 was Cooper Rush, but Michael Penix Jr.
 took over the following week — this proxy can't know that a change is
 happening in the very game being previewed (that data doesn't exist
 until after that game is played), but it does correctly drop a stale
 starter the moment a more recent game shows otherwise, which cumulative
 attempts would not.
+
+Deliberately not reading pbp.parquet directly in this file (unlike an
+earlier version of this script): pbp.parquet is the one genuinely large
+file in this pipeline, and team_games.parquet already has a per-game
+starting_qb column for exactly this reason — see that table's docstring,
+"Building from a partial pbp.parquet." Every consumer of per-game QB
+info, including this one, should go through team_games.parquet instead of
+needing pbp.parquet themselves.
 
 Game lines
 -------------
@@ -208,31 +216,18 @@ def _coordinators_with_fallback(team_games: pd.DataFrame, season: int) -> dict:
     return out
 
 
-def _load_season_pbp(pbp_path: Path, season: int) -> pd.DataFrame:
-    df = pd.read_parquet(
-        pbp_path,
-        columns=["season", "week", "posteam", "passer_player_name", "pass_attempt", "two_point_attempt"],
-    )
-    return df[df.season == season]
-
-
-def _starting_qbs_before_week(season_pbp: pd.DataFrame, week: int) -> dict:
-    df = season_pbp[
-        (season_pbp.week < week)
-        & (season_pbp.pass_attempt == 1)
-        & (season_pbp.two_point_attempt == 0)
-        & season_pbp.passer_player_name.notna()
+def _starting_qbs_before_week(team_games: pd.DataFrame, season: int, week: int) -> dict:
+    df = team_games[
+        (team_games.season == season) & (team_games.week < week) & team_games.starting_qb.notna()
     ]
     if df.empty:
         return {}
-    counts = df.groupby(["posteam", "week", "passer_player_name"]).size().reset_index(name="attempts")
-    # Most recent week per team, then that week's attempts leader — see
-    # module docstring's "Starting QB" section for why this beats a
-    # cumulative-attempts leader.
-    last_week = counts.groupby("posteam")["week"].transform("max")
-    counts = counts[counts["week"] == last_week]
-    top = counts.sort_values("attempts", ascending=False).drop_duplicates(subset=["posteam"])
-    return dict(zip(top["posteam"], top["passer_player_name"]))
+    # Most recent game per team, then that game's starter — see module
+    # docstring's "Starting QB" section for why this beats using whoever
+    # led cumulative attempts across the season so far.
+    idx = df.groupby("team")["week"].idxmax()
+    latest = df.loc[idx]
+    return dict(zip(latest["team"], latest["starting_qb"]))
 
 
 def _game_lines_lookup(path: Path) -> dict:
@@ -270,14 +265,13 @@ def build():
 
     team_games = pd.read_parquet(DATA_DIR / "team_games.parquet")
     coordinators = _coordinators_with_fallback(team_games, season)
-    season_pbp = _load_season_pbp(DATA_DIR / "pbp.parquet", season)
     lines_lookup = _game_lines_lookup(DATA_DIR / "game_lines.parquet")
 
     weeks = sorted(inj["week"].unique().tolist())
     games_by_week = {}
     for week in weeks:
         summaries = _team_summary_before_week(team_games, season, week)
-        starting_qbs = _starting_qbs_before_week(season_pbp, week)
+        starting_qbs = _starting_qbs_before_week(team_games, season, week)
 
         wk_df = inj[inj.week == week]
         games = wk_df[["game", "game_date", "kickoff_et", "away_team", "home_team"]].drop_duplicates().sort_values("game_date")

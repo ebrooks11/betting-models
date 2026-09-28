@@ -153,6 +153,36 @@ except one row in 2017), unlike the rushing model which is null before
 (SUM(expected_completion_percentage * attempts) / SUM(attempts)) rather
 than a plain average, so a case where a backup QB comes in for a handful
 of mop-up attempts doesn't get equal weight with the starter's full game.
+
+Starting QB (starting_qb)
+-----------------------------
+Whoever led the team in pass attempts (excluding two-point tries) in that
+specific game — an operational definition, not literally "whoever started
+under center," but the two are the same player in the overwhelming
+majority of games (an in-game injury/benching being the main exception).
+Lives here (per team-game) rather than being computed ad hoc elsewhere
+(e.g. pipeline/generate_matchups_table.py) specifically so consumers of
+this table never need direct access to pbp.parquet themselves — pbp.parquet
+is the one genuinely large file in this pipeline (hundreds of MB across
+all seasons), and every other column above already goes through the same
+per-game aggregation this one does, so folding starting_qb in here too
+means a full historical pbp.parquet is only ever needed at *this* table's
+build time, not at every downstream table/page that wants to know who
+played QB in a given game.
+
+Building from a partial pbp.parquet (path parameters)
+----------------------------------------------------------
+pbp_path/schedules_path/coordinators_path/out_path all default to this
+pipeline's normal data/ locations, but can be overridden — this is what
+lets an incremental refresh (see .github/workflows/weekly_stats_refresh.yml
+and pipeline/fetch_current_season_data.py) point this script at a small,
+current-season-only pbp/schedules file instead of the full historical
+one, without needing to change any of the SQL above. The caller is
+responsible for merging that call's (necessarily current-season-only)
+output back into the full historical team_games.parquet — this function
+itself has no concept of "only refresh part of the table," it always
+just emits every (season, week, team) row implied by whatever schedules
+file it's given.
 """
 
 from pathlib import Path
@@ -192,22 +222,23 @@ _NEUTRAL_SCRIPT = """
     AND NOT (qtr = 4 AND quarter_seconds_remaining <= 240)
 """
 
-QUERY = f"""
+def _build_query(pbp_path: Path, schedules_path: Path, coordinators_path: Path, ngs_path: Path) -> str:
+    return f"""
 WITH oc AS (
     SELECT team, season, string_agg(DISTINCT name, '; ') AS oc_name
-    FROM read_parquet('{DATA_DIR}/coordinators.parquet')
+    FROM read_parquet('{coordinators_path}')
     WHERE role_category = 'OC'
     GROUP BY team, season
 ),
 hc AS (
     SELECT team, season, string_agg(DISTINCT name, '; ') AS hc_name
-    FROM read_parquet('{DATA_DIR}/coordinators.parquet')
+    FROM read_parquet('{coordinators_path}')
     WHERE role_category = 'HC'
     GROUP BY team, season
 ),
 dc AS (
     SELECT team, season, string_agg(DISTINCT name, '; ') AS dc_name
-    FROM read_parquet('{DATA_DIR}/coordinators.parquet')
+    FROM read_parquet('{coordinators_path}')
     WHERE role_category = 'DC'
     GROUP BY team, season
 ),
@@ -219,7 +250,7 @@ team_games AS (
         true AS is_home,
         home_score AS points_scored,
         away_score AS points_allowed
-    FROM read_parquet('{DATA_DIR}/schedules.parquet')
+    FROM read_parquet('{schedules_path}')
     WHERE game_type = 'REG' AND home_score IS NOT NULL
 
     UNION ALL
@@ -231,7 +262,7 @@ team_games AS (
         false AS is_home,
         away_score AS points_scored,
         home_score AS points_allowed
-    FROM read_parquet('{DATA_DIR}/schedules.parquet')
+    FROM read_parquet('{schedules_path}')
     WHERE game_type = 'REG' AND away_score IS NOT NULL
 ),
 play_rates AS (
@@ -243,7 +274,7 @@ play_rates AS (
         COUNT(*) FILTER (WHERE pass_attempt = 1 AND two_point_attempt = 0 AND qtr IN (1, 2, 3)) AS passes_first_3q,
         COUNT(*) FILTER (WHERE rush_attempt = 1 AND two_point_attempt = 0 AND {_NEUTRAL_SCRIPT}) AS rushes_neutral,
         COUNT(*) FILTER (WHERE pass_attempt = 1 AND two_point_attempt = 0 AND {_NEUTRAL_SCRIPT}) AS passes_neutral
-    FROM read_parquet('{DATA_DIR}/pbp.parquet')
+    FROM read_parquet('{pbp_path}')
     WHERE season_type = 'REG' AND (rush_attempt = 1 OR pass_attempt = 1)
     GROUP BY game_id, posteam
 ),
@@ -262,17 +293,27 @@ efficiency AS (
         COUNT(*) FILTER (WHERE pass_attempt = 1 AND yards_gained >= 20) AS explosive_passes,
         COUNT(*) FILTER (WHERE yards_gained >= 20) AS plays_20plus,
         COUNT(*) FILTER (WHERE yards_gained >= 40) AS plays_40plus
-    FROM read_parquet('{DATA_DIR}/pbp.parquet')
+    FROM read_parquet('{pbp_path}')
     WHERE season_type = 'REG' AND (rush_attempt = 1 OR pass_attempt = 1)
       AND two_point_attempt = 0 AND qb_kneel = 0 AND qb_spike = 0
     GROUP BY game_id, posteam
+),
+qb_attempts AS (
+    SELECT
+        game_id, posteam AS team, passer_player_name AS starting_qb,
+        COUNT(*) AS attempts
+    FROM read_parquet('{pbp_path}')
+    WHERE season_type = 'REG' AND pass_attempt = 1 AND two_point_attempt = 0
+      AND passer_player_name IS NOT NULL
+    GROUP BY game_id, posteam, passer_player_name
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY game_id, posteam ORDER BY attempts DESC) = 1
 ),
 ngs_rush AS (
     SELECT
         season, week,
         {_TEAM_NORM_NGS} AS team,
         SUM(expected_rush_yards) AS expected_rush_yards
-    FROM read_parquet('{DATA_DIR}/ngs.parquet')
+    FROM read_parquet('{ngs_path}')
     WHERE stat_type = 'rushing' AND season_type = 'REG' AND week BETWEEN 1 AND 18
     GROUP BY season, week, team_abbr
 ),
@@ -281,7 +322,7 @@ ngs_pass AS (
         season, week,
         {_TEAM_NORM_NGS} AS team,
         SUM(expected_completion_percentage * attempts) / NULLIF(SUM(attempts), 0) AS expected_completion_percentage
-    FROM read_parquet('{DATA_DIR}/ngs.parquet')
+    FROM read_parquet('{ngs_path}')
     WHERE stat_type = 'passing' AND season_type = 'REG' AND week BETWEEN 1 AND 18
     GROUP BY season, week, team_abbr
 ),
@@ -304,7 +345,7 @@ personnel AS (
             ELSE 'other'
         END AS personnel_group,
         epa, success
-    FROM read_parquet('{DATA_DIR}/pbp.parquet')
+    FROM read_parquet('{pbp_path}')
     WHERE season_type = 'REG' AND (rush_attempt = 1 OR pass_attempt = 1)
       AND two_point_attempt = 0 AND offense_personnel IS NOT NULL
 ),
@@ -352,6 +393,8 @@ SELECT
     ef.plays_20plus,
     ef.plays_40plus,
 
+    qba.starting_qb,
+
     ngs.expected_rush_yards,
     ngsp.expected_completion_percentage,
 
@@ -376,6 +419,7 @@ LEFT JOIN hc ON tg.team = hc.team AND tg.season = hc.season
 LEFT JOIN dc ON tg.team = dc.team AND tg.season = dc.season
 LEFT JOIN play_rates pr ON tg.game_id = pr.game_id AND tg.team = pr.team
 LEFT JOIN efficiency ef ON tg.game_id = ef.game_id AND tg.team = ef.team
+LEFT JOIN qb_attempts qba ON tg.game_id = qba.game_id AND tg.team = qba.team
 LEFT JOIN ngs_rush ngs ON tg.season = ngs.season AND tg.week = ngs.week AND tg.team = ngs.team
 LEFT JOIN ngs_pass ngsp ON tg.season = ngsp.season AND tg.week = ngsp.week AND tg.team = ngsp.team
 LEFT JOIN personnel_stats ps ON tg.game_id = ps.game_id AND tg.team = ps.team
@@ -383,13 +427,23 @@ ORDER BY tg.season, tg.week, tg.team
 """
 
 
-def build_team_games_table():
+def build_team_games_table(pbp_path=None, schedules_path=None, coordinators_path=None, ngs_path=None, out_path=None):
+    """All paths default to this pipeline's normal data/ locations — see
+    this module's docstring ("Building from a partial pbp.parquet") for
+    why a caller would ever override them."""
+    pbp_path = pbp_path or DATA_DIR / "pbp.parquet"
+    schedules_path = schedules_path or DATA_DIR / "schedules.parquet"
+    coordinators_path = coordinators_path or DATA_DIR / "coordinators.parquet"
+    ngs_path = ngs_path or DATA_DIR / "ngs.parquet"
+    out_path = out_path or OUT_PATH
+
+    query = _build_query(pbp_path, schedules_path, coordinators_path, ngs_path)
     con = duckdb.connect(":memory:")
-    df = con.execute(QUERY).fetchdf()
+    df = con.execute(query).fetchdf()
     con.close()
 
-    df.to_parquet(OUT_PATH, index=False)
-    print(f"Wrote {len(df):,} team-game rows ({df['season'].min()}-{df['season'].max()}) to {OUT_PATH}")
+    df.to_parquet(out_path, index=False)
+    print(f"Wrote {len(df):,} team-game rows ({df['season'].min()}-{df['season'].max()}) to {out_path}")
     return df
 
 
