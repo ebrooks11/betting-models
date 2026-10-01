@@ -1,23 +1,37 @@
-"""Pull the current game lines (spread, total, moneyline) from the "Game
-Odds" tab of the "Odds Snapshot" Google Sheet that pipeline/fetch_odds_snapshot.py
-writes to, and write one row per game to data/game_lines.parquet for
-docs/matchups.html to show alongside injuries and team stats.
+"""Pull game-odds history from the "Game Odds" tab of the "Odds Snapshot"
+Google Sheet (written by pipeline/fetch_odds_snapshot.py) and accumulate it
+into data/game_lines.parquet — a durable, growing historical record of
+every (event, bookmaker, market, outcome) snapshot ever pulled, not just
+"what's the line right now."
 
 Run locally to test (uses the same .env credentials as fetch_odds_snapshot.py):
     python3 pipeline/fetch_game_lines_from_sheet.py
 
-Not a time series
---------------------
-fetch_odds_snapshot.py's whole point is accumulating a snapshot per day
-so line movement is visible in the Sheet itself. This script deliberately
-throws that history away and keeps only the single latest snapshot per
-(event, bookmaker, market, outcome) — the matchups page wants "what's the
-line right now," not a movement chart. If a movement view is wanted
-later, it should read the Sheet's full history directly rather than this
-file, which is a lossy "current state" projection of it on purpose.
+This accumulates, it doesn't overwrite
+------------------------------------------
+data/game_lines.parquet is a tracked exception to this pipeline's usual
+"data/ is gitignored, always regenerable" rule (see .gitignore) —
+specifically so line-movement history (the whole point of
+fetch_odds_snapshot.py accumulating daily snapshots in the Sheet in the
+first place) actually lives in this repo's own data layer, not only in
+an external Google Sheet nothing else here can see. Every run appends
+whatever (event_id, bookmaker, market, outcome, snapshot_datetime_utc)
+combinations aren't already present — pulling the Sheet's full contents
+every time is harmless since it's deduplicated against what's already
+stored, not re-appended.
 
-Reference bookmaker
------------------------
+Picking "the current line" is a separate, later step
+----------------------------------------------------------
+This file intentionally keeps every snapshot at the Sheet's own
+granularity (every bookmaker, not reduced to one) — current_lines() below
+reduces that down to one row per game (preferred bookmaker, latest
+snapshot per market/outcome) for pipeline/generate_matchups_table.py to
+show "the line right now." Anything that wants line movement over time
+instead should read data/game_lines.parquet directly rather than going
+through current_lines().
+
+Reference bookmaker (used by current_lines(), not by the accumulation above)
+---------------------------------------------------------------------------------
 The Odds API returns the same market from ~10 different books, which
 usually disagree slightly. Rather than averaging across books (hiding
 which number came from where) or showing all of them (too much for a
@@ -48,6 +62,8 @@ OUT_PATH = DATA_DIR / "game_lines.parquet"
 
 GAME_ODDS_SHEET = "Game Odds"
 PREFERRED_BOOKMAKER = "draftkings"
+
+_DEDUP_KEY = ["event_id", "bookmaker", "market", "outcome", "snapshot_datetime_utc"]
 
 
 def _load_local_env():
@@ -93,6 +109,59 @@ def _team_name_map() -> dict:
     return name_map
 
 
+def _fetch_sheet_df() -> pd.DataFrame:
+    sheet = _open_sheet()
+    ws = sheet.worksheet(GAME_ODDS_SHEET)
+    records = ws.get_all_records()
+    if not records:
+        return pd.DataFrame()
+
+    df = pd.DataFrame.from_records(records)
+    df["price"] = pd.to_numeric(df["price"], errors="coerce")
+    df["point"] = pd.to_numeric(df["point"], errors="coerce")
+
+    name_map = _team_name_map()
+    df["home_team"] = df["home_team"].map(name_map)
+    df["away_team"] = df["away_team"].map(name_map)
+    unmapped = df[df["home_team"].isna() | df["away_team"].isna()]
+    if not unmapped.empty:
+        print(f"  Warning: {unmapped['event_id'].nunique()} event(s) have an unmapped team name, skipped")
+    df = df.dropna(subset=["home_team", "away_team"])
+
+    # outcome is "Over"/"Under" for totals, but a full team name for h2h/
+    # spreads (e.g. "Kansas City Chiefs", not "KC") — map those too so
+    # outcome is consistently in the same abbreviation space as
+    # home_team/away_team; anything not a recognized team name (Over/
+    # Under) passes through unchanged.
+    df["outcome"] = df["outcome"].map(lambda v: name_map.get(v, v))
+
+    return df[[
+        "event_id", "snapshot_date", "snapshot_datetime_utc", "commence_time",
+        "home_team", "away_team", "bookmaker", "market", "outcome", "price", "point",
+    ]]
+
+
+def build() -> pd.DataFrame:
+    """Accumulate: append any (event, bookmaker, market, outcome, snapshot)
+    combination not already stored. Returns the full accumulated table."""
+    _load_local_env()
+    fresh = _fetch_sheet_df()
+    existing = pd.read_parquet(OUT_PATH) if OUT_PATH.exists() else pd.DataFrame()
+
+    if fresh.empty:
+        print("Game Odds tab is empty — nothing new to accumulate.")
+        return existing
+
+    combined = pd.concat([existing, fresh], ignore_index=True)
+    combined = combined.drop_duplicates(subset=_DEDUP_KEY, keep="last")
+    combined = combined.sort_values(["event_id", "bookmaker", "market", "outcome", "snapshot_datetime_utc"]).reset_index(drop=True)
+
+    new_count = len(combined) - len(existing)
+    combined.to_parquet(OUT_PATH, index=False)
+    print(f"Accumulated {new_count:,} new snapshot rows ({len(combined):,} total) in {OUT_PATH}")
+    return combined
+
+
 def _pick_bookmaker(event_df: pd.DataFrame) -> str:
     books = event_df["bookmaker"].unique()
     if PREFERRED_BOOKMAKER in books:
@@ -101,48 +170,30 @@ def _pick_bookmaker(event_df: pd.DataFrame) -> str:
     return latest["bookmaker"]
 
 
-def build():
-    _load_local_env()
-    sheet = _open_sheet()
-    ws = sheet.worksheet(GAME_ODDS_SHEET)
-    records = ws.get_all_records()
-    if not records:
-        print("Game Odds tab is empty — nothing to build.")
-        return
-
-    df = pd.DataFrame.from_records(records)
-    df["price"] = pd.to_numeric(df["price"], errors="coerce")
-    df["point"] = pd.to_numeric(df["point"], errors="coerce")
-
-    name_map = _team_name_map()
-    df["home_abbr"] = df["home_team"].map(name_map)
-    df["away_abbr"] = df["away_team"].map(name_map)
-    unmapped = df[df["home_abbr"].isna() | df["away_abbr"].isna()]
-    if not unmapped.empty:
-        print(f"  Warning: {unmapped['event_id'].nunique()} event(s) have an unmapped team name, skipped:")
-        for name in set(unmapped["home_team"]) | set(unmapped["away_team"]):
-            if name not in name_map:
-                print(f"    '{name}'")
-    df = df.dropna(subset=["home_abbr", "away_abbr"])
+def current_lines(df: pd.DataFrame = None) -> pd.DataFrame:
+    """Reduce the full accumulated history to one row per game: preferred
+    bookmaker, latest snapshot per market/outcome. See this module's
+    docstring for why this reduction lives separately from accumulation."""
+    if df is None:
+        df = pd.read_parquet(OUT_PATH) if OUT_PATH.exists() else pd.DataFrame()
+    if df.empty:
+        return df
 
     rows = []
     for event_id, event_df in df.groupby("event_id"):
         book = _pick_bookmaker(event_df)
         book_df = event_df[event_df["bookmaker"] == book]
-        # Latest snapshot per (market, outcome) within this event+bookmaker.
-        book_df = book_df.sort_values("snapshot_datetime_utc").drop_duplicates(
-            subset=["market", "outcome"], keep="last"
-        )
+        book_df = book_df.sort_values("snapshot_datetime_utc").drop_duplicates(subset=["market", "outcome"], keep="last")
 
         first = event_df.iloc[0]
-        home, away = first["home_abbr"], first["away_abbr"]
+        home, away = first["home_team"], first["away_team"]
 
-        def _price(market, outcome):
-            m = book_df[(book_df["market"] == market) & (book_df["outcome"] == first[outcome])]
+        def _price(market, team_col):
+            m = book_df[(book_df["market"] == market) & (book_df["outcome"] == first[team_col])]
             return m["price"].iloc[0] if not m.empty else None
 
-        def _point(market, outcome):
-            m = book_df[(book_df["market"] == market) & (book_df["outcome"] == first[outcome])]
+        def _point(market, team_col):
+            m = book_df[(book_df["market"] == market) & (book_df["outcome"] == first[team_col])]
             return m["point"].iloc[0] if not m.empty else None
 
         over = book_df[(book_df["market"] == "totals") & (book_df["outcome"] == "Over")]
@@ -166,10 +217,7 @@ def build():
             "snapshot_datetime_utc": book_df["snapshot_datetime_utc"].max(),
         })
 
-    out = pd.DataFrame(rows)
-    out.to_parquet(OUT_PATH, index=False)
-    print(f"Wrote {len(out)} games' current lines to {OUT_PATH}")
-    return out
+    return pd.DataFrame(rows)
 
 
 if __name__ == "__main__":

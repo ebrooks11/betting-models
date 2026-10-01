@@ -1,11 +1,28 @@
 """
 Generate docs/data/matchups.json for docs/matchups.html, built from
-data/injury_reports.parquet, data/team_games.parquet, and
-data/game_lines.parquet — deliberately never data/pbp.parquet directly
+data/schedules.parquet (the games list itself), data/injury_reports.parquet,
+data/team_games.parquet, data/game_lines.parquet, and
+data/win_totals.parquet — deliberately never data/pbp.parquet directly
 (see "Starting QB" below for why). A full matchup view, not just injuries:
 each game shows the current line, and each team shows season-to-date
 point differential/EPA per play/success rate plus its head coach, both
 coordinators, and starting QB, with injuries as one section among several.
+
+Games list comes from schedules.parquet, not injury_reports.parquet
+------------------------------------------------------------------------
+An earlier version of this script took its list of games/weeks from
+injury_reports.parquet, which happens to carry game/date/kickoff metadata
+too. That meant the page's week/game coverage was bounded by whatever
+weeks the injury-report automation had touched — a team with no injury
+news that week, or a week the Drive folder hadn't been synced for yet,
+would simply be missing from the page. schedules.parquet is the real,
+authoritative source for "what games exist and when" (built fresh each
+week by pipeline/fetch_current_season_data.py, covering the full season
+including games not yet played — see that script and
+build_team_games_table.py for how it's kept current), so every other
+source here (injuries, team stats, lines) is now joined onto that games
+list rather than the other way around. A game with no injury data yet, or
+no line yet, still shows up with whatever it does have.
 
 Not the {n, columns, data} columnar shape used by generate_game_table.py and
 its descendants (generate_players_table.py, generate_coordinators_table.py,
@@ -33,15 +50,13 @@ and a matchups page is a list of per-game cards, not a table. Shape here:
   }
 }
 
-current_week = the max week present in injury_reports.parquet, used as the
-page's default selection — "upcoming" in practice, since that sheet only
-ever has data through the nearest not-yet-fully-played week (see
-build_injury_reports_table.py's docstring on how new weeks get added).
-Team stats and coordinators are computed independently, from
-team_games.parquet directly, over the season injury_reports.parquet says
-we're in — not from the games list injuries happens to cover, so an
-upcoming week whose games haven't been played yet still gets season
-context, not zeros.
+current_week = the earliest week in schedules.parquet with at least one
+game not yet played (null home_score), falling back to the season's final
+week once everything's complete — this is the page's default selection,
+"upcoming" in practice. weeks is every week in the full season schedule
+(1-18 for a normal REG season), not just weeks that happen to have
+injury/line data yet, so the week picker lets you browse the whole season
+even before injuries or lines exist for a given week.
 
 Injury ordering
 ------------------
@@ -57,17 +72,21 @@ without rebuilding the underlying table.
 
 Team season summary
 -----------------------
-point_differential, epa_per_play, and success_rate are each averaged
-across the team's team_games.parquet rows for the current season, but
-only games strictly before the week being shown — not every game played
-so far regardless of week. Computing one "as of right now" snapshot and
-reusing it on every week's card would leak future results into past
-weeks' cards (a Week 1 preview would end up showing stats that include
-Weeks 2 and 3, which hadn't happened yet) — recomputed per week instead,
-matching how a broadcast previews a game with "season entering tonight"
-stats, not "season including tonight and afterward." games_played is
-included alongside the rates so a 1-game and a 10-game average aren't
-read as equally confident. The same before-this-week cutoff applies to
+point_differential, points_per_game, epa_per_play, and success_rate are
+each averaged across the team's team_games.parquet rows for the current
+season, but only games strictly before the week being shown — not every
+game played so far regardless of week. Computing one "as of right now"
+snapshot and reusing it on every week's card would leak future results
+into past weeks' cards (a Week 1 preview would end up showing stats that
+include Weeks 2 and 3, which hadn't happened yet) — recomputed per week
+instead, matching how a broadcast previews a game with "season entering
+tonight" stats, not "season including tonight and afterward." games_played
+is included alongside the rates so a 1-game and a 10-game average aren't
+read as equally confident. preseason_win_total is the one exception to
+this before-this-week recomputation — it's a single value set before the
+season starts (see pipeline/fetch_win_totals.py) and never changes, so
+it's just looked up for the season, not averaged or windowed. The
+before-this-week cutoff applies to
 starting_qb below, for the same reason.
 
 Coordinators with fallback
@@ -112,21 +131,52 @@ needing pbp.parquet themselves.
 
 Game lines
 -------------
-Looked up from data/game_lines.parquet (see
-pipeline/fetch_game_lines_from_sheet.py for how that's built) by
-(home_team, away_team). Null when no line exists for that matchup — most
-commonly because the game has already kicked off (books pull lines once
-a game starts) or the odds Sheet simply hasn't been snapshotted for that
-far-out a game yet; either way, the page should render fine without it.
+data/game_lines.parquet accumulates the full snapshot history (every
+bookmaker, every day) — see pipeline/fetch_game_lines_from_sheet.py. This
+file reduces that to "the current line" via that module's
+current_lines() (preferred bookmaker, latest snapshot per market), then
+looks it up by (home_team, away_team). Null when no line exists for that
+matchup — most commonly because the game has already kicked off (books
+pull lines once a game starts) or the odds Sheet simply hasn't been
+snapshotted for that far-out a game yet; either way, the page should
+render fine without it.
 """
 
 import json
+import sys
 from pathlib import Path
 
 import pandas as pd
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 OUT_PATH = Path(__file__).resolve().parent.parent / "docs" / "data" / "matchups.json"
+
+# Same normalization convention as build_team_games_table.py /
+# build_injury_reports_table.py — not expected to matter for the current
+# season specifically (nfl_data_py's current-season schedules already use
+# canonical codes), but applied for consistency in case this is ever run
+# against an older season.
+_TEAM_NORM = {
+    "OAK": "LV", "SD": "LAC", "STL": "LA", "LAR": "LA",
+    "ARZ": "ARI", "BLT": "BAL", "CLV": "CLE", "HST": "HOU", "SL": "LA",
+}
+
+
+def _norm_team(code):
+    return _TEAM_NORM.get(code, code)
+
+
+def _fmt_kickoff_et(gametime) -> str:
+    """schedules.parquet's gametime is 24-hour "HH:MM" ET — reformat to
+    the "H:MM AM/PM" style the rest of this page already uses."""
+    if gametime is None or (isinstance(gametime, float) and pd.isna(gametime)):
+        return None
+    hour, minute = gametime.split(":")
+    hour = int(hour)
+    period = "AM" if hour < 12 else "PM"
+    hour12 = hour % 12 or 12
+    return f"{hour12}:{minute} {period}"
+
 
 _STATUS_RANK = {
     "Out": 0,
@@ -172,8 +222,13 @@ def _player_row(r):
     }
 
 
-def _team_injuries(df, season, week, game, team):
-    rows = df[(df.season == season) & (df.week == week) & (df.game == game) & (df.team == team)].copy()
+def _team_injuries(df, season, week, team):
+    # Keyed by (season, week, team) only, not also by the injury sheet's
+    # own "AWAY @ HOME" game string — the games list itself now comes from
+    # schedules.parquet (see build()), a different source, so matching on
+    # team identity alone is both simpler and more robust than requiring
+    # the two sources' game-string formatting to agree.
+    rows = df[(df.season == season) & (df.week == week) & (df.team == team)].copy()
     rows["_inactive_rank"] = ~rows["game_day_inactive"]
     rows["_rank"] = rows["status"].map(_STATUS_RANK).fillna(9)
     rows = rows.sort_values(["_inactive_rank", "_rank", "player"])
@@ -187,6 +242,7 @@ def _team_summary_before_week(team_games: pd.DataFrame, season: int, week: int) 
         out[team] = {
             "games_played": int(len(g)),
             "point_differential": _round((g["points_scored"] - g["points_allowed"]).mean(), 1),
+            "points_per_game": _round(g["points_scored"].mean(), 1),
             "epa_per_play": _round(g["epa_per_play"].mean()),
             "success_rate": _round(g["success_rate"].mean()),
         }
@@ -231,9 +287,18 @@ def _starting_qbs_before_week(team_games: pd.DataFrame, season: int, week: int) 
 
 
 def _game_lines_lookup(path: Path) -> dict:
+    # Running this file directly (python3 pipeline/generate_matchups_table.py,
+    # as every caller of this does) puts pipeline/ itself on sys.path, not
+    # the repo root — add the repo root explicitly so "pipeline" is
+    # importable as a package (same fix as fetch_injury_reports_from_drive.py).
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from pipeline.fetch_game_lines_from_sheet import current_lines
+
     if not path.exists():
         return {}
-    df = pd.read_parquet(path)
+    df = current_lines(pd.read_parquet(path))
+    if df.empty:
+        return {}
     lookup = {}
     for _, r in df.iterrows():
         lookup[(r["home_team"], r["away_team"])] = {
@@ -251,50 +316,70 @@ def _game_lines_lookup(path: Path) -> dict:
     return lookup
 
 
-def _team_summary_entry(team, summaries, coordinators, starting_qbs):
-    entry = dict(summaries.get(team, {"games_played": 0, "point_differential": None, "epa_per_play": None, "success_rate": None}))
+def _win_totals_lookup(path: Path, season: int) -> dict:
+    if not path.exists():
+        return {}
+    df = pd.read_parquet(path, columns=["season", "team", "win_total"])
+    df = df[df.season == season]
+    return dict(zip(df["team"], df["win_total"]))
+
+
+def _team_summary_entry(team, summaries, coordinators, starting_qbs, win_totals):
+    entry = dict(summaries.get(team, {"games_played": 0, "point_differential": None, "points_per_game": None, "epa_per_play": None, "success_rate": None}))
     entry.update(coordinators.get(team, {f: None for f in _COORD_FIELDS} | {f"{f}_as_of": None for f in _COORD_FIELDS}))
     entry["starting_qb"] = starting_qbs.get(team)
+    entry["preseason_win_total"] = _clean(win_totals.get(team))
     return entry
 
 
 def build():
+    schedules = pd.read_parquet(DATA_DIR / "schedules.parquet")
+    season = int(schedules["season"].max())
+    sched = schedules[(schedules.season == season) & (schedules.game_type == "REG")].copy()
+    sched["away_team"] = sched["away_team"].map(_norm_team)
+    sched["home_team"] = sched["home_team"].map(_norm_team)
+
     inj = pd.read_parquet(DATA_DIR / "injury_reports.parquet")
-    season = int(inj["season"].max())
     inj = inj[inj.season == season]
 
     team_games = pd.read_parquet(DATA_DIR / "team_games.parquet")
     coordinators = _coordinators_with_fallback(team_games, season)
     lines_lookup = _game_lines_lookup(DATA_DIR / "game_lines.parquet")
+    win_totals = _win_totals_lookup(DATA_DIR / "win_totals.parquet", season)
 
-    weeks = sorted(inj["week"].unique().tolist())
+    weeks = sorted(sched["week"].unique().tolist())
+    # "Upcoming" = the earliest week with at least one game not yet
+    # played (home_score still null) — falls back to the final week once
+    # the whole season is complete.
+    unplayed = sched[sched["home_score"].isna()]
+    current_week = int(unplayed["week"].min()) if not unplayed.empty else int(sched["week"].max())
+
     games_by_week = {}
     for week in weeks:
         summaries = _team_summary_before_week(team_games, season, week)
         starting_qbs = _starting_qbs_before_week(team_games, season, week)
 
-        wk_df = inj[inj.week == week]
-        games = wk_df[["game", "game_date", "kickoff_et", "away_team", "home_team"]].drop_duplicates().sort_values("game_date")
+        wk_games = sched[sched.week == week].sort_values(["gameday", "gametime"])
         week_games = []
-        for _, g in games.iterrows():
+        for _, g in wk_games.iterrows():
             away, home = g["away_team"], g["home_team"]
             week_games.append({
-                "game_date": g["game_date"],
-                "kickoff_et": g["kickoff_et"],
+                "game_date": g["gameday"],
+                "kickoff_et": _fmt_kickoff_et(g["gametime"]),
                 "away_team": away,
                 "home_team": home,
                 "lines": lines_lookup.get((home, away)),
-                "away_team_summary": _team_summary_entry(away, summaries, coordinators, starting_qbs),
-                "home_team_summary": _team_summary_entry(home, summaries, coordinators, starting_qbs),
-                "away_injuries": _team_injuries(inj, season, week, g["game"], away),
-                "home_injuries": _team_injuries(inj, season, week, g["game"], home),
+                "away_team_summary": _team_summary_entry(away, summaries, coordinators, starting_qbs, win_totals),
+                "home_team_summary": _team_summary_entry(home, summaries, coordinators, starting_qbs, win_totals),
+                "away_injuries": _team_injuries(inj, season, week, away),
+                "home_injuries": _team_injuries(inj, season, week, home),
             })
         games_by_week[str(week)] = week_games
 
     out = {
         "season": season,
         "weeks": weeks,
-        "current_week": max(weeks),
+        "current_week": current_week,
         "games_by_week": games_by_week,
     }
 

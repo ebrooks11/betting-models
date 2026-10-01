@@ -113,13 +113,22 @@ button { cursor: pointer; }
   letter-spacing: .04em; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase;
 }
 
-.team-stats { display: flex; gap: 12px; margin-bottom: 8px; }
-.team-stat { text-align: left; }
-.team-stat-val { font-family: var(--font-mono); font-size: .82rem; font-weight: 700; color: var(--text); }
-.team-stat-val.good { color: var(--good); }
-.team-stat-val.bad { color: var(--bad); }
-.team-stat-label { font-size: .58rem; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim); font-family: var(--font-mono); }
-.team-games-note { font-size: .6rem; color: var(--text-dim); font-family: var(--font-mono); margin-bottom: 8px; }
+.compare-wrap { padding: 10px 16px 8px; border-bottom: 1px solid var(--border); }
+.compare-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: .74rem; }
+.compare-table th {
+  font-size: .58rem; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--text-dim); font-weight: 600; text-align: right; padding: 2px 10px 4px;
+}
+.compare-table th.compare-team-cell, .compare-table td.compare-team-cell {
+  text-align: left; font-family: var(--font-cond); font-weight: 700;
+  letter-spacing: .03em; color: var(--text-muted); text-transform: uppercase; padding-right: 14px;
+}
+.compare-table td { text-align: right; padding: 4px 10px; font-weight: 700; color: var(--text); border-radius: var(--r); }
+.compare-table td.compare-better { background: var(--good-dim); color: var(--good); }
+.compare-note { font-size: .6rem; color: var(--text-dim); font-family: var(--font-mono); margin-top: 4px; }
+
+.staff-table th, .staff-table td { text-align: left; }
+.staff-table td { font-weight: 600; }
 
 .staff-list { font-size: .68rem; color: var(--text-muted); margin-bottom: 10px; line-height: 1.6; }
 .staff-item { display: block; }
@@ -268,25 +277,43 @@ function fmtOdds(v) {
   return v > 0 ? `+${v}` : String(v);
 }
 
-function renderTeamStats(summary) {
-  const diffClass = summary.point_differential > 0 ? 'good' : summary.point_differential < 0 ? 'bad' : '';
-  const gp = summary.games_played;
+// Order here is display order in the compare table. Add new stats by
+// adding an entry — higher is better for all of these today, so there's
+// no per-metric "lower is better" flag yet, but that's the obvious next
+// thing to add if a metric like turnovers ever joins this list.
+const COMPARE_METRICS = [
+  { key: 'success_rate', label: 'Success Rate', fmt: v => v != null ? (v * 100).toFixed(0) + '%' : '—' },
+  { key: 'epa_per_play', label: 'EPA/Play', fmt: v => fmtStat(v, 2) },
+  { key: 'point_differential', label: 'Point Diff', fmt: v => fmtSigned(v) },
+  { key: 'points_per_game', label: 'PPG', fmt: v => v != null ? v.toFixed(1) : '—' },
+  { key: 'preseason_win_total', label: 'Win Total', fmt: v => v != null ? v.toFixed(1) : '—' },
+];
+
+function renderCompareRow(team, summary, otherSummary) {
+  const cells = COMPARE_METRICS.map(m => {
+    const val = summary[m.key];
+    const otherVal = otherSummary[m.key];
+    const better = val != null && otherVal != null && val > otherVal;
+    return `<td class="${better ? 'compare-better' : ''}">${m.fmt(val)}</td>`;
+  }).join('');
+  return `<tr><td class="compare-team-cell">${team}</td>${cells}</tr>`;
+}
+
+function renderCompareTable(g) {
+  const headCells = COMPARE_METRICS.map(m => `<th>${m.label}</th>`).join('');
+  const awayGp = g.away_team_summary.games_played;
+  const homeGp = g.home_team_summary.games_played;
   return `
-    <div class="team-stats">
-      <div class="team-stat">
-        <div class="team-stat-val ${diffClass}">${fmtSigned(summary.point_differential)}</div>
-        <div class="team-stat-label">Pt Diff</div>
-      </div>
-      <div class="team-stat">
-        <div class="team-stat-val">${fmtStat(summary.epa_per_play, 2)}</div>
-        <div class="team-stat-label">EPA/Play</div>
-      </div>
-      <div class="team-stat">
-        <div class="team-stat-val">${summary.success_rate != null ? (summary.success_rate * 100).toFixed(0) + '%' : '—'}</div>
-        <div class="team-stat-label">Success</div>
-      </div>
-    </div>
-    <div class="team-games-note">${gp} game${gp === 1 ? '' : 's'} played this season</div>`;
+    <div class="compare-wrap">
+      <table class="compare-table">
+        <thead><tr><th class="compare-team-cell"></th>${headCells}</tr></thead>
+        <tbody>
+          ${renderCompareRow(g.away_team, g.away_team_summary, g.home_team_summary)}
+          ${renderCompareRow(g.home_team, g.home_team_summary, g.away_team_summary)}
+        </tbody>
+      </table>
+      <div class="compare-note">${g.away_team} ${awayGp} game${awayGp === 1 ? '' : 's'} · ${g.home_team} ${homeGp} game${homeGp === 1 ? '' : 's'} played this season</div>
+    </div>`;
 }
 
 function staleTag(season, asOf) {
@@ -294,16 +321,36 @@ function staleTag(season, asOf) {
   return asOf < season ? `<span class="stale-tag">('${String(asOf).slice(2)})</span>` : '';
 }
 
-function renderStaff(summary) {
+// Names, not numbers — no "better" highlighting here, just the same
+// shared-table layout as the compare table below it for a consistent look.
+const STAFF_FIELDS = [
+  { key: 'hc_name', asOfKey: 'hc_name_as_of', label: 'HC' },
+  { key: 'oc_name', asOfKey: 'oc_name_as_of', label: 'OC' },
+  { key: 'dc_name', asOfKey: 'dc_name_as_of', label: 'DC' },
+  { key: 'starting_qb', asOfKey: null, label: 'QB' },
+];
+
+function renderStaffRow(team, summary) {
   const season = DATA.season;
-  const row = (label, name, asOf) => `
-    <span class="staff-item"><span class="staff-label">${label}</span><span class="staff-name">${name || '—'}</span>${staleTag(season, asOf)}</span>`;
+  const cells = STAFF_FIELDS.map(f => {
+    const name = summary[f.key];
+    const asOf = f.asOfKey ? summary[f.asOfKey] : (name != null ? season : null);
+    return `<td>${name || '—'}${staleTag(season, asOf)}</td>`;
+  }).join('');
+  return `<tr><td class="compare-team-cell">${team}</td>${cells}</tr>`;
+}
+
+function renderStaffTable(g) {
+  const headCells = STAFF_FIELDS.map(f => `<th>${f.label}</th>`).join('');
   return `
-    <div class="staff-list">
-      ${row('HC', summary.hc_name, summary.hc_name_as_of)}
-      ${row('OC', summary.oc_name, summary.oc_name_as_of)}
-      ${row('DC', summary.dc_name, summary.dc_name_as_of)}
-      ${row('QB', summary.starting_qb, summary.starting_qb != null ? season : null)}
+    <div class="compare-wrap">
+      <table class="compare-table staff-table">
+        <thead><tr><th class="compare-team-cell"></th>${headCells}</tr></thead>
+        <tbody>
+          ${renderStaffRow(g.away_team, g.away_team_summary)}
+          ${renderStaffRow(g.home_team, g.home_team_summary)}
+        </tbody>
+      </table>
     </div>`;
 }
 
@@ -312,8 +359,6 @@ function renderTeamCol(team, summary, injuries) {
   const reserve = injuries.filter(r => RESERVE_STATUSES.has(r.status));
 
   let html = `<div class="team-col-head">${team}</div>`;
-  html += renderTeamStats(summary);
-  html += renderStaff(summary);
 
   html += `<div class="sub-head">Injuries</div>`;
   if (!current.length && !reserve.length) {
@@ -352,6 +397,8 @@ function renderGameCard(g) {
         <div class="game-time">${g.game_date} · ${g.kickoff_et} ET</div>
       </div>
       ${renderLinesRow(g)}
+      ${renderStaffTable(g)}
+      ${renderCompareTable(g)}
       <div class="game-body">
         <div class="team-col">${renderTeamCol(g.away_team, g.away_team_summary, g.away_injuries)}</div>
         <div class="team-col">${renderTeamCol(g.home_team, g.home_team_summary, g.home_injuries)}</div>

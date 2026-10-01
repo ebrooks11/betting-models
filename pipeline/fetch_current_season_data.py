@@ -1,26 +1,29 @@
-"""Fetch and merge just the current NFL season's schedules, pbp, NGS, and
-coordinator data, then rebuild that season's slice of team_games.parquet
-and splice it into the existing table. Built for
-.github/workflows/weekly_stats_refresh.yml — see that workflow and
+"""Fetch and merge just the current NFL season's schedules, pbp, NGS,
+coordinator, and preseason-win-total data, then rebuild that season's
+slice of team_games.parquet and splice it into the existing table. Built
+for .github/workflows/weekly_stats_refresh.yml — see that workflow and
 build_team_games_table.py's docstring ("Building from a partial
 pbp.parquet") for why this exists instead of just re-running
 build_team_games_table.py directly: doing that needs the FULL historical
 pbp.parquet (hundreds of MB across ~20 seasons) present locally, which
 this pipeline deliberately never persists — too large to commit to git,
 too slow to refetch every run. This script instead:
-  1. Fetches ONLY the current season's schedules/pbp/NGS/coordinators (a
-     few thousand rows total, seconds — not the full historical archive)
-  2. Runs build_team_games_table.py's exact SQL against just that slice
-  3. Splices the result into data/team_games.parquet and
-     data/coordinators.parquet, replacing only that season's rows and
-     leaving every other season exactly as already there
+  1. Fetches ONLY the current season's schedules/pbp/NGS/coordinators/win
+     totals (a few thousand rows total, seconds — not the full historical
+     archive)
+  2. Runs build_team_games_table.py's exact SQL against just the
+     schedules/pbp/NGS/coordinators slice
+  3. Splices every result into its existing committed table
+     (team_games.parquet, coordinators.parquet, win_totals.parquet),
+     replacing only that season's rows and leaving every other season
+     exactly as already there
 
-data/team_games.parquet and data/coordinators.parquet are small enough
-(2MB and 20KB as of writing) to be the two exceptions carved out of this
-pipeline's usual "data/ is gitignored, always regenerable, never
-committed" rule (see .gitignore) — specifically so a fresh checkout
-already has full history in them, and only the current season needs
-refreshing here.
+data/team_games.parquet, data/coordinators.parquet, and
+data/win_totals.parquet are small enough (2MB/20KB/8KB as of writing) to
+be the exceptions carved out of this pipeline's usual "data/ is
+gitignored, always regenerable, never committed" rule (see .gitignore) —
+specifically so a fresh checkout already has full history in them, and
+only the current season needs refreshing here.
 
 Run locally to test — writes the current season's raw schedules/pbp/NGS
 to data/raw/_current_season/, NOT data/schedules.parquet or
@@ -40,6 +43,7 @@ import requests
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from pipeline.build_team_games_table import build_team_games_table
 from pipeline.fetch_coordinators import ALL_TEAMS, scrape_team_season
+from pipeline.fetch_win_totals import scrape_season
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 SCRATCH_DIR = DATA_DIR / "raw" / "_current_season"
@@ -102,6 +106,16 @@ def _scrape_coordinators(season: int) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _scrape_win_totals(season: int) -> pd.DataFrame:
+    # Preseason win totals are published before the season starts and
+    # never change — only needs fetching once per season, but no harm in
+    # re-fetching it weekly along with everything else here.
+    session = requests.Session()
+    session.headers.update({"User-Agent": "Mozilla/5.0 (research scraper)"})
+    rows = scrape_season(season, session)
+    return pd.DataFrame(rows)
+
+
 def _splice(existing_path: Path, fresh: pd.DataFrame, season: int, sort_cols: list) -> pd.DataFrame:
     """Replace `season`'s rows in the committed table at existing_path
     with `fresh`, leaving every other season's rows untouched."""
@@ -121,6 +135,16 @@ def refresh():
     schedules.to_parquet(schedules_path, index=False)
     print(f"  schedules: {len(schedules)} rows")
 
+    # Also splice into the real, tracked data/schedules.parquet — not just
+    # the scratch copy above, which only exists as an input to
+    # build_team_games_table() below. generate_matchups_table.py reads
+    # data/schedules.parquet directly for its games list (home/away teams,
+    # dates, scores), so that file needs the current season's latest
+    # results too, not just team_games.parquet.
+    committed_schedules_path = DATA_DIR / "schedules.parquet"
+    combined_schedules = _splice(committed_schedules_path, schedules, season, ["season", "week", "gameday", "home_team"])
+    combined_schedules.to_parquet(committed_schedules_path, index=False)
+
     pbp = _fetch_pbp(season)
     pbp_path = SCRATCH_DIR / "pbp.parquet"
     pbp.to_parquet(pbp_path, index=False)
@@ -139,6 +163,15 @@ def refresh():
         combined_coord = _splice(coordinators_path, coord_new, season, ["season", "team", "role_category"])
         combined_coord.to_parquet(coordinators_path, index=False)
         print(f"  coordinators: {len(coord_new)} rows scraped for {season}")
+
+    win_totals_path = DATA_DIR / "win_totals.parquet"
+    win_new = _scrape_win_totals(season)
+    if win_new.empty:
+        print(f"  win totals: no rows scraped for {season} — leaving existing data as-is")
+    else:
+        combined_win = _splice(win_totals_path, win_new, season, ["season", "team"])
+        combined_win.to_parquet(win_totals_path, index=False)
+        print(f"  win totals: {len(win_new)} rows scraped for {season}")
 
     fresh_team_games = build_team_games_table(
         pbp_path=pbp_path,

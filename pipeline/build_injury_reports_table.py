@@ -5,6 +5,21 @@ so it's automatically picked up as a table by pipeline/build_duckdb.py.
 Run after new raw CSVs land in data/raw/injury_reports/:
     python3 pipeline/build_injury_reports_table.py
 
+Splices into the existing committed table, rather than rebuilding
+---------------------------------------------------------------------
+data/injury_reports.parquet is itself a tracked exception to this
+pipeline's usual "data/ is gitignored, always regenerable" rule (see
+.gitignore) — specifically so injury history persists in this repo
+independent of the Google Drive folder it's sourced from. If this
+function discarded that committed baseline and rebuilt purely from
+whatever CSVs happen to be in data/raw/injury_reports/ at the moment (the
+raw CSVs themselves are NOT tracked — they're re-fetched fresh each run,
+see fetch_injury_reports_from_drive.py), any week whose sheet ever became
+unavailable from Drive would silently vanish from this table instead of
+keeping its last-known data. So: only the (season, week) pairs actually
+present among the local raw CSVs get replaced; every other week already
+in the committed table is carried forward untouched.
+
 Source of the raw CSVs
 -----------------------
 Unlike every other table in this pipeline, this one has no headless fetch
@@ -114,7 +129,17 @@ def build_injury_reports_table():
     if not files:
         raise FileNotFoundError(f"No raw injury-report CSVs found in {RAW_DIR}")
 
-    df = pd.concat([_load_one(f) for f in files], ignore_index=True)
+    fresh = pd.concat([_load_one(f) for f in files], ignore_index=True)
+
+    if OUT_PATH.exists():
+        existing = pd.read_parquet(OUT_PATH)
+        fresh_weeks = fresh[["season", "week"]].drop_duplicates()
+        merged = existing.merge(fresh_weeks, on=["season", "week"], how="left", indicator=True)
+        carried_forward = existing[merged["_merge"].values == "left_only"]
+        df = pd.concat([carried_forward, fresh], ignore_index=True)
+    else:
+        df = fresh
+
     df = df.sort_values(["season", "week", "game", "team", "player"]).reset_index(drop=True)
 
     df.to_parquet(OUT_PATH, index=False)
