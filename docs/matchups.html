@@ -281,12 +281,21 @@ function fmtOdds(v) {
 // adding an entry — higher is better for all of these today, so there's
 // no per-metric "lower is better" flag yet, but that's the obvious next
 // thing to add if a metric like turnovers ever joins this list.
+//
+// Deliberately offense-only (see generate_matchups_table.py's "Team
+// season summary" docstring) — point_differential/points_per_game are
+// computed and present in the data but intentionally not shown here,
+// since both mix in defensive/special-teams scoring via points_allowed/
+// points_scored; offensive_points_per_game is the pure-offense
+// equivalent used instead. preseason_win_total is the one exception —
+// it's not an offense stat, just the market's overall-team projection,
+// kept first since it's the most "at a glance" framing for the matchup.
 const COMPARE_METRICS = [
+  { key: 'preseason_win_total', label: 'Win Total', fmt: v => v != null ? v.toFixed(1) : '—' },
   { key: 'success_rate', label: 'Success Rate', fmt: v => v != null ? (v * 100).toFixed(0) + '%' : '—' },
   { key: 'epa_per_play', label: 'EPA/Play', fmt: v => fmtStat(v, 2) },
-  { key: 'point_differential', label: 'Point Diff', fmt: v => fmtSigned(v) },
-  { key: 'points_per_game', label: 'PPG', fmt: v => v != null ? v.toFixed(1) : '—' },
-  { key: 'preseason_win_total', label: 'Win Total', fmt: v => v != null ? v.toFixed(1) : '—' },
+  { key: 'early_down_success_rate', label: 'Early Down Success', fmt: v => v != null ? (v * 100).toFixed(0) + '%' : '—' },
+  { key: 'offensive_points_per_game', label: 'Off. PPG', fmt: v => v != null ? v.toFixed(1) : '—' },
 ];
 
 function renderCompareRow(team, summary, otherSummary) {

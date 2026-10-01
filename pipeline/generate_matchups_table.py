@@ -72,19 +72,29 @@ without rebuilding the underlying table.
 
 Team season summary
 -----------------------
-point_differential, points_per_game, epa_per_play, and success_rate are
-each averaged across the team's team_games.parquet rows for the current
-season, but only games strictly before the week being shown — not every
-game played so far regardless of week. Computing one "as of right now"
-snapshot and reusing it on every week's card would leak future results
-into past weeks' cards (a Week 1 preview would end up showing stats that
-include Weeks 2 and 3, which hadn't happened yet) — recomputed per week
-instead, matching how a broadcast previews a game with "season entering
-tonight" stats, not "season including tonight and afterward." games_played
-is included alongside the rates so a 1-game and a 10-game average aren't
-read as equally confident. preseason_win_total is the one exception to
-this before-this-week recomputation — it's a single value set before the
-season starts (see pipeline/fetch_win_totals.py) and never changes, so
+point_differential, points_per_game, offensive_points_per_game,
+epa_per_play, success_rate, and early_down_success_rate are each averaged
+across the team's team_games.parquet rows for the current season, but
+only games strictly before the week being shown — not every game played
+so far regardless of week. Computing one "as of right now" snapshot and
+reusing it on every week's card would leak future results into past
+weeks' cards (a Week 1 preview would end up showing stats that include
+Weeks 2 and 3, which hadn't happened yet) — recomputed per week instead,
+matching how a broadcast previews a game with "season entering tonight"
+stats, not "season including tonight and afterward." games_played is
+included alongside the rates so a 1-game and a 10-game average aren't
+read as equally confident.
+
+The matchups page's compare table is offense-only throughout (point_differential
+and points_per_game are kept here as general-purpose facts since other
+code may still want them, but aren't surfaced in the compare table — see
+build_team_games_table.py's "Offensive points" docstring section for why
+points_scored/points_allowed mix in defensive/special-teams scoring and
+offensive_points_per_game is the one actually shown instead).
+
+preseason_win_total is the one exception to this before-this-week
+recomputation — it's a single value set before the season starts (see
+pipeline/fetch_win_totals.py) and never changes, so
 it's just looked up for the season, not averaged or windowed. The
 before-this-week cutoff applies to
 starting_qb below, for the same reason.
@@ -241,10 +251,19 @@ def _team_summary_before_week(team_games: pd.DataFrame, season: int, week: int) 
     for team, g in season_df.groupby("team"):
         out[team] = {
             "games_played": int(len(g)),
+            # point_differential/points_per_game are team-level (they
+            # include defensive/special-teams scoring via points_scored/
+            # points_allowed) — kept here as general-purpose facts for
+            # anything else that wants them, but NOT shown on the matchups
+            # page's compare table, which is offense-only throughout (see
+            # offensive_points_per_game below and build_team_games_table.py's
+            # "Offensive points" docstring section for why).
             "point_differential": _round((g["points_scored"] - g["points_allowed"]).mean(), 1),
             "points_per_game": _round(g["points_scored"].mean(), 1),
+            "offensive_points_per_game": _round(g["offensive_points"].mean(), 1),
             "epa_per_play": _round(g["epa_per_play"].mean()),
             "success_rate": _round(g["success_rate"].mean()),
+            "early_down_success_rate": _round(g["early_down_success_rate"].mean()),
         }
     return out
 
@@ -325,7 +344,11 @@ def _win_totals_lookup(path: Path, season: int) -> dict:
 
 
 def _team_summary_entry(team, summaries, coordinators, starting_qbs, win_totals):
-    entry = dict(summaries.get(team, {"games_played": 0, "point_differential": None, "points_per_game": None, "epa_per_play": None, "success_rate": None}))
+    entry = dict(summaries.get(team, {
+        "games_played": 0, "point_differential": None, "points_per_game": None,
+        "offensive_points_per_game": None, "epa_per_play": None,
+        "success_rate": None, "early_down_success_rate": None,
+    }))
     entry.update(coordinators.get(team, {f: None for f in _COORD_FIELDS} | {f"{f}_as_of": None for f in _COORD_FIELDS}))
     entry["starting_qb"] = starting_qbs.get(team)
     entry["preseason_win_total"] = _clean(win_totals.get(team))

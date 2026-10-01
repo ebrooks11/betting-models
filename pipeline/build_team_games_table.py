@@ -92,7 +92,35 @@ below. rush_epa/rush_success_rate and pass_epa/pass_success_rate split the
 same play set by rush_attempt vs pass_attempt — sacks count as pass plays
 here (pass_attempt=1 in raw pbp, same quirk noted for pass_rate above), so
 pass_epa/pass_success_rate reflect the full passing-down outcome including
-sacks, not just completed/attempted throws.
+sacks, not just completed/attempted throws. early_down_success_rate is the
+same success_rate restricted to down IN (1, 2) — the standard "early
+down" convention (as opposed to 3rd/4th down, where play-calling is
+driven by needing a specific number of yards rather than any positive
+gain being roughly equally valuable).
+
+Offensive points (offensive_points)
+---------------------------------------
+Every stat in this table is meant to describe a team's OFFENSE, not its
+whole roster — but points_scored/points_allowed above (from schedules.parquet)
+are just the final score, which can include points a team's defense or
+special teams scored directly (a pick-six, a punt/kickoff return TD, a
+defense recovering a blocked PAT/2pt try for its own 2 points) alongside
+whatever the offense actually produced. offensive_points is scored
+strictly from the offense's own drives: touchdowns via pass_touchdown or
+rush_touchdown (checked directly that these two flags are never set on a
+return touchdown — e.g. a real pick-six in this data has pass_touchdown=0,
+rush_touchdown=0, return_touchdown=1 — so no further exclusion is needed),
+made field goals, good extra points, and successful two-point
+conversions. Also checked directly that a blocked PAT/2pt try returned by
+the defense for its own 2 points never leaves the offense's own
+extra_point_result/two_point_conv_result marked 'good'/'success' (those
+show 'blocked'/'failure' instead), so filtering on 'good'/'success' alone
+can't accidentally credit the offense with points the defense actually
+scored. points_scored/points_allowed are kept as-is (they're real,
+useful facts), just not treated as "the offense's" column the way
+everything else in this table is — anything computed from team_games.parquet
+that wants a purely offensive scoring number should use offensive_points,
+not points_scored.
 
 Big plays (explosive_run_rate, explosive_pass_rate, explosive_play_rate,
 plays_20plus, plays_40plus)
@@ -283,6 +311,7 @@ efficiency AS (
         game_id, posteam AS team,
         AVG(epa) AS epa_per_play,
         AVG(success) AS success_rate,
+        AVG(success) FILTER (WHERE down IN (1, 2)) AS early_down_success_rate,
         AVG(epa) FILTER (WHERE rush_attempt = 1) AS rush_epa,
         AVG(success) FILTER (WHERE rush_attempt = 1) AS rush_success_rate,
         AVG(epa) FILTER (WHERE pass_attempt = 1) AS pass_epa,
@@ -296,6 +325,34 @@ efficiency AS (
     FROM read_parquet('{pbp_path}')
     WHERE season_type = 'REG' AND (rush_attempt = 1 OR pass_attempt = 1)
       AND two_point_attempt = 0 AND qb_kneel = 0 AND qb_spike = 0
+    GROUP BY game_id, posteam
+),
+scoring AS (
+    -- Offensive points only: touchdowns via pass_touchdown/rush_touchdown
+    -- (these two flags are never set on an interception/fumble/kick/punt
+    -- return touchdown — checked directly against real plays, e.g. a
+    -- pick-six has pass_touchdown=0, rush_touchdown=0, return_touchdown=1
+    -- — so no extra exclusion is needed), plus made field goals, good
+    -- extra points, and successful two-point conversions. Deliberately
+    -- excludes points scored by D/ST (return TDs, safeties, a defense
+    -- recovering a blocked PAT/2pt try for its own 2 points) — see
+    -- "Offensive points" in this file's docstring for why team_games.parquet
+    -- shouldn't mix defensive output into what's meant to be an offense
+    -- table. Checked directly: extra_point_result/two_point_conv_result
+    -- are never 'good'/'success' on a play where the defense actually
+    -- scored instead (defensive_extra_point_conv/defensive_two_point_conv
+    -- = 1) — those plays correctly show 'blocked'/'failure' on the
+    -- offense's own result column, so filtering on 'good'/'success' alone
+    -- is already safe.
+    SELECT
+        game_id, posteam AS team,
+        6 * COUNT(*) FILTER (WHERE pass_touchdown = 1 OR rush_touchdown = 1)
+        + 3 * COUNT(*) FILTER (WHERE field_goal_result = 'made')
+        + 1 * COUNT(*) FILTER (WHERE extra_point_result = 'good')
+        + 2 * COUNT(*) FILTER (WHERE two_point_conv_result = 'success')
+        AS offensive_points
+    FROM read_parquet('{pbp_path}')
+    WHERE season_type = 'REG' AND posteam IS NOT NULL
     GROUP BY game_id, posteam
 ),
 qb_attempts AS (
@@ -383,6 +440,8 @@ SELECT
 
     ef.epa_per_play,
     ef.success_rate,
+    ef.early_down_success_rate,
+    sc.offensive_points,
     ef.rush_epa,
     ef.rush_success_rate,
     ef.pass_epa,
@@ -419,6 +478,7 @@ LEFT JOIN hc ON tg.team = hc.team AND tg.season = hc.season
 LEFT JOIN dc ON tg.team = dc.team AND tg.season = dc.season
 LEFT JOIN play_rates pr ON tg.game_id = pr.game_id AND tg.team = pr.team
 LEFT JOIN efficiency ef ON tg.game_id = ef.game_id AND tg.team = ef.team
+LEFT JOIN scoring sc ON tg.game_id = sc.game_id AND tg.team = sc.team
 LEFT JOIN qb_attempts qba ON tg.game_id = qba.game_id AND tg.team = qba.team
 LEFT JOIN ngs_rush ngs ON tg.season = ngs.season AND tg.week = ngs.week AND tg.team = ngs.team
 LEFT JOIN ngs_pass ngsp ON tg.season = ngsp.season AND tg.week = ngsp.week AND tg.team = ngsp.team
