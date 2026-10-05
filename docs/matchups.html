@@ -200,7 +200,11 @@ function toggleTheme() {
 
 async function init() {
   try {
-    const res = await fetch('./data/matchups.json?v=1');
+    // Always revalidate against GitHub Pages' ETag/Last-Modified rather
+    // than trusting a browser-cached copy under this URL — this data
+    // changes multiple times a week and a static "?v=1" query string
+    // doesn't bust the cache across deploys.
+    const res = await fetch('./data/matchups.json', { cache: 'no-cache' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     DATA = await res.json();
     selectedWeek = DATA.current_week;
