@@ -14,13 +14,13 @@ too slow to refetch every run. This script instead:
   2. Runs build_team_games_table.py's exact SQL against just the
      schedules/pbp/NGS/coordinators slice
   3. Splices every result into its existing committed table
-     (team_games.parquet, coordinators.parquet, win_totals.parquet),
-     replacing only that season's rows and leaving every other season
-     exactly as already there
+     (team_games.parquet, coordinators.parquet, win_totals.parquet,
+     snap_counts.parquet), replacing only that season's rows and leaving
+     every other season exactly as already there
 
-data/team_games.parquet, data/coordinators.parquet, and
-data/win_totals.parquet are small enough (2MB/20KB/8KB as of writing) to
-be the exceptions carved out of this pipeline's usual "data/ is
+data/team_games.parquet, data/coordinators.parquet,
+data/win_totals.parquet, and data/snap_counts.parquet are small enough
+to be the exceptions carved out of this pipeline's usual "data/ is
 gitignored, always regenerable, never committed" rule (see .gitignore) —
 specifically so a fresh checkout already has full history in them, and
 only the current season needs refreshing here.
@@ -92,6 +92,14 @@ def _fetch_ngs(season: int) -> pd.DataFrame:
         df["stat_type"] = stat_type
         dfs.append(df)
     return pd.concat(dfs, ignore_index=True)
+
+
+def _fetch_snap_counts(season: int) -> pd.DataFrame:
+    # PFR publishes snap counts within a day or two of each game, so this
+    # is available well before the season ends — used by
+    # generate_matchups_table.py to tell which injured players were
+    # playing starter-level snaps before they got hurt.
+    return nfl.import_snap_counts([season])
 
 
 def _scrape_coordinators(season: int) -> pd.DataFrame:
@@ -172,6 +180,15 @@ def refresh():
         combined_win = _splice(win_totals_path, win_new, season, ["season", "team"])
         combined_win.to_parquet(win_totals_path, index=False)
         print(f"  win totals: {len(win_new)} rows scraped for {season}")
+
+    snap_counts_path = DATA_DIR / "snap_counts.parquet"
+    snaps_new = _fetch_snap_counts(season)
+    if snaps_new.empty:
+        print(f"  snap counts: no rows for {season} yet — leaving existing data as-is")
+    else:
+        combined_snaps = _splice(snap_counts_path, snaps_new, season, ["season", "week", "team", "player"])
+        combined_snaps.to_parquet(snap_counts_path, index=False)
+        print(f"  snap counts: {len(snaps_new)} rows for {season}")
 
     fresh_team_games = build_team_games_table(
         pbp_path=pbp_path,

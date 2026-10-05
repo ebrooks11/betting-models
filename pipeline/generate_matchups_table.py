@@ -1,8 +1,8 @@
 """
 Generate docs/data/matchups.json for docs/matchups.html, built from
 data/schedules.parquet (the games list itself), data/injury_reports.parquet,
-data/team_games.parquet, data/game_lines.parquet, and
-data/win_totals.parquet — deliberately never data/pbp.parquet directly
+data/team_games.parquet, data/game_lines.parquet, data/win_totals.parquet,
+and data/snap_counts.parquet — deliberately never data/pbp.parquet directly
 (see "Starting QB" below for why). A full matchup view, not just injuries:
 each game shows the current line, and each team shows season-to-date
 point differential/EPA per play/success rate plus its head coach, both
@@ -42,7 +42,8 @@ and a matchups page is a list of per-game cards, not a table. Shape here:
         "away_team_summary": { ...see _team_summary_for_season/_coordinators_with_fallback... },
         "home_team_summary": { ... },
         "away_injuries": [ {player, pos, status, injury, practice: [d1,d2,d3],
-                             game_day_inactive, expected_return, notes}, ... ],
+                             game_day_inactive, expected_return, notes,
+                             snap_share, likely_starter}, ... ],
         "home_injuries": [ ... ]
       }, ...
     ],
@@ -69,6 +70,22 @@ healthy scratches, then season-long reserve-list entries), then (3)
 player name. This ordering is a display judgment call made here, not
 baked into injury_reports.parquet itself, so it's easy to change later
 without rebuilding the underlying table.
+
+Starter emphasis (snap_share, likely_starter)
+------------------------------------------------
+Each injury row also carries snap_share — the player's recent share of
+their unit's snaps (see _snap_shares_before_week's docstring for the
+exact window/fallback logic) — and likely_starter, a simple threshold on
+that value. Neither comes from a real depth chart (data/depth_charts.parquet
+stops at 2024 and isn't kept current by this pipeline); they're inferred
+from data/snap_counts.parquet, which PFR does publish within a day or two
+of each 2026 game. This is a proxy, not ground truth — a committee
+backfield can have no player clear the threshold, and a player who
+hasn't taken a single snap in a long time (new signing, far outside
+either season's window) just comes back with snap_share: null — but it's
+real usage data, not a guess, and directly answers what a fantasy manager
+actually wants to know about an injury: was this player actually
+playing.
 
 Team season summary
 -----------------------
@@ -153,6 +170,7 @@ render fine without it.
 """
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -219,7 +237,74 @@ def _round(v, ndigits=3):
     return round(float(v), ndigits) if v is not None else None
 
 
-def _player_row(r):
+_SUFFIX_RE = re.compile(r"\s+(jr|sr|ii|iii|iv|v)\Z")
+
+
+def _norm_player_name(name: str) -> str:
+    """injury_reports.parquet and snap_counts.parquet don't always agree on
+    "A.J. Terrell" vs "AJ Terrell" or "Mack Wilson" vs "Mack Wilson Sr." —
+    strip periods/suffixes so the two sources' names line up for the
+    starter-emphasis join below. Confirmed directly: without this, ~60%
+    of 2026 injury rows matched a snap_counts row by (team, player); with
+    it, that's somewhat higher, and the (team, ...) half of the key is
+    still what actually prevents misattributing one player's snaps to a
+    different person who happens to share a name (see SNAP_SHARE_THRESHOLD
+    below — two different active 2026 players are both named "Justin
+    Jefferson," one a Browns LB and one a Vikings WR)."""
+    return _SUFFIX_RE.sub("", name.replace(".", "").strip().lower())
+
+
+# A player counts as "likely starting if healthy" when they've been playing
+# the bulk of their unit's snaps — not tied to a specific depth-chart slot
+# (which isn't in any of this pipeline's data), just overall usage. 0.55 is
+# a judgment call: high enough to exclude true committee/rotational pieces,
+# low enough to still catch every-down players who come off the field in
+# some packages (e.g. a early-down runner in a pass-heavy offense).
+SNAP_SHARE_STARTER_THRESHOLD = 0.55
+# How many of a player's most recent active (nonzero-snap) games to average
+# over — recent-form, not a season-long average, so a role that changed
+# recently (new starter winning a job, a committee resolving) is reflected
+# quickly rather than smoothed out by weeks-old data.
+SNAP_SHARE_WINDOW = 3
+
+
+def _snap_shares_before_week(snap_counts: pd.DataFrame, season: int, week: int) -> dict:
+    """(team, normalized player name) -> recent snap share (0-1), used to
+    flag injuries to players who'd likely be starting if healthy.
+
+    Falls back to the player's most recent active games from the prior
+    season when they haven't played a single snap yet this season before
+    the week in question — the exact case that matters most here: a
+    player hurt in week 1 (or before the season even started) has no
+    current-season snap data to show they were a starter, but is also
+    the player whose absence is most worth calling out. Confirmed on a
+    real case: Arizona's James Conner played 3 total snaps in 2026 before
+    being out the rest of the way, which this fallback catches via his
+    clear starter-level 2025 usage; a player who's never been more than a
+    backup in either season just correctly comes back with no match.
+    This fallback can't follow a team change across the offseason (keyed
+    on the player's *current* team), which is the right failure mode —
+    crediting a new team with a snap share earned on a different roster
+    would be misleading, not just imprecise.
+    """
+    snaps = snap_counts.copy()
+    snaps["active"] = (snaps["offense_snaps"].fillna(0) + snaps["defense_snaps"].fillna(0) + snaps["st_snaps"].fillna(0)) > 0
+    snaps["share"] = snaps[["offense_pct", "defense_pct"]].max(axis=1)
+    snaps["norm_player"] = snaps["player"].map(_norm_player_name)
+
+    current = snaps[(snaps.season == season) & (snaps.week < week) & snaps.active]
+    prior = snaps[(snaps.season == season - 1) & snaps.active]
+
+    out = {}
+    for source in (prior, current):  # current season applied last, so it wins where both exist
+        for (team, player), g in source.groupby(["team", "norm_player"]):
+            recent = g.sort_values("week", ascending=False).head(SNAP_SHARE_WINDOW)
+            out[(team, player)] = recent["share"].mean()
+    return out
+
+
+def _player_row(r, snap_shares):
+    snap_share = snap_shares.get((r["team"], _norm_player_name(r["player"])))
     return {
         "player": r["player"],
         "pos": _clean(r["pos"]),
@@ -229,10 +314,12 @@ def _player_row(r):
         "game_day_inactive": bool(r["game_day_inactive"]),
         "expected_return": _clean(r["expected_return"]),
         "notes": _clean(r["notes"]),
+        "snap_share": _round(snap_share, 2),
+        "likely_starter": bool(snap_share is not None and snap_share >= SNAP_SHARE_STARTER_THRESHOLD),
     }
 
 
-def _team_injuries(df, season, week, team):
+def _team_injuries(df, season, week, team, snap_shares):
     # Keyed by (season, week, team) only, not also by the injury sheet's
     # own "AWAY @ HOME" game string — the games list itself now comes from
     # schedules.parquet (see build()), a different source, so matching on
@@ -242,7 +329,7 @@ def _team_injuries(df, season, week, team):
     rows["_inactive_rank"] = ~rows["game_day_inactive"]
     rows["_rank"] = rows["status"].map(_STATUS_RANK).fillna(9)
     rows = rows.sort_values(["_inactive_rank", "_rank", "player"])
-    return [_player_row(r) for _, r in rows.iterrows()]
+    return [_player_row(r, snap_shares) for _, r in rows.iterrows()]
 
 
 def _team_summary_before_week(team_games: pd.DataFrame, season: int, week: int) -> dict:
@@ -369,6 +456,9 @@ def build():
     coordinators = _coordinators_with_fallback(team_games, season)
     lines_lookup = _game_lines_lookup(DATA_DIR / "game_lines.parquet")
     win_totals = _win_totals_lookup(DATA_DIR / "win_totals.parquet", season)
+    snap_counts = pd.read_parquet(DATA_DIR / "snap_counts.parquet", columns=[
+        "season", "week", "team", "player", "offense_snaps", "offense_pct", "defense_snaps", "defense_pct", "st_snaps",
+    ])
 
     weeks = sorted(sched["week"].unique().tolist())
     # "Upcoming" = the earliest week with at least one game not yet
@@ -381,6 +471,7 @@ def build():
     for week in weeks:
         summaries = _team_summary_before_week(team_games, season, week)
         starting_qbs = _starting_qbs_before_week(team_games, season, week)
+        snap_shares = _snap_shares_before_week(snap_counts, season, week)
 
         wk_games = sched[sched.week == week].sort_values(["gameday", "gametime"])
         week_games = []
@@ -394,8 +485,8 @@ def build():
                 "lines": lines_lookup.get((home, away)),
                 "away_team_summary": _team_summary_entry(away, summaries, coordinators, starting_qbs, win_totals),
                 "home_team_summary": _team_summary_entry(home, summaries, coordinators, starting_qbs, win_totals),
-                "away_injuries": _team_injuries(inj, season, week, away),
-                "home_injuries": _team_injuries(inj, season, week, home),
+                "away_injuries": _team_injuries(inj, season, week, away, snap_shares),
+                "home_injuries": _team_injuries(inj, season, week, home, snap_shares),
             })
         games_by_week[str(week)] = week_games
 

@@ -45,16 +45,17 @@ jobs:
         run: python3 pipeline/generate_matchups_table.py
 
       - name: Commit and push if anything changed
-        # team_games.parquet, coordinators.parquet, and win_totals.parquet
+        # team_games.parquet, coordinators.parquet, win_totals.parquet,
+        # schedules.parquet, snap_counts.parquet, and game_lines.parquet
         # are the exceptions carved out of data/'s usual gitignore (see
         # .gitignore and pipeline/fetch_current_season_data.py's
-        # docstring) — everything else this run touches (schedules/pbp/ngs
-        # under data/raw/_current_season/, game_lines.parquet) stays
-        # untracked, same as every other pipeline output.
+        # docstring) — everything else this run touches (raw schedules/
+        # pbp/ngs under data/raw/_current_season/) stays untracked, same
+        # as every other pipeline output.
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/team_games.parquet data/coordinators.parquet data/win_totals.parquet data/schedules.parquet data/game_lines.parquet docs/data/matchups.json
+          git add data/team_games.parquet data/coordinators.parquet data/win_totals.parquet data/schedules.parquet data/snap_counts.parquet data/game_lines.parquet docs/data/matchups.json
           if git diff --staged --quiet; then
             echo "No changes to commit."
           else

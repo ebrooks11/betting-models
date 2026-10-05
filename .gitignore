@@ -11,10 +11,10 @@ __pycache__/
 
 # The exceptions to "data/ is always regenerable, never committed":
 # - team_games.parquet, coordinators.parquet, win_totals.parquet,
-#   schedules.parquet: small (2MB/20KB/8KB/644KB) and needed pre-populated
-#   with full history so CI can refresh just the current season
-#   incrementally instead of re-fetching decades of pbp every run. See
-#   pipeline/fetch_current_season_data.py.
+#   schedules.parquet, snap_counts.parquet: small enough (2MB/20KB/8KB/
+#   644KB/9MB) and needed pre-populated with full history so CI can
+#   refresh just the current season incrementally instead of re-fetching
+#   decades of pbp every run. See pipeline/fetch_current_season_data.py.
 # - game_lines.parquet, injury_reports.parquet: these accumulate historical
 #   data (line movement, injury-report snapshots) that otherwise exists
 #   nowhere durable in this repo — only in the external Google Sheets they
@@ -24,6 +24,7 @@ __pycache__/
 !data/coordinators.parquet
 !data/win_totals.parquet
 !data/schedules.parquet
+!data/snap_counts.parquet
 !data/game_lines.parquet
 !data/injury_reports.parquet
 

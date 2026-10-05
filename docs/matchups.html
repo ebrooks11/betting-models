@@ -142,8 +142,7 @@ button { cursor: pointer; }
   padding-top: 8px; border-top: 1px solid var(--border);
 }
 .sub-head:first-child { margin-top: 0; padding-top: 0; border-top: none; }
-.inj-row { padding: 5px 0; border-bottom: 1px solid var(--border); font-size: .74rem; }
-.inj-row:last-child { border-bottom: none; }
+.inj-row { font-size: .74rem; }
 .inj-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .inactive-dot {
   display: inline-block; width: 7px; height: 7px; border-radius: 50%;
@@ -162,6 +161,26 @@ button { cursor: pointer; }
 .status-clear { background: var(--good-dim); color: var(--good); }
 .status-reserve { background: var(--surface-3); color: var(--text-dim); }
 .empty-note { color: var(--text-dim); font-size: .7rem; font-style: italic; }
+
+/* Starters (likely_starter, see generate_matchups_table.py) get the full
+   card treatment plus an accent border — everyone else collapses to one
+   compact line, since most teams' injury lists are mostly depth/special-
+   teams players a fantasy manager doesn't need full detail on. */
+.inj-row.starter {
+  padding: 5px 8px; margin: 3px 0; border-radius: var(--r);
+  background: var(--accent-dim); border-left: 2px solid var(--accent);
+}
+.snap-badge { font-family: var(--font-mono); font-size: .6rem; color: var(--accent); margin-left: 6px; }
+.inj-row.compact {
+  display: flex; align-items: baseline; gap: 8px; padding: 2px 0;
+  font-size: .68rem; border-bottom: 1px solid var(--border);
+}
+.inj-row.compact:last-child { border-bottom: none; }
+.inj-compact-name { flex-shrink: 0; white-space: nowrap; }
+.inj-compact-detail {
+  color: var(--text-dim); font-size: .64rem; flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 .state-msg { text-align: center; padding: 60px 20px; color: var(--text-muted); font-family: var(--font-mono); font-size: .85rem; }
 </style>
@@ -248,21 +267,45 @@ function formatPractice(practice) {
   return vals.join(' → ');
 }
 
+// likely_starter rows (see generate_matchups_table.py's "Starter emphasis"
+// docstring section) get the full detail/practice-trend card so the
+// injuries that actually matter for fantasy purposes are easy to read;
+// everyone else collapses to a single compact line to keep a 20-player
+// list from dominating the page.
 function renderInjuryRow(r) {
+  return r.likely_starter ? renderStarterInjuryRow(r) : renderCompactInjuryRow(r);
+}
+
+function renderStarterInjuryRow(r) {
   const detailParts = [];
   if (r.injury) detailParts.push(r.injury);
   if (r.expected_return) detailParts.push(`Return: ${r.expected_return}`);
   const practiceStr = formatPractice(r.practice);
   const dot = r.game_day_inactive ? '<span class="inactive-dot" title="Inactive"></span>' : '';
+  const snapBadge = r.snap_share != null ? `<span class="snap-badge">${Math.round(r.snap_share * 100)}% snaps</span>` : '';
 
   return `
-    <div class="inj-row">
+    <div class="inj-row starter">
       <div class="inj-top">
-        <span>${dot}<span class="inj-player">${r.player}</span><span class="inj-pos">${r.pos || ''}</span></span>
+        <span>${dot}<span class="inj-player">${r.player}</span><span class="inj-pos">${r.pos || ''}</span>${snapBadge}</span>
         <span class="status-badge ${statusClass(r.status)}">${r.status}</span>
       </div>
       ${detailParts.length ? `<div class="inj-detail">${detailParts.join(' · ')}</div>` : ''}
       ${practiceStr ? `<div class="inj-practice">${practiceStr}</div>` : ''}
+    </div>`;
+}
+
+function renderCompactInjuryRow(r) {
+  const detailParts = [];
+  if (r.injury) detailParts.push(r.injury);
+  if (r.expected_return) detailParts.push(`Return: ${r.expected_return}`);
+  const dot = r.game_day_inactive ? '<span class="inactive-dot" title="Inactive"></span>' : '';
+
+  return `
+    <div class="inj-row compact">
+      <span class="inj-compact-name">${dot}<span class="inj-player">${r.player}</span><span class="inj-pos">${r.pos || ''}</span></span>
+      <span class="inj-compact-detail">${detailParts.join(' · ')}</span>
+      <span class="status-badge ${statusClass(r.status)}">${r.status}</span>
     </div>`;
 }
 
@@ -367,9 +410,17 @@ function renderStaffTable(g) {
     </div>`;
 }
 
+// Array.prototype.sort is stable (ES2019+), so this only reorders
+// starters to the front — within "starters" and "everyone else" each
+// group keeps the game_day_inactive/status/name ordering the data
+// already arrived in.
+function byStarterFirst(rows) {
+  return [...rows].sort((a, b) => (b.likely_starter ? 1 : 0) - (a.likely_starter ? 1 : 0));
+}
+
 function renderTeamCol(team, summary, injuries) {
-  const current = injuries.filter(r => !RESERVE_STATUSES.has(r.status));
-  const reserve = injuries.filter(r => RESERVE_STATUSES.has(r.status));
+  const current = byStarterFirst(injuries.filter(r => !RESERVE_STATUSES.has(r.status)));
+  const reserve = byStarterFirst(injuries.filter(r => RESERVE_STATUSES.has(r.status)));
 
   let html = `<div class="team-col-head">${team}</div>`;
 
