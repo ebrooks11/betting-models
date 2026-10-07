@@ -259,8 +259,6 @@ const STATUS_CLASS = {
 };
 function statusClass(status) { return STATUS_CLASS[status] || 'status-reserve'; }
 
-const RESERVE_STATUSES = new Set(['Injured Reserve', 'IR - Designated to Return', 'PUP', 'NFI', 'Suspended']);
-
 function formatPractice(practice) {
   const vals = practice.filter(Boolean);
   if (!vals.length) return '';
@@ -419,25 +417,20 @@ function byStarterFirst(rows) {
 }
 
 function renderTeamCol(team, summary, injuries) {
-  const current = byStarterFirst(injuries.filter(r => !RESERVE_STATUSES.has(r.status)));
-  const reserve = byStarterFirst(injuries.filter(r => RESERVE_STATUSES.has(r.status)));
+  // One combined list rather than a separate "Reserve list" section —
+  // generate_matchups_table.py's _STATUS_RANK already orders active-roster
+  // statuses (Out..No designation) ahead of reserve-list ones
+  // (Injured Reserve/PUP/NFI/Suspended), so byStarterFirst's stable sort
+  // just pulls starters to the top while preserving that within each group.
+  const rows = byStarterFirst(injuries);
 
   let html = `<div class="team-col-head">${team}</div>`;
-
   html += `<div class="sub-head">Injuries</div>`;
-  if (!current.length && !reserve.length) {
+  if (!rows.length) {
     html += `<div class="empty-note">No injuries reported</div>`;
     return html;
   }
-  if (current.length) {
-    html += current.map(renderInjuryRow).join('');
-  } else {
-    html += `<div class="empty-note">No injuries reported</div>`;
-  }
-  if (reserve.length) {
-    html += `<div class="sub-head">Reserve list</div>`;
-    html += reserve.map(renderInjuryRow).join('');
-  }
+  html += rows.map(renderInjuryRow).join('');
   return html;
 }
 
