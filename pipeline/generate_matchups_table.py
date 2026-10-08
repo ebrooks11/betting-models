@@ -45,7 +45,8 @@ and a matchups page is a list of per-game cards, not a table. Shape here:
         "final": {"home_score": 24, "away_score": 17} | null,
         "away_team_summary": { ...see _team_summary_for_season/_coordinators_with_fallback...,
                                 "recent_games": [ {season, week, opponent, home_away,
-                                                    team_score, opp_score, result}, ... ] },
+                                                    team_score, opp_score, result,
+                                                    covered, total_result}, ... ] },
         "home_team_summary": { ... },
         "away_injuries": [ {player, pos, status, injury, practice: [d1,d2,d3],
                              game_day_inactive, expected_return, notes,
@@ -181,6 +182,20 @@ being previewed, so a Week 2 card never shows Week 3's result — but with
 a wider lookback than the single-season stats above, matching how a
 broadcast's "last 5" graphic works): a Week 2 preview shows last
 season's final 4 games plus this season's Week 1, not just one game.
+
+Each game also carries covered (did THIS team beat the closing spread —
+True/False/"push"/null) and total_result ("over"/"under"/"push"/null),
+both graded against schedules.parquet's own spread_line/total_line —
+nflverse's historical closing lines, present for essentially every
+past game (unlike data/game_lines.parquet, this project's own
+accumulated snapshot history, which only goes back to when that scraper
+started running). Note the sign convention difference: spread_line is
+the expected HOME margin (positive = home favored), the opposite of
+game_lines.parquet's home_spread (positive = home underdog, the normal
+sportsbook-board convention used in the Lines row above) — confirmed
+directly against a shared game (2026 week 4 CLE/PIT: spread_line -2.5
+here vs. home_spread +2.5 there, an exact negation). See the comments
+in _team_game_log for the cover/total formulas.
 
 Game lines
 -------------
@@ -473,16 +488,49 @@ def _team_game_log(schedules_all: pd.DataFrame) -> pd.DataFrame:
     df["home_team"] = df["home_team"].map(_norm_team)
     df["away_team"] = df["away_team"].map(_norm_team)
 
+    # schedules.parquet's spread_line is nflverse's own convention — the
+    # expected HOME margin (positive = home favored), the opposite sign of
+    # the "home team's own spread as shown on a sportsbook board" convention
+    # used elsewhere on this page (data/game_lines.parquet's home_spread,
+    # positive = home underdog). Confirmed directly against a real game
+    # already cross-checked against DraftKings odds: 2026 week 4 CLE
+    # (home) vs PIT, spread_line -2.5 vs game_lines.parquet's home_spread
+    # +2.5 for the same game — exact negation. home_margin = home_score -
+    # away_score; home covers if home_margin > spread_line (i.e. beat the
+    # expected margin), not the "+ home_spread > 0" formula betResults()
+    # in matchups.html uses for the live board-convention spread.
+    home_margin = df["home_score"] - df["away_score"]
+    cover_diff = home_margin - df["spread_line"]
+    df["_cover_side"] = None
+    df.loc[df.spread_line.notna() & (cover_diff > 0), "_cover_side"] = "home"
+    df.loc[df.spread_line.notna() & (cover_diff < 0), "_cover_side"] = "away"
+    df.loc[df.spread_line.notna() & (cover_diff == 0), "_cover_side"] = "push"
+
+    actual_total = df["home_score"] + df["away_score"]
+    df["_total_result"] = None
+    df.loc[df.total_line.notna() & (actual_total > df["total_line"]), "_total_result"] = "over"
+    df.loc[df.total_line.notna() & (actual_total < df["total_line"]), "_total_result"] = "under"
+    df.loc[df.total_line.notna() & (actual_total == df["total_line"]), "_total_result"] = "push"
+
     home = df.rename(columns={"home_team": "team", "away_team": "opponent", "home_score": "team_score", "away_score": "opp_score"})
     home["home_away"] = "home"
     away = df.rename(columns={"away_team": "team", "home_team": "opponent", "away_score": "team_score", "home_score": "opp_score"})
     away["home_away"] = "away"
 
-    cols = ["season", "week", "team", "opponent", "team_score", "opp_score", "home_away"]
+    cols = ["season", "week", "team", "opponent", "team_score", "opp_score", "home_away", "_cover_side", "_total_result"]
     log = pd.concat([home[cols], away[cols]], ignore_index=True)
     log["result"] = "T"
     log.loc[log.team_score > log.opp_score, "result"] = "W"
     log.loc[log.team_score < log.opp_score, "result"] = "L"
+    # covered: whether THIS team (not just the home side) covered — "push"
+    # either way when cover_side is "push". Built as an object column from
+    # the start (not a bool column later overwritten with "push"/None) to
+    # avoid a dtype-cast warning.
+    log["covered"] = pd.Series([None] * len(log), dtype=object)
+    log.loc[log["_cover_side"] == log["home_away"], "covered"] = True
+    log.loc[(log["_cover_side"].notna()) & (log["_cover_side"] != log["home_away"]) & (log["_cover_side"] != "push"), "covered"] = False
+    log.loc[log["_cover_side"] == "push", "covered"] = "push"
+    log = log.rename(columns={"_total_result": "total_result"}).drop(columns=["_cover_side"])
     return log
 
 
@@ -496,7 +544,7 @@ def _recent_games_before_week(log: pd.DataFrame, season: int, week: int, team: s
         {
             "season": int(r.season), "week": int(r.week), "opponent": r.opponent,
             "home_away": r.home_away, "team_score": int(r.team_score), "opp_score": int(r.opp_score),
-            "result": r.result,
+            "result": r.result, "covered": _clean(r.covered), "total_result": _clean(r.total_result),
         }
         for r in g.itertuples()
     ]
