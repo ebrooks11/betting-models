@@ -173,15 +173,14 @@ quietly stopped mattering once the game ended.
 
 Recent form (recent_games)
 -------------------------------
-Each team's last RECENT_GAMES_WINDOW (5) played REG-season games before
-the one being shown — see _team_game_log and _recent_games_before_week.
-Reaches back across the season boundary when
-the current season doesn't have 5 games yet (same "before this week"
-discipline as everything else on this page — only games before the one
-being previewed, so a Week 2 card never shows Week 3's result — but with
-a wider lookback than the single-season stats above, matching how a
-broadcast's "last 5" graphic works): a Week 2 preview shows last
-season's final 4 games plus this season's Week 1, not just one game.
+Each team's last up to RECENT_GAMES_WINDOW (5) played REG-season games
+this season, strictly before the one being shown — see _team_game_log
+and _recent_games_before_week. Current season only, same as the
+point-differential/EPA/success-rate stats above it, not padded out with
+last season's games when the current season doesn't have 5 yet — a
+Week 2 preview shows exactly 1 game, not 1 from this season plus 4 from
+last. Preseason games never appear here; _team_game_log only looks at
+game_type == "REG".
 
 Each game also carries covered (did THIS team beat the closing spread —
 True/False/"push"/null) and total_result ("over"/"under"/"push"/null),
@@ -476,14 +475,13 @@ RECENT_GAMES_WINDOW = 5
 
 def _team_game_log(schedules_all: pd.DataFrame) -> pd.DataFrame:
     """Long-format log, one row per (team, played REG game), from both
-    teams' perspective — the input to each team's "last 5 games" strip.
-    Spans every season in schedules.parquet, not just the current one, so
-    early in a season (not yet 5 games played) the window still reaches
-    back into the prior season rather than showing fewer than 5 — the
-    same "always fill the window" choice _snap_shares_before_week makes
-    for the same reason. Team codes are normalized (see _TEAM_NORM) since
-    this reaches back far enough in some teams' histories to hit old
-    codes like OAK/SD/STL that the current season never uses."""
+    teams' perspective — the input to each team's "last 5 games" strip
+    (_recent_games_before_week, which restricts this to the current
+    season only). Built from schedules_all (every season), not just the
+    current one — not because the form strip reaches back across season
+    boundaries (it doesn't), but so team codes get normalized (see
+    _TEAM_NORM) consistently regardless of which seasons happen to be
+    passed in, same as this file's other helpers."""
     df = schedules_all[(schedules_all.game_type == "REG") & schedules_all.home_score.notna()].copy()
     df["home_team"] = df["home_team"].map(_norm_team)
     df["away_team"] = df["away_team"].map(_norm_team)
@@ -535,7 +533,11 @@ def _team_game_log(schedules_all: pd.DataFrame) -> pd.DataFrame:
 
 
 def _recent_games_before_week(log: pd.DataFrame, season: int, week: int, team: str) -> list:
-    g = log[(log.team == team) & ((log.season < season) | ((log.season == season) & (log.week < week)))]
+    # Current season only — a Week 2 preview shows just Week 1, not last
+    # season's games padded in to fill the window. Preseason games are
+    # already excluded upstream, in _team_game_log's game_type == "REG"
+    # filter.
+    g = log[(log.team == team) & (log.season == season) & (log.week < week)]
     g = g.sort_values(["season", "week"], ascending=False).head(RECENT_GAMES_WINDOW)
     # Most-recent-first here; matchups.html reverses this for display
     # (oldest-to-newest, left-to-right — the usual "form guide" reading
