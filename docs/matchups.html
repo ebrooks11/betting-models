@@ -104,6 +104,11 @@ button { cursor: pointer; }
 .lines-row .book-tag { color: var(--text-dim); font-size: .62rem; text-transform: uppercase; letter-spacing: .04em; }
 .no-lines { text-align: center; padding: 6px 16px; font-size: .66rem; color: var(--text-dim);
   font-style: italic; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+/* A line "hit" (winning moneyline side, the team that covered, the
+   actual over/under result) once the game's final score is in — see
+   betResults() in the script below. */
+.line-hit { color: var(--good); font-weight: 700; }
+.line-push { color: var(--text-dim); font-weight: 600; }
 
 .final-row {
   display: flex; align-items: center; justify-content: center; gap: 10px;
@@ -116,14 +121,23 @@ button { cursor: pointer; }
 }
 .final-winner { color: var(--text); font-weight: 700; }
 
-.form-strip { display: flex; gap: 4px; margin-bottom: 9px; }
-.form-pill {
-  width: 17px; height: 17px; border-radius: 50%; display: flex; align-items: center;
-  justify-content: center; font-family: var(--font-mono); font-size: .58rem; font-weight: 700;
+.form-strip { display: flex; gap: 3px; margin-bottom: 9px; }
+.form-card {
+  flex: 1; min-width: 0; text-align: center; border-radius: var(--r);
+  padding: 2px 1px 3px; font-family: var(--font-mono); line-height: 1.3;
 }
-.form-w { background: var(--good-dim); color: var(--good); }
-.form-l { background: var(--bad-dim); color: var(--bad); }
-.form-t { background: var(--surface-3); color: var(--text-dim); }
+.form-card .form-result { font-size: .62rem; font-weight: 800; }
+.form-card .form-score { font-size: .58rem; font-weight: 600; color: var(--text); }
+.form-card .form-opp {
+  font-size: .52rem; color: var(--text-dim); overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.form-w { background: var(--good-dim); }
+.form-w .form-result { color: var(--good); }
+.form-l { background: var(--bad-dim); }
+.form-l .form-result { color: var(--bad); }
+.form-t { background: var(--surface-3); }
+.form-t .form-result { color: var(--text-dim); }
 
 .game-body { display: grid; grid-template-columns: 1fr 1fr; }
 .team-col { padding: 10px 14px; }
@@ -446,12 +460,18 @@ function renderFormStrip(recentGames) {
   // reversed here so the strip reads oldest-to-newest, left-to-right — the
   // usual "form guide" convention, most recent game on the right.
   const games = [...recentGames].reverse();
-  const pills = games.map(r => {
+  const cards = games.map(r => {
+    const loc = r.home_away === 'home' ? '' : '@';
     const title = `Wk ${r.week}${r.season !== DATA.season ? ` '${String(r.season).slice(2)}` : ''}: ` +
       `${r.result} ${r.team_score}-${r.opp_score} ${r.home_away === 'home' ? 'vs' : '@'} ${r.opponent}`;
-    return `<span class="form-pill ${resultClass(r.result)}" title="${title}">${r.result}</span>`;
+    return `
+      <div class="form-card ${resultClass(r.result)}" title="${title}">
+        <div class="form-result">${r.result}</div>
+        <div class="form-score">${r.team_score}-${r.opp_score}</div>
+        <div class="form-opp">${loc}${r.opponent}</div>
+      </div>`;
   }).join('');
-  return `<div class="form-strip">${pills}</div>`;
+  return `<div class="form-strip">${cards}</div>`;
 }
 
 function renderTeamCol(team, summary, injuries) {
@@ -473,14 +493,51 @@ function renderTeamCol(team, summary, injuries) {
   return html;
 }
 
+// Once the game has a final score, tells which side of each line actually
+// hit: moneylineWinner/spreadCover are 'home'/'away'/'push', totalResult is
+// 'over'/'under'/'push'. null (not just the individual fields) when the
+// game hasn't been played yet or there's no line to grade against.
+function betResults(g) {
+  const f = g.final, l = g.lines;
+  if (!f || !l) return null;
+  const homeMargin = f.home_score - f.away_score;
+  const moneylineWinner = homeMargin > 0 ? 'home' : homeMargin < 0 ? 'away' : 'push';
+
+  let spreadCover = null;
+  if (l.home_spread != null) {
+    const covered = homeMargin + l.home_spread;
+    spreadCover = covered > 0 ? 'home' : covered < 0 ? 'away' : 'push';
+  }
+
+  const actualTotal = f.home_score + f.away_score;
+  let totalResult = null;
+  if (l.total_point != null) {
+    totalResult = actualTotal > l.total_point ? 'over' : actualTotal < l.total_point ? 'under' : 'push';
+  }
+
+  return { moneylineWinner, spreadCover, totalResult, actualTotal };
+}
+
 function renderLinesRow(g) {
   const l = g.lines;
   if (!l) return `<div class="no-lines">Line not yet available</div>`;
+  const bets = betResults(g);
+
+  const mlCls = side => (bets && bets.moneylineWinner === side) ? 'line-hit' : '';
+  const spCls = side => (bets && bets.spreadCover === side) ? 'line-hit' : '';
+  const spreadPush = (bets && bets.spreadCover === 'push') ? ' <span class="line-push">PUSH</span>' : '';
+
+  let totalStr = `O/U ${l.total_point != null ? l.total_point : '—'}`;
+  if (bets && bets.totalResult) {
+    const cls = bets.totalResult === 'push' ? 'line-push' : 'line-hit';
+    totalStr += ` <span class="${cls}">(${bets.actualTotal} ${bets.totalResult.toUpperCase()})</span>`;
+  }
+
   return `
     <div class="lines-row">
-      <span>${g.away_team} ${fmtOdds(l.away_moneyline)} / ${g.home_team} ${fmtOdds(l.home_moneyline)}</span>
-      <span>${g.home_team} ${fmtSigned(l.home_spread)} (${fmtOdds(l.home_spread_price)})</span>
-      <span>O/U ${l.total_point != null ? l.total_point : '—'}</span>
+      <span><span class="${mlCls('away')}">${g.away_team} ${fmtOdds(l.away_moneyline)}</span> / <span class="${mlCls('home')}">${g.home_team} ${fmtOdds(l.home_moneyline)}</span></span>
+      <span><span class="${spCls('away')}">${g.away_team} ${fmtSigned(l.away_spread)} (${fmtOdds(l.away_spread_price)})</span> / <span class="${spCls('home')}">${g.home_team} ${fmtSigned(l.home_spread)} (${fmtOdds(l.home_spread_price)})</span>${spreadPush}</span>
+      <span>${totalStr}</span>
       <span class="book-tag">${l.bookmaker}</span>
     </div>`;
 }
