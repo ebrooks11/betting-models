@@ -105,6 +105,26 @@ button { cursor: pointer; }
 .no-lines { text-align: center; padding: 6px 16px; font-size: .66rem; color: var(--text-dim);
   font-style: italic; background: var(--surface-2); border-bottom: 1px solid var(--border); }
 
+.final-row {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 7px 16px; background: var(--surface-2); border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: .78rem; color: var(--text-dim);
+}
+.final-tag {
+  font-size: .58rem; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim);
+  border: 1px solid var(--border); border-radius: 20px; padding: 1px 7px;
+}
+.final-winner { color: var(--text); font-weight: 700; }
+
+.form-strip { display: flex; gap: 4px; margin-bottom: 9px; }
+.form-pill {
+  width: 17px; height: 17px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; font-family: var(--font-mono); font-size: .58rem; font-weight: 700;
+}
+.form-w { background: var(--good-dim); color: var(--good); }
+.form-l { background: var(--bad-dim); color: var(--bad); }
+.form-t { background: var(--surface-3); color: var(--text-dim); }
+
 .game-body { display: grid; grid-template-columns: 1fr 1fr; }
 .team-col { padding: 10px 14px; }
 .team-col + .team-col { border-left: 1px solid var(--border); }
@@ -416,6 +436,24 @@ function byStarterFirst(rows) {
   return [...rows].sort((a, b) => (b.likely_starter ? 1 : 0) - (a.likely_starter ? 1 : 0));
 }
 
+function resultClass(result) {
+  return result === 'W' ? 'form-w' : result === 'L' ? 'form-l' : 'form-t';
+}
+
+function renderFormStrip(recentGames) {
+  if (!recentGames || !recentGames.length) return '';
+  // recent_games arrives most-recent-first (see generate_matchups_table.py);
+  // reversed here so the strip reads oldest-to-newest, left-to-right — the
+  // usual "form guide" convention, most recent game on the right.
+  const games = [...recentGames].reverse();
+  const pills = games.map(r => {
+    const title = `Wk ${r.week}${r.season !== DATA.season ? ` '${String(r.season).slice(2)}` : ''}: ` +
+      `${r.result} ${r.team_score}-${r.opp_score} ${r.home_away === 'home' ? 'vs' : '@'} ${r.opponent}`;
+    return `<span class="form-pill ${resultClass(r.result)}" title="${title}">${r.result}</span>`;
+  }).join('');
+  return `<div class="form-strip">${pills}</div>`;
+}
+
 function renderTeamCol(team, summary, injuries) {
   // One combined list rather than a separate "Reserve list" section —
   // generate_matchups_table.py's _STATUS_RANK already orders active-roster
@@ -425,6 +463,7 @@ function renderTeamCol(team, summary, injuries) {
   const rows = byStarterFirst(injuries);
 
   let html = `<div class="team-col-head">${team}</div>`;
+  html += renderFormStrip(summary.recent_games);
   html += `<div class="sub-head">Injuries</div>`;
   if (!rows.length) {
     html += `<div class="empty-note">No injuries reported</div>`;
@@ -446,6 +485,20 @@ function renderLinesRow(g) {
     </div>`;
 }
 
+function renderFinalRow(g) {
+  const f = g.final;
+  if (!f) return '';
+  const awayCls = f.away_score > f.home_score ? 'final-winner' : '';
+  const homeCls = f.home_score > f.away_score ? 'final-winner' : '';
+  return `
+    <div class="final-row">
+      <span class="final-tag">Final</span>
+      <span class="${awayCls}">${g.away_team} ${f.away_score}</span>
+      <span>–</span>
+      <span class="${homeCls}">${g.home_team} ${f.home_score}</span>
+    </div>`;
+}
+
 function renderGameCard(g) {
   return `
     <div class="game-card">
@@ -453,6 +506,7 @@ function renderGameCard(g) {
         <div class="game-matchup">${g.away_team} @ ${g.home_team}</div>
         <div class="game-time">${g.game_date} · ${g.kickoff_et} ET</div>
       </div>
+      ${renderFinalRow(g)}
       ${renderLinesRow(g)}
       ${renderStaffTable(g)}
       ${renderCompareTable(g)}

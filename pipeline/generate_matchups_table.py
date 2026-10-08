@@ -1,12 +1,15 @@
 """
 Generate docs/data/matchups.json for docs/matchups.html, built from
-data/schedules.parquet (the games list itself), data/injury_reports.parquet,
-data/team_games.parquet, data/game_lines.parquet, data/win_totals.parquet,
-and data/snap_counts.parquet — deliberately never data/pbp.parquet directly
+data/schedules.parquet (the games list itself, and — across its full
+multi-season history, not just the current season — each team's recent
+game log), data/injury_reports.parquet, data/team_games.parquet,
+data/game_lines.parquet, data/win_totals.parquet, and
+data/snap_counts.parquet — deliberately never data/pbp.parquet directly
 (see "Starting QB" below for why). A full matchup view, not just injuries:
-each game shows the current line, and each team shows season-to-date
-point differential/EPA per play/success rate plus its head coach, both
-coordinators, and starting QB, with injuries as one section among several.
+each game shows the current line (and, once played, the final score),
+and each team shows season-to-date point differential/EPA per
+play/success rate plus its head coach, both coordinators, starting QB,
+and last-5-games form, with injuries as one section among several.
 
 Games list comes from schedules.parquet, not injury_reports.parquet
 ------------------------------------------------------------------------
@@ -39,7 +42,10 @@ and a matchups page is a list of per-game cards, not a table. Shape here:
         "game_date": "...", "kickoff_et": "...",
         "away_team": "ATL", "home_team": "GB",
         "lines": {"bookmaker": "draftkings", "home_moneyline": ..., ...} | null,
-        "away_team_summary": { ...see _team_summary_for_season/_coordinators_with_fallback... },
+        "final": {"home_score": 24, "away_score": 17} | null,
+        "away_team_summary": { ...see _team_summary_for_season/_coordinators_with_fallback...,
+                                "recent_games": [ {season, week, opponent, home_away,
+                                                    team_score, opp_score, result}, ... ] },
         "home_team_summary": { ... },
         "away_injuries": [ {player, pos, status, injury, practice: [d1,d2,d3],
                              game_day_inactive, expected_return, notes,
@@ -155,6 +161,26 @@ starting_qb column for exactly this reason — see that table's docstring,
 "Building from a partial pbp.parquet." Every consumer of per-game QB
 info, including this one, should go through team_games.parquet instead of
 needing pbp.parquet themselves.
+
+Final score (final)
+-----------------------
+Set once a game's home_score/away_score are both non-null in
+schedules.parquet (i.e. the game has been played), null before kickoff.
+Shown alongside the pregame line so a past week's card reads as "here's
+what was expected, here's what happened," not just a bare line that
+quietly stopped mattering once the game ended.
+
+Recent form (recent_games)
+-------------------------------
+Each team's last RECENT_GAMES_WINDOW (5) played REG-season games before
+the one being shown — see _team_game_log and _recent_games_before_week.
+Reaches back across the season boundary when
+the current season doesn't have 5 games yet (same "before this week"
+discipline as everything else on this page — only games before the one
+being previewed, so a Week 2 card never shows Week 3's result — but with
+a wider lookback than the single-season stats above, matching how a
+broadcast's "last 5" graphic works): a Week 2 preview shows last
+season's final 4 games plus this season's Week 1, not just one game.
 
 Game lines
 -------------
@@ -430,7 +456,53 @@ def _win_totals_lookup(path: Path, season: int) -> dict:
     return dict(zip(df["team"], df["win_total"]))
 
 
-def _team_summary_entry(team, summaries, coordinators, starting_qbs, win_totals):
+RECENT_GAMES_WINDOW = 5
+
+
+def _team_game_log(schedules_all: pd.DataFrame) -> pd.DataFrame:
+    """Long-format log, one row per (team, played REG game), from both
+    teams' perspective — the input to each team's "last 5 games" strip.
+    Spans every season in schedules.parquet, not just the current one, so
+    early in a season (not yet 5 games played) the window still reaches
+    back into the prior season rather than showing fewer than 5 — the
+    same "always fill the window" choice _snap_shares_before_week makes
+    for the same reason. Team codes are normalized (see _TEAM_NORM) since
+    this reaches back far enough in some teams' histories to hit old
+    codes like OAK/SD/STL that the current season never uses."""
+    df = schedules_all[(schedules_all.game_type == "REG") & schedules_all.home_score.notna()].copy()
+    df["home_team"] = df["home_team"].map(_norm_team)
+    df["away_team"] = df["away_team"].map(_norm_team)
+
+    home = df.rename(columns={"home_team": "team", "away_team": "opponent", "home_score": "team_score", "away_score": "opp_score"})
+    home["home_away"] = "home"
+    away = df.rename(columns={"away_team": "team", "home_team": "opponent", "away_score": "team_score", "home_score": "opp_score"})
+    away["home_away"] = "away"
+
+    cols = ["season", "week", "team", "opponent", "team_score", "opp_score", "home_away"]
+    log = pd.concat([home[cols], away[cols]], ignore_index=True)
+    log["result"] = "T"
+    log.loc[log.team_score > log.opp_score, "result"] = "W"
+    log.loc[log.team_score < log.opp_score, "result"] = "L"
+    return log
+
+
+def _recent_games_before_week(log: pd.DataFrame, season: int, week: int, team: str) -> list:
+    g = log[(log.team == team) & ((log.season < season) | ((log.season == season) & (log.week < week)))]
+    g = g.sort_values(["season", "week"], ascending=False).head(RECENT_GAMES_WINDOW)
+    # Most-recent-first here; matchups.html reverses this for display
+    # (oldest-to-newest, left-to-right — the usual "form guide" reading
+    # order) so the ordering choice lives in one place, not both.
+    return [
+        {
+            "season": int(r.season), "week": int(r.week), "opponent": r.opponent,
+            "home_away": r.home_away, "team_score": int(r.team_score), "opp_score": int(r.opp_score),
+            "result": r.result,
+        }
+        for r in g.itertuples()
+    ]
+
+
+def _team_summary_entry(team, summaries, coordinators, starting_qbs, win_totals, recent_games):
     entry = dict(summaries.get(team, {
         "games_played": 0, "point_differential": None, "points_per_game": None,
         "offensive_points_per_game": None, "epa_per_play": None,
@@ -439,6 +511,7 @@ def _team_summary_entry(team, summaries, coordinators, starting_qbs, win_totals)
     entry.update(coordinators.get(team, {f: None for f in _COORD_FIELDS} | {f"{f}_as_of": None for f in _COORD_FIELDS}))
     entry["starting_qb"] = starting_qbs.get(team)
     entry["preseason_win_total"] = _clean(win_totals.get(team))
+    entry["recent_games"] = recent_games.get(team, [])
     return entry
 
 
@@ -459,6 +532,8 @@ def build():
     snap_counts = pd.read_parquet(DATA_DIR / "snap_counts.parquet", columns=[
         "season", "week", "team", "player", "offense_snaps", "offense_pct", "defense_snaps", "defense_pct", "st_snaps",
     ])
+    game_log = _team_game_log(schedules)
+    all_teams = sorted(set(sched["home_team"]) | set(sched["away_team"]))
 
     weeks = sorted(sched["week"].unique().tolist())
     # "Upcoming" = the earliest week with at least one game not yet
@@ -472,19 +547,22 @@ def build():
         summaries = _team_summary_before_week(team_games, season, week)
         starting_qbs = _starting_qbs_before_week(team_games, season, week)
         snap_shares = _snap_shares_before_week(snap_counts, season, week)
+        recent_games = {team: _recent_games_before_week(game_log, season, week, team) for team in all_teams}
 
         wk_games = sched[sched.week == week].sort_values(["gameday", "gametime"])
         week_games = []
         for _, g in wk_games.iterrows():
             away, home = g["away_team"], g["home_team"]
+            played = pd.notna(g["home_score"]) and pd.notna(g["away_score"])
             week_games.append({
                 "game_date": g["gameday"],
                 "kickoff_et": _fmt_kickoff_et(g["gametime"]),
                 "away_team": away,
                 "home_team": home,
                 "lines": lines_lookup.get((home, away)),
-                "away_team_summary": _team_summary_entry(away, summaries, coordinators, starting_qbs, win_totals),
-                "home_team_summary": _team_summary_entry(home, summaries, coordinators, starting_qbs, win_totals),
+                "final": {"home_score": int(g["home_score"]), "away_score": int(g["away_score"])} if played else None,
+                "away_team_summary": _team_summary_entry(away, summaries, coordinators, starting_qbs, win_totals, recent_games),
+                "home_team_summary": _team_summary_entry(home, summaries, coordinators, starting_qbs, win_totals, recent_games),
                 "away_injuries": _team_injuries(inj, season, week, away, snap_shares),
                 "home_injuries": _team_injuries(inj, season, week, home, snap_shares),
             })
