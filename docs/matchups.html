@@ -132,9 +132,10 @@ button { cursor: pointer; }
   font-size: .52rem; color: var(--text-dim); overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap;
 }
-.form-bets {
-  display: flex; justify-content: center; gap: 5px; margin-top: 2px;
-  font-family: var(--font-mono); font-size: .56rem; font-weight: 700;
+.form-card .form-ats, .form-card .form-total {
+  font-family: var(--font-mono); font-size: .48rem; font-weight: 800;
+  letter-spacing: .02em; text-transform: uppercase; margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .form-hit { color: var(--good); }
 .form-miss { color: var(--bad); }
@@ -461,21 +462,22 @@ function resultClass(result) {
   return result === 'W' ? 'form-w' : result === 'L' ? 'form-l' : 'form-t';
 }
 
-// ATS glyph for this team's own recent_games.covered (true/false/"push"/null)
-// and the O/U glyph for recent_games.total_result ("over"/"under"/"push"/null)
-// — see generate_matchups_table.py's "Recent form" docstring section for how
-// both are graded.
-function atsGlyph(covered) {
-  if (covered === true) return { cls: 'form-hit', label: '✓' };
-  if (covered === false) return { cls: 'form-miss', label: '✗' };
-  if (covered === 'push') return { cls: 'form-push', label: 'P' };
-  return { cls: 'form-push', label: '–' };
+// Spelled-out labels for this team's own recent_games.covered
+// (true/false/"push"/null) and recent_games.total_result
+// ("over"/"under"/"push"/null) — see generate_matchups_table.py's
+// "Recent form" docstring section for how both are graded. null (no
+// line for that game) renders as nothing rather than a vague dash.
+function atsLabel(covered) {
+  if (covered === true) return { cls: 'form-hit', text: 'Covered' };
+  if (covered === false) return { cls: 'form-miss', text: 'No Cover' };
+  if (covered === 'push') return { cls: 'form-push', text: 'Push' };
+  return null;
 }
-function totalGlyph(totalResult) {
-  if (totalResult === 'over') return { cls: 'form-hit', label: 'O' };
-  if (totalResult === 'under') return { cls: 'form-hit', label: 'U' };
-  if (totalResult === 'push') return { cls: 'form-push', label: 'P' };
-  return { cls: 'form-push', label: '–' };
+function totalLabel(totalResult) {
+  if (totalResult === 'over') return { cls: 'form-hit', text: 'Over' };
+  if (totalResult === 'under') return { cls: 'form-hit', text: 'Under' };
+  if (totalResult === 'push') return { cls: 'form-push', text: 'Push' };
+  return null;
 }
 
 function renderFormStrip(recentGames) {
@@ -486,18 +488,19 @@ function renderFormStrip(recentGames) {
   const games = [...recentGames].reverse();
   const cards = games.map(r => {
     const loc = r.home_away === 'home' ? '' : '@';
-    const ats = atsGlyph(r.covered);
-    const tot = totalGlyph(r.total_result);
-    const atsWord = r.covered === 'push' ? 'spread push' : r.covered === true ? 'covered' : r.covered === false ? 'did not cover' : 'spread n/a';
-    const totWord = r.total_result ? r.total_result : 'total n/a';
+    const ats = atsLabel(r.covered);
+    const tot = totalLabel(r.total_result);
     const title = `Wk ${r.week}${r.season !== DATA.season ? ` '${String(r.season).slice(2)}` : ''}: ` +
-      `${r.result} ${r.team_score}-${r.opp_score} ${r.home_away === 'home' ? 'vs' : '@'} ${r.opponent} · ${atsWord} · ${totWord}`;
+      `${r.result} ${r.team_score}-${r.opp_score} ${r.home_away === 'home' ? 'vs' : '@'} ${r.opponent}` +
+      (ats ? ` · ${ats.text === 'No Cover' ? 'did not cover' : ats.text.toLowerCase()}` : '') +
+      (tot ? ` · ${tot.text.toLowerCase()}` : '');
     return `
       <div class="form-card ${resultClass(r.result)}" title="${title}">
         <div class="form-result">${r.result}</div>
         <div class="form-score">${r.team_score}-${r.opp_score}</div>
         <div class="form-opp">${loc}${r.opponent}</div>
-        <div class="form-bets"><span class="${ats.cls}">${ats.label}</span><span class="${tot.cls}">${tot.label}</span></div>
+        ${ats ? `<div class="form-ats ${ats.cls}">${ats.text}</div>` : ''}
+        ${tot ? `<div class="form-total ${tot.cls}">${tot.text}</div>` : ''}
       </div>`;
   }).join('');
   return `<div class="form-strip">${cards}</div>`;
