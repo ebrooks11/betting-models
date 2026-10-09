@@ -121,7 +121,7 @@ button { cursor: pointer; }
 }
 .final-winner { color: var(--text); font-weight: 700; }
 
-.form-strip { display: flex; gap: 3px; margin-bottom: 9px; }
+.form-strip { display: flex; gap: 3px; }
 .form-card {
   flex: 1; min-width: 0; text-align: center; border-radius: var(--r);
   padding: 2px 1px 3px; font-family: var(--font-mono); line-height: 1.3;
@@ -132,20 +132,32 @@ button { cursor: pointer; }
   font-size: .52rem; color: var(--text-dim); overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap;
 }
-.form-card .form-ats, .form-card .form-total {
-  font-family: var(--font-mono); font-size: .48rem; font-weight: 800;
-  letter-spacing: .02em; text-transform: uppercase; margin-top: 2px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.form-hit { color: var(--good); }
-.form-miss { color: var(--bad); }
-.form-push { color: var(--text-dim); }
 .form-w { background: var(--good-dim); }
 .form-w .form-result { color: var(--good); }
 .form-l { background: var(--bad-dim); }
 .form-l .form-result { color: var(--bad); }
 .form-t { background: var(--surface-3); }
 .form-t .form-result { color: var(--text-dim); }
+
+/* ATS and O/U each get their own labeled row of pills (not nested inside
+   the result card) so a trend across the last 5 games — all covers, a
+   string of overs, etc. — reads left-to-right at a glance instead of
+   requiring opening each card individually. */
+.form-row-label {
+  font-size: .52rem; color: var(--text-dim); text-transform: uppercase;
+  letter-spacing: .05em; font-family: var(--font-mono); margin: 5px 0 2px;
+}
+.form-pill-row { display: flex; gap: 3px; margin-bottom: 4px; }
+.form-pill-row:last-child { margin-bottom: 9px; }
+.form-pill {
+  flex: 1; min-width: 0; text-align: center; border-radius: var(--r);
+  padding: 3px 1px; font-family: var(--font-mono); font-size: .56rem;
+  font-weight: 800; text-transform: uppercase; letter-spacing: .01em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.form-pill.form-hit { background: var(--good-dim); color: var(--good); }
+.form-pill.form-miss { background: var(--bad-dim); color: var(--bad); }
+.form-pill.form-push { background: var(--surface-3); color: var(--text-dim); }
 
 .game-body { display: grid; grid-template-columns: 1fr 1fr; }
 .team-col { padding: 10px 14px; }
@@ -486,24 +498,43 @@ function renderFormStrip(recentGames) {
   // reversed here so the strip reads oldest-to-newest, left-to-right — the
   // usual "form guide" convention, most recent game on the right.
   const games = [...recentGames].reverse();
+
   const cards = games.map(r => {
     const loc = r.home_away === 'home' ? '' : '@';
-    const ats = atsLabel(r.covered);
-    const tot = totalLabel(r.total_result);
     const title = `Wk ${r.week}${r.season !== DATA.season ? ` '${String(r.season).slice(2)}` : ''}: ` +
-      `${r.result} ${r.team_score}-${r.opp_score} ${r.home_away === 'home' ? 'vs' : '@'} ${r.opponent}` +
-      (ats ? ` · ${ats.text === 'No Cover' ? 'did not cover' : ats.text.toLowerCase()}` : '') +
-      (tot ? ` · ${tot.text.toLowerCase()}` : '');
+      `${r.result} ${r.team_score}-${r.opp_score} ${r.home_away === 'home' ? 'vs' : '@'} ${r.opponent}`;
     return `
       <div class="form-card ${resultClass(r.result)}" title="${title}">
         <div class="form-result">${r.result}</div>
         <div class="form-score">${r.team_score}-${r.opp_score}</div>
         <div class="form-opp">${loc}${r.opponent}</div>
-        ${ats ? `<div class="form-ats ${ats.cls}">${ats.text}</div>` : ''}
-        ${tot ? `<div class="form-total ${tot.cls}">${tot.text}</div>` : ''}
       </div>`;
   }).join('');
-  return `<div class="form-strip">${cards}</div>`;
+
+  // Own row per metric — not nested inside the result card — so a run of
+  // covers or overs across the last 5 games reads as a trend left-to-right,
+  // the same way the result row already does.
+  const pillRow = (label, items) => `
+    <div class="form-row-label">${label}</div>
+    <div class="form-pill-row">${items.join('')}</div>`;
+
+  const atsPills = games.map(r => {
+    const ats = atsLabel(r.covered);
+    const wk = `Wk ${r.week}${r.season !== DATA.season ? ` '${String(r.season).slice(2)}` : ''}`;
+    if (!ats) return `<div class="form-pill form-push" title="${wk}: no spread line">—</div>`;
+    return `<div class="form-pill ${ats.cls}" title="${wk}: ${ats.text === 'No Cover' ? 'did not cover' : ats.text.toLowerCase()}">${ats.text}</div>`;
+  });
+  const totalPills = games.map(r => {
+    const tot = totalLabel(r.total_result);
+    const wk = `Wk ${r.week}${r.season !== DATA.season ? ` '${String(r.season).slice(2)}` : ''}`;
+    if (!tot) return `<div class="form-pill form-push" title="${wk}: no total line">—</div>`;
+    return `<div class="form-pill ${tot.cls}" title="${wk}: ${tot.text.toLowerCase()}">${tot.text}</div>`;
+  });
+
+  return `
+    <div class="form-strip">${cards}</div>
+    ${pillRow('ATS', atsPills)}
+    ${pillRow('O/U', totalPills)}`;
 }
 
 function renderTeamCol(team, summary, injuries) {
