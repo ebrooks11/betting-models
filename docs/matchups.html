@@ -106,8 +106,11 @@ button { cursor: pointer; }
   font-style: italic; background: var(--surface-2); border-bottom: 1px solid var(--border); }
 /* A line "hit" (winning moneyline side, the team that covered, the
    actual over/under result) once the game's final score is in — see
-   betResults() in the script below. */
+   betResults() in the script below. Under gets its own color (not the
+   same green as a cover/moneyline win or an Over) so "the total went
+   under" doesn't read as equivalent to "this side hit." */
 .line-hit { color: var(--good); font-weight: 700; }
+.line-under { color: var(--accent); font-weight: 700; }
 .line-push { color: var(--text-dim); font-weight: 600; }
 
 .final-row {
@@ -156,6 +159,7 @@ button { cursor: pointer; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .form-pill.form-hit { background: var(--good-dim); color: var(--good); }
+.form-pill.form-under { background: var(--accent-dim); color: var(--accent); }
 .form-pill.form-miss { background: var(--bad-dim); color: var(--bad); }
 .form-pill.form-push { background: var(--surface-3); color: var(--text-dim); }
 
@@ -487,7 +491,7 @@ function atsLabel(covered) {
 }
 function totalLabel(totalResult) {
   if (totalResult === 'over') return { cls: 'form-hit', text: 'Over' };
-  if (totalResult === 'under') return { cls: 'form-hit', text: 'Under' };
+  if (totalResult === 'under') return { cls: 'form-under', text: 'Under' };
   if (totalResult === 'push') return { cls: 'form-push', text: 'Push' };
   return null;
 }
@@ -592,7 +596,7 @@ function renderLinesRow(g) {
 
   let totalStr = `O/U ${l.total_point != null ? l.total_point : '—'}`;
   if (bets && bets.totalResult) {
-    const cls = bets.totalResult === 'push' ? 'line-push' : 'line-hit';
+    const cls = bets.totalResult === 'push' ? 'line-push' : bets.totalResult === 'under' ? 'line-under' : 'line-hit';
     totalStr += ` <span class="${cls}">(${bets.actualTotal} ${bets.totalResult.toUpperCase()})</span>`;
   }
 
