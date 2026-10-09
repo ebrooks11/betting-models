@@ -17,13 +17,22 @@ too slow to refetch every run. This script instead:
      (team_games.parquet, coordinators.parquet, win_totals.parquet,
      snap_counts.parquet), replacing only that season's rows and leaving
      every other season exactly as already there
+  4. Also refreshes data/coordinators.parquet's current-season rows from
+     Wikipedia's per-team staff navbox when the usual season-article
+     scrape comes up empty (see fetch_coordinators.scrape_current_staff),
+     and data/depth_chart.parquet from ESPN's depth chart pages (see
+     fetch_depth_chart.py) — both independent of pbp/schedules, but run
+     here so one script keeps everything current-season current.
 
 data/team_games.parquet, data/coordinators.parquet,
-data/win_totals.parquet, and data/snap_counts.parquet are small enough
-to be the exceptions carved out of this pipeline's usual "data/ is
-gitignored, always regenerable, never committed" rule (see .gitignore) —
-specifically so a fresh checkout already has full history in them, and
-only the current season needs refreshing here.
+data/win_totals.parquet, data/snap_counts.parquet, and
+data/depth_chart.parquet are small enough to be the exceptions carved out
+of this pipeline's usual "data/ is gitignored, always regenerable, never
+committed" rule (see .gitignore) — specifically so a fresh checkout
+already has full history in them, and only the current season needs
+refreshing here. data/depth_chart.parquet accumulates one snapshot per
+week (see _splice_week) rather than being a reconstructable rebuild, the
+same reasoning as data/injury_reports.parquet.
 
 Run locally to test — writes the current season's raw schedules/pbp/NGS
 to data/raw/_current_season/, NOT data/schedules.parquet or
@@ -41,8 +50,9 @@ import pandas as pd
 import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from pipeline import fetch_depth_chart
 from pipeline.build_team_games_table import build_team_games_table
-from pipeline.fetch_coordinators import ALL_TEAMS, scrape_team_season
+from pipeline.fetch_coordinators import ALL_TEAMS, scrape_current_staff, scrape_team_season
 from pipeline.fetch_win_totals import scrape_season
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
@@ -103,12 +113,26 @@ def _fetch_snap_counts(season: int) -> pd.DataFrame:
 
 
 def _scrape_coordinators(season: int) -> pd.DataFrame:
+    # scrape_team_season() reads the season article's own staff table,
+    # which Wikipedia editors only fill in at/after a season ends — for
+    # an in-progress season it comes back empty for every team (confirmed
+    # directly). Fall back to scrape_current_staff(), which reads each
+    # team's continuously-maintained "Template:{Team} staff" navbox
+    # instead — see that function's docstring for why it's reliable
+    # mid-season despite being a different Wikipedia page than the
+    # historical scrape uses. Only used as a fallback (not preferred
+    # outright) so a season that HAS finished still gets the season
+    # article's more stable, dated snapshot rather than a navbox that
+    # already reflects next season's hires.
     session = requests.Session()
     session.headers.update({"User-Agent": "Mozilla/5.0 (research scraper)"})
     rows = []
     for team in ALL_TEAMS:
         try:
-            rows.extend(scrape_team_season(team, season, session))
+            team_rows = scrape_team_season(team, season, session)
+            if not team_rows:
+                team_rows = scrape_current_staff(team, season, session)
+            rows.extend(team_rows)
         except Exception as e:
             print(f"  {season} {team}: ERROR - {e}")
     return pd.DataFrame(rows)
@@ -129,6 +153,27 @@ def _splice(existing_path: Path, fresh: pd.DataFrame, season: int, sort_cols: li
     with `fresh`, leaving every other season's rows untouched."""
     existing = pd.read_parquet(existing_path)
     existing = existing[existing.season != season]
+    combined = pd.concat([existing, fresh], ignore_index=True)
+    return combined.sort_values(sort_cols).reset_index(drop=True)
+
+
+def _splice_week(existing_path: Path, fresh: pd.DataFrame, season: int, week: int, sort_cols: list) -> pd.DataFrame:
+    """Like _splice, but replaces only `season`'s `week` — used for
+    data/depth_chart.parquet, which (unlike team_games.parquet etc.)
+    accumulates one snapshot per week rather than being fully
+    reconstructable from a current-season slice, the same reasoning as
+    build_injury_reports_table.py's week-level splice. ESPN's depth chart
+    only ever shows "right now" — there's no historical endpoint to
+    backfill from — so each week this runs is the only chance to capture
+    that week's snapshot durably; overwriting the whole season on every
+    run (like _splice does) would silently throw away every earlier
+    week's already-captured snapshot instead of just the one being
+    refreshed.
+    """
+    if not existing_path.exists():
+        return fresh.sort_values(sort_cols).reset_index(drop=True)
+    existing = pd.read_parquet(existing_path)
+    existing = existing[~((existing.season == season) & (existing.week == week))]
     combined = pd.concat([existing, fresh], ignore_index=True)
     return combined.sort_values(sort_cols).reset_index(drop=True)
 
@@ -189,6 +234,25 @@ def refresh():
         combined_snaps = _splice(snap_counts_path, snaps_new, season, ["season", "week", "team", "player"])
         combined_snaps.to_parquet(snap_counts_path, index=False)
         print(f"  snap counts: {len(snaps_new)} rows for {season}")
+
+    # Same "earliest week with a game not yet played" rule
+    # generate_matchups_table.py uses for current_week — tags this run's
+    # depth-chart scrape (see below) with which week it's a snapshot of.
+    unplayed = schedules[schedules["home_score"].isna()]
+    current_week = int(unplayed["week"].min()) if not unplayed.empty else int(schedules["week"].max())
+
+    depth_chart_path = DATA_DIR / "depth_chart.parquet"
+    depth_new = pd.DataFrame(fetch_depth_chart.scrape_all(season))
+    if depth_new.empty:
+        print(f"  depth chart: no rows scraped — leaving existing data as-is")
+    else:
+        depth_new["week"] = current_week
+        combined_depth = _splice_week(
+            depth_chart_path, depth_new, season, current_week,
+            ["season", "week", "team", "side", "slot_index", "depth_rank"],
+        )
+        combined_depth.to_parquet(depth_chart_path, index=False)
+        print(f"  depth chart: {len(depth_new)} rows for {season} week {current_week}")
 
     fresh_team_games = build_team_games_table(
         pbp_path=pbp_path,

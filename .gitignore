@@ -15,11 +15,13 @@ __pycache__/
 #   644KB/9MB) and needed pre-populated with full history so CI can
 #   refresh just the current season incrementally instead of re-fetching
 #   decades of pbp every run. See pipeline/fetch_current_season_data.py.
-# - game_lines.parquet, injury_reports.parquet: these accumulate historical
-#   data (line movement, injury-report snapshots) that otherwise exists
-#   nowhere durable in this repo — only in the external Google Sheets they
-#   come from. See pipeline/fetch_game_lines_from_sheet.py and
-#   pipeline/build_injury_reports_table.py.
+# - game_lines.parquet, injury_reports.parquet, depth_chart.parquet: these
+#   accumulate historical data (line movement, injury-report snapshots,
+#   weekly depth-chart snapshots) that otherwise exists nowhere durable in
+#   this repo — only in the external sources they come from, which (unlike
+#   pbp.parquet) don't offer a historical backfill endpoint, only "current
+#   state right now." See pipeline/fetch_game_lines_from_sheet.py,
+#   pipeline/build_injury_reports_table.py, and pipeline/fetch_depth_chart.py.
 !data/team_games.parquet
 !data/coordinators.parquet
 !data/win_totals.parquet
@@ -27,6 +29,7 @@ __pycache__/
 !data/snap_counts.parquet
 !data/game_lines.parquet
 !data/injury_reports.parquet
+!data/depth_chart.parquet
 
 # Local secrets — see pipeline/ODDS_SNAPSHOT_SETUP.md
 .env

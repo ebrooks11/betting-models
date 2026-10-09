@@ -264,6 +264,13 @@ def scrape_team_season(abbr: str, season: int, session: requests.Session) -> lis
         print(f"  {season} {abbr}: no staff table found")
         return []
 
+    return _blocks_to_rows(blocks, season, abbr)
+
+
+def _blocks_to_rows(blocks: dict, season: int, abbr: str) -> list[dict]:
+    """Shared by scrape_team_season and scrape_current_staff: turn a
+    {category_label: [(role_raw, name), ...]} dict (however it was parsed)
+    into the same HC/OC/DC row shape, by category-label prefix."""
     rows = []
     for key, pairs in blocks.items():
         key_lower = key.lower()
@@ -286,8 +293,93 @@ def scrape_team_season(abbr: str, season: int, session: requests.Session) -> lis
                 "role_raw": role_raw,
                 "name": coach_name,
             })
-
     return rows
+
+
+def _parse_staff_navbox_wikitext(wikitext: str) -> dict:
+    """Parse a "Template:{Team} staff" navbox's raw wikitext (e.g.
+    "Template:Arizona Cardinals staff") into the same
+    {category_label: [(role_raw, name), ...]} shape _parse_html_staff_table
+    produces, so _blocks_to_rows can consume either.
+
+    Format: a category-label line, followed by "*Role – Name" bullet lines,
+    repeated for each category ("Front office", "Head coach(es)" (both seen
+    — some teams use the singular, some plural), "Offensive coaches",
+    "Defensive coaches", "Special teams coaches", "Strength and
+    conditioning", ...). The label line itself is either ";Category label"
+    (a definition term — most teams) or "'''Category label'''" (bold text
+    alone on its own line — confirmed on Minnesota's and New Orleans'
+    templates, the only two of 32 that don't use the ";" form). Unlike
+    scrape_team_season's "* Role – [[Name]]" lines, a role label here is
+    sometimes itself a wikilink (e.g. Washington: "* [[List of Washington
+    Commanders head coaches|Head coach]] – [[Dan Quinn...]]") — run it
+    through _extract_names too, not just the name, so role-matching
+    regexes like _HEAD_COACH_TITLE still see plain "Head coach".
+    """
+    _BOLD_LABEL = re.compile(r"^'{3}(.+)'{3}$")
+    blocks: dict = {}
+    label = None
+    pairs: list = []
+    for line in wikitext.splitlines():
+        line = line.strip()
+        bold_match = _BOLD_LABEL.match(line)
+        if line.startswith(";") or bold_match:
+            if label is not None:
+                blocks[label] = pairs
+            label_text = bold_match.group(1) if bold_match else line.lstrip(";").strip()
+            label = _extract_names(label_text)
+            pairs = []
+        elif line.startswith("*") and label is not None:
+            split = _split_role_name(line.lstrip("*").strip())
+            if split:
+                role_raw, name_wikitext = split
+                pairs.append((_extract_names(role_raw), _extract_names(name_wikitext)))
+    if label is not None:
+        blocks[label] = pairs
+    return blocks
+
+
+def scrape_current_staff(abbr: str, season: int, session: requests.Session) -> list[dict]:
+    """Fetch a team's current-staff Wikipedia navbox template — e.g.
+    "Template:Arizona Cardinals staff" — and extract OC/DC/HC rows, same
+    shape as scrape_team_season().
+
+    This is a DIFFERENT Wikipedia page than scrape_team_season() reads
+    (that one reads "{season} {Team} season", e.g. "2026 Arizona Cardinals
+    season"). The season article's own {{NFL final staff}} table is, per
+    its name, only filled in by editors at/after a season ends — confirmed
+    directly: every 2026 team-season scrape via scrape_team_season()
+    returns "no staff table found" as of this writing, mid-season. The
+    navbox template used here is a different, continuously-maintained page
+    transcluded across many articles (this team's season page, its head
+    coach's bio, etc.), so editors keep it current mid-season — this is
+    how fetch_current_season_data.py fills in the CURRENT season's
+    coaching staff instead of falling back to a stale prior season via
+    generate_matchups_table.py's _coordinators_with_fallback.
+
+    Caveat: a navbox template is just as editable as any other Wikipedia
+    page and isn't tied to a specific point in time the way a dated season
+    article table is — it reflects "whatever an editor most recently wrote
+    here," which is usually accurate and current but, unlike
+    scrape_team_season()'s season-article source, carries a small risk of
+    undetected vandalism or a stale edit. Treated here as the best
+    available source for an in-progress season, not as more authoritative
+    than scrape_team_season() for a season that's already finished.
+    """
+    name = _wiki_team_name(abbr, season)
+    title = f"Template:{name.replace(' ', '_')}_staff"
+    resp = session.get(BASE_URL.format(title=title) + "?action=raw", timeout=15)
+    if resp.status_code == 404:
+        print(f"  {abbr}: staff template not found ({title})")
+        return []
+    resp.raise_for_status()
+
+    blocks = _parse_staff_navbox_wikitext(resp.text)
+    if not blocks:
+        print(f"  {abbr}: no staff sections parsed from {title}")
+        return []
+
+    return _blocks_to_rows(blocks, season, abbr)
 
 
 def main():
