@@ -25,13 +25,23 @@ elsewhere depends on.
 Why not every position?
 ---------------------------
 pbp.parquet only names the player directly INVOLVED in a play's outcome —
-passer, rusher, receiver, kicker, punter, returner. There's no "who was on
-the field" list for plays where a player didn't touch the ball (impossible
-without personnel data), so offensive line, defensive line, linebacker,
-and defensive back starters can't be derived this way at all. This file
-only covers QB/RB/WR/TE/K/P/PR/KR — the positions pbp can actually answer
-for. Everything else has no row here, deliberately, rather than a guess
-dressed up as data.
+passer, rusher, receiver. There's no "who was on the field" list for plays
+where a player didn't touch the ball (impossible without personnel data),
+so offensive line, defensive line, linebacker, and defensive back starters
+can't be derived this way at all. This file only covers QB/RB/WR/TE — the
+offensive skill positions pbp can actually answer for. Everything else has
+no row here, deliberately, rather than a guess dressed up as data.
+
+Offense/defense only, no special teams
+-------------------------------------------
+Deliberately excludes kicker/punter/returner entirely, and restricts every
+count below to actual scrimmage plays (play_type "pass"/"run", plus
+"no_play" for a play negated by a penalty and "qb_kneel"/"qb_spike" where
+relevant) — not just whichever rows happen to have a given id column
+filled in. That distinction matters: a trick play like a fake punt can
+leave passer_player_id set on a play_type="punt" row, which would
+otherwise leak a special-teams snap into an offensive skill player's
+count.
 
 Method, per team, per position:
   - QB: pass attempts (passer_player_id)
@@ -42,9 +52,6 @@ Method, per team, per position:
   - WR / TE: targets (receiver_player_id), split by the player's listed
     position (data/ids.parquet) since pbp doesn't tag a receiver's
     position itself
-  - K: field goal attempts (kicker_player_id)
-  - P: punts (punter_player_id)
-  - PR / KR: punt/kickoff returns (*_returner_player_id)
 Ranked by count within (team, position); ties broken by player_id for
 determinism. Rows with count 0 aren't included — pbp simply has no signal
 for a player who didn't do any of this in the half.
@@ -103,9 +110,19 @@ def _rank_rows(df: pd.DataFrame, id_col: str, name_col: str, position: str, metr
     return rows
 
 
+_SCRIMMAGE_PLAY_TYPES = ["pass", "run", "no_play", "qb_kneel", "qb_spike"]
+
+
 def build(season: int) -> pd.DataFrame:
     pbp = _load_week1_pbp(season)
     half1 = pbp[pbp.qtr.isin([1, 2]) & pbp.posteam.notna()]
+    # Scrimmage plays only — not special teams (kickoff/punt/field_goal/
+    # extra_point). Filtering by play_type here, not just by which id
+    # columns happen to be non-null, matters for a case like a fake punt:
+    # that leaves passer_player_id set on a play_type="punt" row, which
+    # would otherwise leak a special-teams snap into an offensive skill
+    # player's count.
+    half1 = half1[half1.play_type.isin(_SCRIMMAGE_PLAY_TYPES)]
 
     rows = []
 
@@ -121,25 +138,6 @@ def build(season: int) -> pd.DataFrame:
     targets["_position"] = targets["receiver_player_id"].map(pos_lookup)
     rows += _rank_rows(targets[targets._position == "WR"], "receiver_player_id", "receiver_player_name", "WR", "targets", season)
     rows += _rank_rows(targets[targets._position == "TE"], "receiver_player_id", "receiver_player_name", "TE", "targets", season)
-
-    # field_goal/extra_point only, not kickoff: on a kickoff row, posteam is
-    # the RECEIVING team, not the kicking team — confirmed directly (a real
-    # 2026 week 1 row: posteam=ARI, kicker_player_name=C.Dicker, LAC's own
-    # kicker). Grouping kickoff rows by posteam would credit the opposing
-    # kicker to the wrong team. field_goal/extra_point don't have this
-    # issue — posteam there is unambiguously the kicking team's own snap.
-    fg_only = half1[half1.play_type.isin(["field_goal", "extra_point"])]
-    rows += _rank_rows(fg_only, "kicker_player_id", "kicker_player_name", "K", "field_goal_attempts", season)
-    rows += _rank_rows(half1, "punter_player_id", "punter_player_name", "P", "punts", season)
-    # PR: grouped by defteam, not posteam — on a punt row, posteam is the
-    # PUNTING team (same reasoning as the kickoff note above, just the
-    # opposite side); the returner belongs to the receiving team, which is
-    # defteam on that row. KR has the opposite case — a kickoff's
-    # kickoff_returner_player_name correctly matches posteam already
-    # (confirmed in the same sample row above: posteam=ARI, returner=ARI's
-    # own D.Duvernay) — no team_col override needed there.
-    rows += _rank_rows(half1, "punt_returner_player_id", "punt_returner_player_name", "PR", "punt_returns", season, team_col="defteam")
-    rows += _rank_rows(half1, "kickoff_returner_player_id", "kickoff_returner_player_name", "KR", "kick_returns", season)
 
     return pd.DataFrame(rows).sort_values(["team", "position", "depth_rank"]).reset_index(drop=True)
 
