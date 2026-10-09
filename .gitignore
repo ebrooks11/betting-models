@@ -30,6 +30,11 @@ __pycache__/
 !data/game_lines.parquet
 !data/injury_reports.parquet
 !data/depth_chart.parquet
+# - week1_baseline_starters.parquet: a one-time-per-season derivation (see
+#   pipeline/build_week1_baseline_starters.py) from Week 1 play-by-play,
+#   which doesn't change after the fact — not part of the weekly refresh,
+#   but still small and worth keeping durable rather than regenerate-only.
+!data/week1_baseline_starters.parquet
 
 # Local secrets — see pipeline/ODDS_SNAPSHOT_SETUP.md
 .env
