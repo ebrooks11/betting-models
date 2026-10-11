@@ -1,7 +1,7 @@
 """
 Derives a "healthy baseline" starting lineup per team from Week 1 play-by-play
-— who was actually on the field doing the position's job in the FIRST HALF
-of their Week 1 game, before a season's worth of injuries could set in.
+— who was actually doing the position's job in their Week 1 game, before a
+season's worth of injuries could set in.
 
 Why not just use data/depth_chart.parquet (ESPN's depth chart)?
 ---------------------------------------------------------------------
@@ -12,15 +12,18 @@ season, since hurt) down at depth_rank 4, tagged IR. It's exactly the kind
 of downgrade this file exists to help notice, not something to compare
 against as if it were the baseline.
 
-Why not full-game Week 1 stats?
---------------------------------------
-A starter hurt mid-game (or in a blowout, pulled in the second half) would
-have his stats diluted by whoever replaced him, understating his role. The
-first half is a reasonable proxy for "who the team actually planned to
-start," without needing the current season's personnel/participation data
-(unavailable — see fetch_current_season_data.py's _fetch_pbp docstring),
-which the normal depth-chart-via-snap-counts approach this project uses
-elsewhere depends on.
+Full game, not first half
+-------------------------------
+An earlier version of this file restricted counting to the first half only,
+on the theory that a starter hurt mid-game (or pulled in a blowout) would
+have his full-game stats diluted by whoever replaced him. Reversed after a
+real misfire: Philadelphia's DeVonta Smith — clearly the WR1 — came out
+behind Darius Wicks on first-half targets alone (4 vs. 3, essentially a
+coin flip), while the full game shows Smith clearly ahead (6 vs. 4). WR
+target competition in particular is often close enough that halving the
+sample size introduces more noise than it removes — the rarer case the
+half-game restriction protected against (a starter hurt early in his own
+Week 1 opener) is a worse trade than that.
 
 Why not every position?
 ---------------------------
@@ -46,7 +49,7 @@ count.
 Method, per team, per position:
   - QB: pass attempts (passer_player_id)
   - RB: rush attempts (rusher_player_id), excluding any play where the
-    rusher was also a passer on some other play in the half (catches QB
+    rusher was also a passer on some other play in the game (catches QB
     scrambles/kneels without needing a separately-identified "starting
     QB" first) and any qb_kneel/qb_spike play
   - WR / TE: targets (receiver_player_id), split by the player's listed
@@ -54,7 +57,7 @@ Method, per team, per position:
     position itself
 Ranked by count within (team, position); ties broken by player_id for
 determinism. Rows with count 0 aren't included — pbp simply has no signal
-for a player who didn't do any of this in the half.
+for a player who didn't do any of this.
 
 Run locally once Week 1 pbp is available (reads
 data/raw/_current_season/pbp.parquet if present, else fetches fresh):
@@ -115,26 +118,26 @@ _SCRIMMAGE_PLAY_TYPES = ["pass", "run", "no_play", "qb_kneel", "qb_spike"]
 
 def build(season: int) -> pd.DataFrame:
     pbp = _load_week1_pbp(season)
-    half1 = pbp[pbp.qtr.isin([1, 2]) & pbp.posteam.notna()]
+    game = pbp[pbp.posteam.notna()]
     # Scrimmage plays only — not special teams (kickoff/punt/field_goal/
     # extra_point). Filtering by play_type here, not just by which id
     # columns happen to be non-null, matters for a case like a fake punt:
     # that leaves passer_player_id set on a play_type="punt" row, which
     # would otherwise leak a special-teams snap into an offensive skill
     # player's count.
-    half1 = half1[half1.play_type.isin(_SCRIMMAGE_PLAY_TYPES)]
+    game = game[game.play_type.isin(_SCRIMMAGE_PLAY_TYPES)]
 
     rows = []
 
-    rows += _rank_rows(half1, "passer_player_id", "passer_player_name", "QB", "pass_attempts", season)
+    rows += _rank_rows(game, "passer_player_id", "passer_player_name", "QB", "pass_attempts", season)
 
-    passer_ids_by_team = half1.dropna(subset=["passer_player_id"]).groupby("posteam")["passer_player_id"].apply(set)
-    rush = half1[(half1.qb_kneel != 1) & (half1.qb_spike != 1)].dropna(subset=["rusher_player_id"]).copy()
+    passer_ids_by_team = game.dropna(subset=["passer_player_id"]).groupby("posteam")["passer_player_id"].apply(set)
+    rush = game[(game.qb_kneel != 1) & (game.qb_spike != 1)].dropna(subset=["rusher_player_id"]).copy()
     rush = rush[~rush.apply(lambda r: r["rusher_player_id"] in passer_ids_by_team.get(r["posteam"], set()), axis=1)]
     rows += _rank_rows(rush, "rusher_player_id", "rusher_player_name", "RB", "rush_attempts", season)
 
     pos_lookup = _position_lookup()
-    targets = half1.dropna(subset=["receiver_player_id"]).copy()
+    targets = game.dropna(subset=["receiver_player_id"]).copy()
     targets["_position"] = targets["receiver_player_id"].map(pos_lookup)
     rows += _rank_rows(targets[targets._position == "WR"], "receiver_player_id", "receiver_player_name", "WR", "targets", season)
     rows += _rank_rows(targets[targets._position == "TE"], "receiver_player_id", "receiver_player_name", "TE", "targets", season)
