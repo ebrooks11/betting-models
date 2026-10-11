@@ -123,6 +123,23 @@ it's just looked up for the season, not averaged or windowed. The
 before-this-week cutoff applies to
 starting_qb below, for the same reason.
 
+Power record (power_wins, power_losses, power_win_pct)
+------------------------------------------------------------
+Like preseason_win_total, this is a whole-team record stat, not an
+offense-specific one, but is still shown on the compare table (the same
+exception preseason_win_total already is) since it's useful "at a
+glance" context for the matchup. A team's power wins are its own wins
+plus the win total each opponent IT BEAT had at the time of that game;
+power losses are its own losses plus the loss total of each opponent
+that beat it, also at the time. Not a recomputed-from-final-standings
+stat — an opponent's record used is a snapshot from when the game was
+actually played, so a team's power record from an early win doesn't
+retroactively change in week 10 just because that beaten opponent went
+on a late-season run. See _power_record_before_week for the full
+walkthrough; this is a port of the existing reference implementation in
+pipeline/export_rolling_epa.py ("Power Record:" section), not a
+separate definition — both should stay in agreement.
+
 Coordinators with fallback
 ------------------------------
 hc_name/oc_name/dc_name come from team_games.parquet for the current
@@ -470,6 +487,54 @@ def _win_totals_lookup(path: Path, season: int) -> dict:
     return dict(zip(df["team"], df["win_total"]))
 
 
+def _power_record_before_week(sched: pd.DataFrame) -> dict:
+    """(week, team) -> {power_wins, power_losses}, snapshotting each team's
+    power record BEFORE that week's games — the same no-lookahead
+    discipline as every other "before this week" stat in this file.
+
+    Power record already has a reference implementation in this repo
+    (pipeline/export_rolling_epa.py, "Power Record:" section) — ported
+    from there rather than redefined: a team's power wins are its own
+    wins plus the win total EACH BEATEN OPPONENT HAD AT THE TIME of that
+    game (not that opponent's current/final record) — same for power
+    losses via teams it lost to. Using the opponent's record "at the
+    time" rather than their current record means a team's power record
+    doesn't retroactively change in later weeks just because an opponent
+    they already played got better or worse — it's a running tally, not
+    a recomputed-from-final-standings stat. Processed strictly week by
+    week so two teams playing in the same week don't affect each other's
+    power record from that week's own result.
+    """
+    from collections import defaultdict
+
+    all_teams = sorted(set(sched["home_team"]) | set(sched["away_team"]))
+    wins: dict = defaultdict(int)
+    losses: dict = defaultdict(int)
+    power_wins: dict = defaultdict(int)
+    power_losses: dict = defaultdict(int)
+
+    out = {}
+    max_week = int(sched["week"].max())
+    for week in range(1, max_week + 2):  # +1 so the week right after the season's last played week also gets a snapshot
+        for team in all_teams:
+            out[(week, team)] = {"power_wins": power_wins[team], "power_losses": power_losses[team]}
+
+        week_games = sched[(sched.week == week) & sched.home_score.notna() & sched.away_score.notna()]
+        for _, g in week_games.iterrows():
+            home, away = g["home_team"], g["away_team"]
+            if g["home_score"] > g["away_score"]:
+                winner, loser = home, away
+            elif g["away_score"] > g["home_score"]:
+                winner, loser = away, home
+            else:
+                continue  # tie — no update
+            power_wins[winner] += 1 + wins[loser]
+            power_losses[loser] += 1 + losses[winner]
+            wins[winner] += 1
+            losses[loser] += 1
+    return out
+
+
 RECENT_GAMES_WINDOW = 5
 
 
@@ -552,7 +617,7 @@ def _recent_games_before_week(log: pd.DataFrame, season: int, week: int, team: s
     ]
 
 
-def _team_summary_entry(team, summaries, coordinators, starting_qbs, win_totals, recent_games):
+def _team_summary_entry(team, summaries, coordinators, starting_qbs, win_totals, recent_games, power_records):
     entry = dict(summaries.get(team, {
         "games_played": 0, "point_differential": None, "points_per_game": None,
         "offensive_points_per_game": None, "epa_per_play": None,
@@ -562,6 +627,11 @@ def _team_summary_entry(team, summaries, coordinators, starting_qbs, win_totals,
     entry["starting_qb"] = starting_qbs.get(team)
     entry["preseason_win_total"] = _clean(win_totals.get(team))
     entry["recent_games"] = recent_games.get(team, [])
+    power = power_records.get(team, {"power_wins": 0, "power_losses": 0})
+    entry["power_wins"] = power["power_wins"]
+    entry["power_losses"] = power["power_losses"]
+    pw, pl = power["power_wins"], power["power_losses"]
+    entry["power_win_pct"] = _round(pw / (pw + pl)) if (pw + pl) > 0 else None
     return entry
 
 
@@ -584,6 +654,7 @@ def build():
     ])
     game_log = _team_game_log(schedules)
     all_teams = sorted(set(sched["home_team"]) | set(sched["away_team"]))
+    power_record_by_week = _power_record_before_week(sched)
 
     weeks = sorted(sched["week"].unique().tolist())
     # "Upcoming" = the earliest week with at least one game not yet
@@ -598,6 +669,7 @@ def build():
         starting_qbs = _starting_qbs_before_week(team_games, season, week)
         snap_shares = _snap_shares_before_week(snap_counts, season, week)
         recent_games = {team: _recent_games_before_week(game_log, season, week, team) for team in all_teams}
+        power_records = {team: power_record_by_week.get((week, team), {"power_wins": 0, "power_losses": 0}) for team in all_teams}
 
         wk_games = sched[sched.week == week].sort_values(["gameday", "gametime"])
         week_games = []
@@ -611,8 +683,8 @@ def build():
                 "home_team": home,
                 "lines": lines_lookup.get((home, away)),
                 "final": {"home_score": int(g["home_score"]), "away_score": int(g["away_score"])} if played else None,
-                "away_team_summary": _team_summary_entry(away, summaries, coordinators, starting_qbs, win_totals, recent_games),
-                "home_team_summary": _team_summary_entry(home, summaries, coordinators, starting_qbs, win_totals, recent_games),
+                "away_team_summary": _team_summary_entry(away, summaries, coordinators, starting_qbs, win_totals, recent_games, power_records),
+                "home_team_summary": _team_summary_entry(home, summaries, coordinators, starting_qbs, win_totals, recent_games, power_records),
                 "away_injuries": _team_injuries(inj, season, week, away, snap_shares),
                 "home_injuries": _team_injuries(inj, season, week, home, snap_shares),
             })
