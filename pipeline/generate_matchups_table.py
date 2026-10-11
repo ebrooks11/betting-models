@@ -123,22 +123,24 @@ it's just looked up for the season, not averaged or windowed. The
 before-this-week cutoff applies to
 starting_qb below, for the same reason.
 
-Power record (power_wins, power_losses, power_win_pct)
-------------------------------------------------------------
+Power record (power_wins_full, power_losses_full, power_win_pct —
+plus power_wins/power_losses, computed but not displayed)
+----------------------------------------------------------------------
 Like preseason_win_total, this is a whole-team record stat, not an
 offense-specific one, but is still shown on the compare table (the same
 exception preseason_win_total already is) since it's useful "at a
-glance" context for the matchup. A team's power wins are its own wins
-plus the win total each opponent IT BEAT had at the time of that game;
-power losses are its own losses plus the loss total of each opponent
-that beat it, also at the time. Not a recomputed-from-final-standings
-stat — an opponent's record used is a snapshot from when the game was
-actually played, so a team's power record from an early win doesn't
-retroactively change in week 10 just because that beaten opponent went
-on a late-season run. See _power_record_before_week for the full
-walkthrough; this is a port of the existing reference implementation in
-pipeline/export_rolling_epa.py ("Power Record:" section), not a
-separate definition — both should stay in agreement.
+glance" context for the matchup. Two versions exist — see
+_power_record_before_week for both definitions and why — but the page
+only displays the "full" one: a team's power wins are its own wins plus
+the CURRENT win total of every opponent it has beaten; power losses are
+its own losses plus the CURRENT loss total of every opponent that has
+beaten it. An opponent's record going into a late-season run
+retroactively makes an earlier win against them look better — that's
+intentional, not a bug, per an explicit correction to this file's first
+("at the time of the game") attempt. power_wins/power_losses (the
+"at the time" version) are still computed and present in the data for
+comparison, same reasoning as point_differential/points_per_game above,
+but aren't surfaced on the page.
 
 Coordinators with fallback
 ------------------------------
@@ -488,22 +490,34 @@ def _win_totals_lookup(path: Path, season: int) -> dict:
 
 
 def _power_record_before_week(sched: pd.DataFrame) -> dict:
-    """(week, team) -> {power_wins, power_losses}, snapshotting each team's
-    power record BEFORE that week's games — the same no-lookahead
-    discipline as every other "before this week" stat in this file.
+    """(week, team) -> {power_wins, power_losses, power_wins_full,
+    power_losses_full}, snapshotting each team's power record BEFORE that
+    week's games — the same no-lookahead discipline as every other
+    "before this week" stat in this file. Two versions, both kept:
 
-    Power record already has a reference implementation in this repo
-    (pipeline/export_rolling_epa.py, "Power Record:" section) — ported
-    from there rather than redefined: a team's power wins are its own
-    wins plus the win total EACH BEATEN OPPONENT HAD AT THE TIME of that
-    game (not that opponent's current/final record) — same for power
-    losses via teams it lost to. Using the opponent's record "at the
-    time" rather than their current record means a team's power record
-    doesn't retroactively change in later weeks just because an opponent
-    they already played got better or worse — it's a running tally, not
-    a recomputed-from-final-standings stat. Processed strictly week by
-    week so two teams playing in the same week don't affect each other's
-    power record from that week's own result.
+    power_wins / power_losses ("at the time"): a team's power wins are
+    its own wins plus the win total EACH BEATEN OPPONENT HAD AT THE TIME
+    of that specific game (not that opponent's current record) — same
+    for power losses via teams it lost to. A running tally: a team's
+    power record from an early win doesn't retroactively change later
+    just because that opponent got better or worse. This was the first
+    version built here, ported from the existing reference
+    implementation in pipeline/export_rolling_epa.py ("Power Record:"
+    section) — kept for comparison, but NOT what the matchups page
+    displays (see power_wins_full below).
+
+    power_wins_full / power_losses_full ("full", what the page actually
+    shows): the version the page's own user actually wants — a team's
+    power wins are its own wins plus the CURRENT win total (as of the
+    same before-this-week snapshot) of every opponent it has beaten so
+    far; power losses are its own losses plus the CURRENT loss total of
+    every opponent that has beaten it. Explicitly rejected the "at the
+    time" framing above for this: an opponent beaten early that goes on
+    a hot streak SHOULD retroactively make that win look better. Verified
+    by hand against the worked example that prompted this: a 2-1 team
+    that beat a now-1-2 team and a now-2-1 team, and lost to a now-2-1
+    team, has a 5-2 power record (2 + 1 + 2 wins, 1 + 1 loss) — this
+    function reproduces that exactly.
     """
     from collections import defaultdict
 
@@ -512,12 +526,19 @@ def _power_record_before_week(sched: pd.DataFrame) -> dict:
     losses: dict = defaultdict(int)
     power_wins: dict = defaultdict(int)
     power_losses: dict = defaultdict(int)
+    beaten: dict = defaultdict(list)   # team -> opponents it has beaten so far
+    lost_to: dict = defaultdict(list)  # team -> opponents it has lost to so far
 
     out = {}
     max_week = int(sched["week"].max())
     for week in range(1, max_week + 2):  # +1 so the week right after the season's last played week also gets a snapshot
         for team in all_teams:
-            out[(week, team)] = {"power_wins": power_wins[team], "power_losses": power_losses[team]}
+            full_wins = wins[team] + sum(wins[o] for o in beaten[team])
+            full_losses = losses[team] + sum(losses[o] for o in lost_to[team])
+            out[(week, team)] = {
+                "power_wins": power_wins[team], "power_losses": power_losses[team],
+                "power_wins_full": full_wins, "power_losses_full": full_losses,
+            }
 
         week_games = sched[(sched.week == week) & sched.home_score.notna() & sched.away_score.notna()]
         for _, g in week_games.iterrows():
@@ -530,6 +551,8 @@ def _power_record_before_week(sched: pd.DataFrame) -> dict:
                 continue  # tie — no update
             power_wins[winner] += 1 + wins[loser]
             power_losses[loser] += 1 + losses[winner]
+            beaten[winner].append(loser)
+            lost_to[loser].append(winner)
             wins[winner] += 1
             losses[loser] += 1
     return out
@@ -627,11 +650,18 @@ def _team_summary_entry(team, summaries, coordinators, starting_qbs, win_totals,
     entry["starting_qb"] = starting_qbs.get(team)
     entry["preseason_win_total"] = _clean(win_totals.get(team))
     entry["recent_games"] = recent_games.get(team, [])
-    power = power_records.get(team, {"power_wins": 0, "power_losses": 0})
+    power = power_records.get(team, {
+        "power_wins": 0, "power_losses": 0, "power_wins_full": 0, "power_losses_full": 0,
+    })
     entry["power_wins"] = power["power_wins"]
     entry["power_losses"] = power["power_losses"]
-    pw, pl = power["power_wins"], power["power_losses"]
-    entry["power_win_pct"] = _round(pw / (pw + pl)) if (pw + pl) > 0 else None
+    entry["power_wins_full"] = power["power_wins_full"]
+    entry["power_losses_full"] = power["power_losses_full"]
+    pwf, plf = power["power_wins_full"], power["power_losses_full"]
+    # The matchups page displays the "full" (current-opponent-record)
+    # version — see _power_record_before_week's docstring — so this is
+    # the win pct the compare table's better/worse highlight sorts on.
+    entry["power_win_pct"] = _round(pwf / (pwf + plf)) if (pwf + plf) > 0 else None
     return entry
 
 
@@ -669,7 +699,12 @@ def build():
         starting_qbs = _starting_qbs_before_week(team_games, season, week)
         snap_shares = _snap_shares_before_week(snap_counts, season, week)
         recent_games = {team: _recent_games_before_week(game_log, season, week, team) for team in all_teams}
-        power_records = {team: power_record_by_week.get((week, team), {"power_wins": 0, "power_losses": 0}) for team in all_teams}
+        power_records = {
+            team: power_record_by_week.get((week, team), {
+                "power_wins": 0, "power_losses": 0, "power_wins_full": 0, "power_losses_full": 0,
+            })
+            for team in all_teams
+        }
 
         wk_games = sched[sched.week == week].sort_values(["gameday", "gametime"])
         week_games = []

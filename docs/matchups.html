@@ -398,7 +398,7 @@ function fmtOdds(v) {
 // framing for the matchup rather than a per-play offensive rate.
 const COMPARE_METRICS = [
   { key: 'preseason_win_total', label: 'Win Total', fmt: v => v != null ? v.toFixed(1) : '—' },
-  { key: 'power_win_pct', label: 'Power Record', fmt: (v, row) => row.power_wins != null ? `${row.power_wins}-${row.power_losses}` : '—' },
+  { key: 'power_win_pct', label: 'Power Record', fmt: (v, row) => row.power_wins_full != null ? `${row.power_wins_full}-${row.power_losses_full}` : '—' },
   { key: 'success_rate', label: 'Success Rate', fmt: v => v != null ? (v * 100).toFixed(0) + '%' : '—' },
   { key: 'epa_per_play', label: 'EPA/Play', fmt: v => fmtStat(v, 2) },
   { key: 'early_down_success_rate', label: 'Early Down Success', fmt: v => v != null ? (v * 100).toFixed(0) + '%' : '—' },
