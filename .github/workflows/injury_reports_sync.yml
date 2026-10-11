@@ -20,14 +20,14 @@ on:
     # ET, well before the 12:15pm Sunday slot below — confirmed missing
     # live: the 2026 week 5 JAX/PHI London game had no injury data on the
     # site at kickoff, because the sheet (ready by 8:19am ET that day)
-    # hadn't been synced yet. Added a 9:00am ET Sunday slot for this.
+    # hadn't been synced yet. Added an 8:45am ET Sunday slot for this.
     # Exact timing is a judgment call from that one data point, not a
     # guaranteed pattern — being early just means a harmless no-op if the
     # sheet isn't ready yet (see the note below on tolerating early runs).
 
     # --- EDT (UTC-4): now through ~Nov 1, 2026 ---
     - cron: "25 23 * * 4"  # Thu 7:25pm ET
-    - cron: "0 13 * * 0"   # Sun 9:00am ET
+    - cron: "45 12 * * 0"  # Sun 8:45am ET
     - cron: "15 16 * * 0"  # Sun 12:15pm ET
     - cron: "15 19 * * 0"  # Sun 3:15pm ET
     - cron: "30 23 * * 0"  # Sun 7:30pm ET
@@ -35,7 +35,7 @@ on:
 
     # --- EST (UTC-5): ~Nov 1, 2026 onward ---
     - cron: "25 0 * * 5"   # Thu 7:25pm ET (-> Fri 00:25 UTC)
-    - cron: "0 14 * * 0"   # Sun 9:00am ET
+    - cron: "45 13 * * 0"  # Sun 8:45am ET
     - cron: "15 17 * * 0"  # Sun 12:15pm ET
     - cron: "15 20 * * 0"  # Sun 3:15pm ET
     - cron: "30 0 * * 1"   # Sun 7:30pm ET (-> Mon 00:30 UTC)
