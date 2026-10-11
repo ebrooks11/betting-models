@@ -80,19 +80,35 @@ without rebuilding the underlying table.
 
 Starter emphasis (snap_share, likely_starter)
 ------------------------------------------------
-Each injury row also carries snap_share — the player's recent share of
-their unit's snaps (see _snap_shares_before_week's docstring for the
-exact window/fallback logic) — and likely_starter, a simple threshold on
-that value. Neither comes from a real depth chart (data/depth_charts.parquet
-stops at 2024 and isn't kept current by this pipeline); they're inferred
-from data/snap_counts.parquet, which PFR does publish within a day or two
-of each 2026 game. This is a proxy, not ground truth — a committee
-backfield can have no player clear the threshold, and a player who
-hasn't taken a single snap in a long time (new signing, far outside
-either season's window) just comes back with snap_share: null — but it's
-real usage data, not a guess, and directly answers what a fantasy manager
-actually wants to know about an injury: was this player actually
-playing.
+Each injury row carries snap_share (informational — the player's recent
+share of their unit's snaps, see _snap_shares_before_week) and
+likely_starter, the flag that actually drives the UI's emphasis.
+
+likely_starter's source depends on whether Week 1 has an opinion about
+this player (see _week1_starter_lookup): for QB/RB/WR/TE, it's a FIXED,
+one-time determination from data/week1_baseline_starters.parquet's
+depth_rank == 1 — decided once from Week 1 and never recomputed, not
+reflecting snap_share at all, even if it changes later in the season.
+This was an explicit correction, not the original design: an earlier
+version derived likely_starter from a rolling recent-snap-share average,
+which failed for a player whose recent games are themselves depressed
+by the injury being evaluated — e.g. a back who played hurt for several
+weeks before finally sitting has no "recent form" window that isn't
+already contaminated, even though he's clearly the starter when actually
+healthy (a real case: Philadelphia's Saquon Barkley, 71%/16%/72%/7%
+offense share across his first 4 games this season — no 3-game rolling
+average clears any reasonable threshold, only his best individual games
+do). Deciding it once from Week 1 and holding it fixed sidesteps that
+failure mode entirely for the positions Week 1 can speak to.
+
+For every other position (OL/DL/LB/DB/ST — week1_baseline_starters.parquet
+only covers QB/RB/WR/TE, see that file's own docstring for why) and for
+any player Week 1 has no data for at all (not yet rostered that early),
+likely_starter falls back to the original snap_share >= threshold check.
+This is still a real, known-imperfect proxy there — a rotational
+front-seven starter (e.g. a DT who shares snaps with a partner) can run
+a lower share than this threshold even at full health, a case this file
+has deliberately left uncorrected (see SNAP_SHARE_STARTER_THRESHOLD).
 
 Team season summary
 -----------------------
@@ -362,8 +378,58 @@ def _snap_shares_before_week(snap_counts: pd.DataFrame, season: int, week: int) 
     return out
 
 
-def _player_row(r, snap_shares):
+def _player_id_lookup() -> dict:
+    """Full player name -> gsis_id, from data/ids.parquet. Needed because
+    week1_baseline_starters.parquet's `player` column is pbp's own
+    short-name format ("S.Barkley", from passer/rusher/receiver_player_name
+    — see build_week1_baseline_starters.py), not comparable to
+    injury_reports.parquet's full names ("Saquon Barkley") via text
+    normalization alone — matched on that table's player_id (also a
+    gsis_id) instead."""
+    ids = pd.read_parquet(DATA_DIR / "ids.parquet", columns=["gsis_id", "name"])
+    ids = ids.dropna(subset=["gsis_id", "name"])
+    return dict(zip(ids["name"], ids["gsis_id"]))
+
+
+def _week1_starter_lookup(path: Path) -> tuple:
+    """(set of every (team, gsis_id) in week1_baseline_starters.parquet,
+    set of just the depth_rank==1 ones) — see
+    pipeline/build_week1_baseline_starters.py. Determining who's a starter
+    from this instead of live snap share was an explicit correction: a
+    player whose recent games are themselves depressed by the injury
+    being evaluated (e.g. a back who's been playing hurt for weeks before
+    finally sitting) can have no recent-average window that clears a
+    snap-share threshold, even though he's clearly the starter when
+    actually healthy. This fixes that by deciding starter status ONCE,
+    from Week 1, and never re-deriving it — not by reusing the correction
+    for the DL/LB/DB rotation issue those positions still have (see
+    SNAP_SHARE_STARTER_THRESHOLD below), since this source only covers
+    QB/RB/WR/TE in the first place.
+    """
+    if not path.exists():
+        return set(), set()
+    df = pd.read_parquet(path, columns=["team", "player_id", "depth_rank"])
+    all_keys = set(zip(df["team"], df["player_id"]))
+    rank1_keys = set(zip(df[df.depth_rank == 1]["team"], df[df.depth_rank == 1]["player_id"]))
+    return all_keys, rank1_keys
+
+
+def _player_row(r, snap_shares, week1_starters, player_ids):
+    week1_all, week1_rank1 = week1_starters
     snap_share = snap_shares.get((r["team"], _norm_player_name(r["player"])))
+    gsis_id = player_ids.get(r["player"])
+    week1_key = (r["team"], gsis_id)
+    # Week 1's fixed determination is authoritative whenever it has an
+    # opinion at all (i.e. this player was on a week1-baseline-covered
+    # position's board, at any depth_rank — not just the starter) — only
+    # falls back to the live snap-share threshold for a player Week 1 has
+    # no data for at all (every non-QB/RB/WR/TE position, a player who
+    # wasn't rostered yet in week 1, or one data/ids.parquet has no gsis_id
+    # for).
+    if gsis_id is not None and week1_key in week1_all:
+        likely_starter = week1_key in week1_rank1
+    else:
+        likely_starter = bool(snap_share is not None and snap_share >= SNAP_SHARE_STARTER_THRESHOLD)
     return {
         "player": r["player"],
         "pos": _clean(r["pos"]),
@@ -374,11 +440,11 @@ def _player_row(r, snap_shares):
         "expected_return": _clean(r["expected_return"]),
         "notes": _clean(r["notes"]),
         "snap_share": _round(snap_share, 2),
-        "likely_starter": bool(snap_share is not None and snap_share >= SNAP_SHARE_STARTER_THRESHOLD),
+        "likely_starter": likely_starter,
     }
 
 
-def _team_injuries(df, season, week, team, snap_shares):
+def _team_injuries(df, season, week, team, snap_shares, week1_starters, player_ids):
     # Keyed by (season, week, team) only, not also by the injury sheet's
     # own "AWAY @ HOME" game string — the games list itself now comes from
     # schedules.parquet (see build()), a different source, so matching on
@@ -388,7 +454,7 @@ def _team_injuries(df, season, week, team, snap_shares):
     rows["_inactive_rank"] = ~rows["game_day_inactive"]
     rows["_rank"] = rows["status"].map(_STATUS_RANK).fillna(9)
     rows = rows.sort_values(["_inactive_rank", "_rank", "player"])
-    return [_player_row(r, snap_shares) for _, r in rows.iterrows()]
+    return [_player_row(r, snap_shares, week1_starters, player_ids) for _, r in rows.iterrows()]
 
 
 def _team_summary_before_week(team_games: pd.DataFrame, season: int, week: int) -> dict:
@@ -682,6 +748,8 @@ def build():
     snap_counts = pd.read_parquet(DATA_DIR / "snap_counts.parquet", columns=[
         "season", "week", "team", "player", "offense_snaps", "offense_pct", "defense_snaps", "defense_pct", "st_snaps",
     ])
+    week1_starters = _week1_starter_lookup(DATA_DIR / "week1_baseline_starters.parquet")
+    player_ids = _player_id_lookup()
     game_log = _team_game_log(schedules)
     all_teams = sorted(set(sched["home_team"]) | set(sched["away_team"]))
     power_record_by_week = _power_record_before_week(sched)
@@ -720,8 +788,8 @@ def build():
                 "final": {"home_score": int(g["home_score"]), "away_score": int(g["away_score"])} if played else None,
                 "away_team_summary": _team_summary_entry(away, summaries, coordinators, starting_qbs, win_totals, recent_games, power_records),
                 "home_team_summary": _team_summary_entry(home, summaries, coordinators, starting_qbs, win_totals, recent_games, power_records),
-                "away_injuries": _team_injuries(inj, season, week, away, snap_shares),
-                "home_injuries": _team_injuries(inj, season, week, home, snap_shares),
+                "away_injuries": _team_injuries(inj, season, week, away, snap_shares, week1_starters, player_ids),
+                "home_injuries": _team_injuries(inj, season, week, home, snap_shares, week1_starters, player_ids),
             })
         games_by_week[str(week)] = week_games
 
