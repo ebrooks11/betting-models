@@ -3,9 +3,9 @@ Generate docs/data/matchups.json for docs/matchups.html, built from
 data/schedules.parquet (the games list itself, and — across its full
 multi-season history, not just the current season — each team's recent
 game log), data/injury_reports.parquet, data/team_games.parquet,
-data/game_lines.parquet, data/win_totals.parquet, and
-data/snap_counts.parquet — deliberately never data/pbp.parquet directly
-(see "Starting QB" below for why). A full matchup view, not just injuries:
+data/game_lines.parquet, data/win_totals.parquet, data/snap_counts.parquet,
+and data/madden_ratings.parquet — deliberately never data/pbp.parquet
+directly (see "Starting QB" below for why). A full matchup view, not just injuries:
 each game shows the current line (and, once played, the final score),
 and each team shows season-to-date point differential/EPA per
 play/success rate plus its head coach, both coordinators, starting QB,
@@ -50,7 +50,7 @@ and a matchups page is a list of per-game cards, not a table. Shape here:
         "home_team_summary": { ... },
         "away_injuries": [ {player, pos, status, injury, practice: [d1,d2,d3],
                              game_day_inactive, expected_return, notes,
-                             snap_share, likely_starter}, ... ],
+                             snap_share, likely_starter, madden_rating}, ... ],
         "home_injuries": [ ... ]
       }, ...
     ],
@@ -109,6 +109,30 @@ This is still a real, known-imperfect proxy there — a rotational
 front-seven starter (e.g. a DT who shares snaps with a partner) can run
 a lower share than this threshold even at full health, a case this file
 has deliberately left uncorrected (see SNAP_SHARE_STARTER_THRESHOLD).
+
+Madden rating on injury rows
+--------------------------------
+Each injury row also carries madden_rating — the injured player's overall
+Madden rating, so a fantasy manager can judge at a glance how much an
+"Out"/"Questionable" tag actually costs a team (a backup OT going down
+reads very differently from a 95-overall one). Pulled from the single
+most recent snapshot in data/madden_ratings.parquet (see
+_madden_iteration_rank below for "most recent"), not whichever iteration
+happened to be current as of the game's own week — Madden ratings don't
+update on the same cadence as the NFL week being displayed, and showing
+a stale mid-season snapshot next to a current-week injury would be more
+confusing than useful.
+
+Joined on (team, normalized full name), the same text-matching approach
+_snap_shares_before_week uses for snap_counts.parquet — there's no id
+crosswalk between EA's player ids and this project's gsis_id system (see
+pipeline/fetch_madden_ratings.py's docstring). This leaves two known gaps,
+both accepted: (1) a nickname mismatch between the two sources (e.g.
+injury_reports.parquet's "Cameron Heyward" vs Madden's "Cam Heyward")
+fails to match even though both clearly mean the same player, and (2) a
+good chunk of practice-squad/deep-roster players simply aren't rated in
+Madden at all. madden_rating is null in both cases — the UI treats a
+missing rating as "no Madden data for this player," not an error.
 
 Team season summary
 -----------------------
@@ -378,6 +402,41 @@ def _snap_shares_before_week(snap_counts: pd.DataFrame, season: int, week: int) 
     return out
 
 
+_MADDEN_WEEK_RE = re.compile(r"week-(\d+)\Z")
+
+
+def _madden_iteration_rank(iteration: str) -> int:
+    """Orders data/madden_ratings.parquet's snapshots from oldest to
+    newest: "1-base" (Launch Ratings, preseason) sorts before any
+    "madden-ratings-week-N", and higher N is more recent. Regex-based
+    rather than a fixed lookup table so a new week's iteration (week-5,
+    week-6, ...) is recognized automatically as the season goes on,
+    without needing this file edited each time."""
+    m = _MADDEN_WEEK_RE.search(iteration)
+    return int(m.group(1)) if m else -1
+
+
+def _madden_rating_lookup(path: Path) -> dict:
+    """(team, normalized player name) -> Madden overall rating, from only
+    the single most recent snapshot in data/madden_ratings.parquet (see
+    _madden_iteration_rank) — not a per-week lookup, since Madden ratings
+    update on their own cadence, not in lockstep with the NFL week being
+    displayed (see this file's "Madden rating on injury rows" docstring
+    section for why mixing snapshots would be misleading). Returns {} if
+    the file doesn't exist yet, so this stays optional rather than a hard
+    dependency."""
+    if not path.exists():
+        return {}
+    df = pd.read_parquet(path, columns=["team", "first_name", "last_name", "overall", "madden_iteration"])
+    latest = max(df["madden_iteration"].unique(), key=_madden_iteration_rank)
+    df = df[df.madden_iteration == latest]
+    out = {}
+    for _, r in df.iterrows():
+        full_name = f"{r['first_name']} {r['last_name']}"
+        out[(r["team"], _norm_player_name(full_name))] = int(r["overall"])
+    return out
+
+
 def _player_id_lookup() -> dict:
     """Full player name -> gsis_id, from data/ids.parquet. Needed because
     week1_baseline_starters.parquet's `player` column is pbp's own
@@ -414,9 +473,11 @@ def _week1_starter_lookup(path: Path) -> tuple:
     return all_keys, rank1_keys
 
 
-def _player_row(r, snap_shares, week1_starters, player_ids):
+def _player_row(r, snap_shares, week1_starters, player_ids, madden_ratings):
     week1_all, week1_rank1 = week1_starters
-    snap_share = snap_shares.get((r["team"], _norm_player_name(r["player"])))
+    norm_name = _norm_player_name(r["player"])
+    snap_share = snap_shares.get((r["team"], norm_name))
+    madden_rating = madden_ratings.get((r["team"], norm_name))
     gsis_id = player_ids.get(r["player"])
     week1_key = (r["team"], gsis_id)
     # Week 1's fixed determination is authoritative whenever it has an
@@ -441,10 +502,11 @@ def _player_row(r, snap_shares, week1_starters, player_ids):
         "notes": _clean(r["notes"]),
         "snap_share": _round(snap_share, 2),
         "likely_starter": likely_starter,
+        "madden_rating": _clean(madden_rating),
     }
 
 
-def _team_injuries(df, season, week, team, snap_shares, week1_starters, player_ids):
+def _team_injuries(df, season, week, team, snap_shares, week1_starters, player_ids, madden_ratings):
     # Keyed by (season, week, team) only, not also by the injury sheet's
     # own "AWAY @ HOME" game string — the games list itself now comes from
     # schedules.parquet (see build()), a different source, so matching on
@@ -454,7 +516,7 @@ def _team_injuries(df, season, week, team, snap_shares, week1_starters, player_i
     rows["_inactive_rank"] = ~rows["game_day_inactive"]
     rows["_rank"] = rows["status"].map(_STATUS_RANK).fillna(9)
     rows = rows.sort_values(["_inactive_rank", "_rank", "player"])
-    return [_player_row(r, snap_shares, week1_starters, player_ids) for _, r in rows.iterrows()]
+    return [_player_row(r, snap_shares, week1_starters, player_ids, madden_ratings) for _, r in rows.iterrows()]
 
 
 def _team_summary_before_week(team_games: pd.DataFrame, season: int, week: int) -> dict:
@@ -750,6 +812,7 @@ def build():
     ])
     week1_starters = _week1_starter_lookup(DATA_DIR / "week1_baseline_starters.parquet")
     player_ids = _player_id_lookup()
+    madden_ratings = _madden_rating_lookup(DATA_DIR / "madden_ratings.parquet")
     game_log = _team_game_log(schedules)
     all_teams = sorted(set(sched["home_team"]) | set(sched["away_team"]))
     power_record_by_week = _power_record_before_week(sched)
@@ -788,8 +851,8 @@ def build():
                 "final": {"home_score": int(g["home_score"]), "away_score": int(g["away_score"])} if played else None,
                 "away_team_summary": _team_summary_entry(away, summaries, coordinators, starting_qbs, win_totals, recent_games, power_records),
                 "home_team_summary": _team_summary_entry(home, summaries, coordinators, starting_qbs, win_totals, recent_games, power_records),
-                "away_injuries": _team_injuries(inj, season, week, away, snap_shares, week1_starters, player_ids),
-                "home_injuries": _team_injuries(inj, season, week, home, snap_shares, week1_starters, player_ids),
+                "away_injuries": _team_injuries(inj, season, week, away, snap_shares, week1_starters, player_ids, madden_ratings),
+                "home_injuries": _team_injuries(inj, season, week, home, snap_shares, week1_starters, player_ids, madden_ratings),
             })
         games_by_week[str(week)] = week_games
 

@@ -229,6 +229,9 @@ button { cursor: pointer; }
   background: var(--accent-dim); border-left: 2px solid var(--accent);
 }
 .snap-badge { font-family: var(--font-mono); font-size: .6rem; color: var(--accent); margin-left: 6px; }
+.madden-badge {
+  font-family: var(--font-mono); font-size: .6rem; color: var(--text-dim); margin-left: 6px;
+}
 .inj-row.compact {
   display: flex; align-items: baseline; gap: 8px; padding: 2px 0;
   font-size: .68rem; border-bottom: 1px solid var(--border);
@@ -332,6 +335,15 @@ function renderInjuryRow(r) {
   return r.likely_starter ? renderStarterInjuryRow(r) : renderCompactInjuryRow(r);
 }
 
+// madden_rating comes from the most recent snapshot in
+// data/madden_ratings.parquet, joined by (team, name) — see
+// generate_matchups_table.py's "Madden rating on injury rows" docstring
+// section for why it's null for some players (nickname mismatches, or a
+// deep-roster player Madden doesn't rate at all) rather than always present.
+function maddenBadge(r) {
+  return r.madden_rating != null ? `<span class="madden-badge" title="Madden overall">${r.madden_rating} OVR</span>` : '';
+}
+
 function renderStarterInjuryRow(r) {
   const detailParts = [];
   if (r.injury) detailParts.push(r.injury);
@@ -343,7 +355,7 @@ function renderStarterInjuryRow(r) {
   return `
     <div class="inj-row starter">
       <div class="inj-top">
-        <span>${dot}<span class="inj-player">${r.player}</span><span class="inj-pos">${r.pos || ''}</span>${snapBadge}</span>
+        <span>${dot}<span class="inj-player">${r.player}</span><span class="inj-pos">${r.pos || ''}</span>${snapBadge}${maddenBadge(r)}</span>
         <span class="status-badge ${statusClass(r.status)}">${r.status}</span>
       </div>
       ${detailParts.length ? `<div class="inj-detail">${detailParts.join(' · ')}</div>` : ''}
@@ -359,7 +371,7 @@ function renderCompactInjuryRow(r) {
 
   return `
     <div class="inj-row compact">
-      <span class="inj-compact-name">${dot}<span class="inj-player">${r.player}</span><span class="inj-pos">${r.pos || ''}</span></span>
+      <span class="inj-compact-name">${dot}<span class="inj-player">${r.player}</span><span class="inj-pos">${r.pos || ''}</span>${maddenBadge(r)}</span>
       <span class="inj-compact-detail">${detailParts.join(' · ')}</span>
       <span class="status-badge ${statusClass(r.status)}">${r.status}</span>
     </div>`;
