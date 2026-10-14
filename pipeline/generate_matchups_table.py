@@ -68,15 +68,20 @@ even before injuries or lines exist for a given week.
 
 Injury ordering
 ------------------
-Within each team's injury list, rows are ordered by (1) confirmed
-game-day-inactive first — regardless of status/type, since "not playing
-today" is the single most actionable fact for a fantasy manager reading
-this ahead of kickoff — then (2) _STATUS_RANK (the actual weekly
-game-status designations first — Out down to No designation — then
-healthy scratches, then season-long reserve-list entries), then (3)
-player name. This ordering is a display judgment call made here, not
-baked into injury_reports.parquet itself, so it's easy to change later
-without rebuilding the underlying table.
+Within each team's injury list, rows are ordered by (1) "actually not
+playing" first — confirmed game-day-inactive OR a status in
+_INACTIVE_STATUSES (Out, Doubtful, Injured Reserve, IR - Designated to
+Return, PUP, NFI, Suspended, Inactive (healthy/other) — everything except
+Questionable and No designation, i.e. the two statuses where the player
+is still expected to suit up) — then, within each of those two groups,
+(2) Madden overall rating descending (missing rating sorts last), then
+(3) snap_share descending (missing sorts last), then (4) player name.
+This puts the players who are both certainly out AND clearly
+important (a 90+ overall starter) at the very top of the list, which is
+the single most actionable combination of facts for a fantasy manager
+reading this ahead of kickoff. This ordering is a display judgment call
+made here, not baked into injury_reports.parquet itself, so it's easy to
+change later without rebuilding the underlying table.
 
 Starter emphasis (snap_share, likely_starter)
 ------------------------------------------------
@@ -305,17 +310,19 @@ def _fmt_kickoff_et(gametime) -> str:
     return f"{hour12}:{minute} {period}"
 
 
-_STATUS_RANK = {
-    "Out": 0,
-    "Doubtful": 1,
-    "Questionable": 2,
-    "No designation": 3,
-    "Inactive (healthy/other)": 4,
-    "Injured Reserve": 5,
-    "IR - Designated to Return": 5,
-    "PUP": 6,
-    "NFI": 6,
-    "Suspended": 7,
+# Every status except these two means the player is not expected to play
+# this game at all — see the "Injury ordering" docstring section above for
+# why that's the primary sort group, ahead of game-day-inactive, rating,
+# and snap share.
+_INACTIVE_STATUSES = {
+    "Out",
+    "Doubtful",
+    "Inactive (healthy/other)",
+    "Injured Reserve",
+    "IR - Designated to Return",
+    "PUP",
+    "NFI",
+    "Suspended",
 }
 
 _COORD_FIELDS = ["hc_name", "oc_name", "dc_name"]
@@ -506,17 +513,33 @@ def _player_row(r, snap_shares, week1_starters, player_ids, madden_ratings):
     }
 
 
+def _is_inactive(player_row) -> bool:
+    return player_row["game_day_inactive"] or player_row["status"] in _INACTIVE_STATUSES
+
+
+def _desc_none_last(value):
+    """Sort key for "higher value first, missing value last" — a plain
+    `-value` would instead put None-as-sorted-last require a second
+    comparable type, which errors when mixed with floats/ints in the same
+    sort; this returns a tuple that compares correctly either way."""
+    return (0, -value) if value is not None else (1, 0)
+
+
 def _team_injuries(df, season, week, team, snap_shares, week1_starters, player_ids, madden_ratings):
     # Keyed by (season, week, team) only, not also by the injury sheet's
     # own "AWAY @ HOME" game string — the games list itself now comes from
     # schedules.parquet (see build()), a different source, so matching on
     # team identity alone is both simpler and more robust than requiring
     # the two sources' game-string formatting to agree.
-    rows = df[(df.season == season) & (df.week == week) & (df.team == team)].copy()
-    rows["_inactive_rank"] = ~rows["game_day_inactive"]
-    rows["_rank"] = rows["status"].map(_STATUS_RANK).fillna(9)
-    rows = rows.sort_values(["_inactive_rank", "_rank", "player"])
-    return [_player_row(r, snap_shares, week1_starters, player_ids, madden_ratings) for _, r in rows.iterrows()]
+    rows = df[(df.season == season) & (df.week == week) & (df.team == team)]
+    players = [_player_row(r, snap_shares, week1_starters, player_ids, madden_ratings) for _, r in rows.iterrows()]
+    players.sort(key=lambda p: (
+        0 if _is_inactive(p) else 1,
+        _desc_none_last(p["madden_rating"]),
+        _desc_none_last(p["snap_share"]),
+        p["player"],
+    ))
+    return players
 
 
 def _team_summary_before_week(team_games: pd.DataFrame, season: int, week: int) -> dict:

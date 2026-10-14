@@ -164,7 +164,12 @@ button { cursor: pointer; }
 .form-pill.form-push { background: var(--surface-3); color: var(--text-dim); }
 
 .game-body { display: grid; grid-template-columns: 1fr 1fr; }
-.team-col { padding: 10px 14px; }
+/* min-width: 0 overrides the grid item default (min-width: auto), which
+   otherwise refuses to shrink a column below its content's intrinsic
+   width — e.g. a long unbroken injury-row line — and silently pushes the
+   second (right-hand/home) column out past the card's edge, where
+   .game-card's overflow: hidden then clips it instead of wrapping it. */
+.team-col { padding: 10px 14px; min-width: 0; }
 .team-col + .team-col { border-left: 1px solid var(--border); }
 .team-col-head {
   font-family: var(--font-cond); font-weight: 700; font-size: .85rem;
@@ -230,14 +235,16 @@ button { cursor: pointer; }
 }
 .snap-badge { font-family: var(--font-mono); font-size: .6rem; color: var(--accent); margin-left: 6px; }
 .madden-badge {
-  font-family: var(--font-mono); font-size: .6rem; color: var(--text-dim); margin-left: 6px;
+  font-family: var(--font-mono); font-weight: 700; font-size: .68rem;
+  color: var(--accent); background: var(--accent-dim);
+  padding: 1px 6px; border-radius: 20px; margin-left: 6px; white-space: nowrap;
 }
 .inj-row.compact {
-  display: flex; align-items: baseline; gap: 8px; padding: 2px 0;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; padding: 2px 0;
   font-size: .68rem; border-bottom: 1px solid var(--border);
 }
 .inj-row.compact:last-child { border-bottom: none; }
-.inj-compact-name { flex-shrink: 0; white-space: nowrap; }
+.inj-compact-name { flex-shrink: 0; max-width: 100%; white-space: nowrap; }
 .inj-compact-detail {
   color: var(--text-dim); font-size: .64rem; flex: 1; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -482,14 +489,6 @@ function renderStaffTable(g) {
     </div>`;
 }
 
-// Array.prototype.sort is stable (ES2019+), so this only reorders
-// starters to the front — within "starters" and "everyone else" each
-// group keeps the game_day_inactive/status/name ordering the data
-// already arrived in.
-function byStarterFirst(rows) {
-  return [...rows].sort((a, b) => (b.likely_starter ? 1 : 0) - (a.likely_starter ? 1 : 0));
-}
-
 function resultClass(result) {
   return result === 'W' ? 'form-w' : result === 'L' ? 'form-l' : 'form-t';
 }
@@ -558,12 +557,13 @@ function renderFormStrip(recentGames) {
 }
 
 function renderTeamCol(team, summary, injuries) {
-  // One combined list rather than a separate "Reserve list" section —
-  // generate_matchups_table.py's _STATUS_RANK already orders active-roster
-  // statuses (Out..No designation) ahead of reserve-list ones
-  // (Injured Reserve/PUP/NFI/Suspended), so byStarterFirst's stable sort
-  // just pulls starters to the top while preserving that within each group.
-  const rows = byStarterFirst(injuries);
+  // No frontend re-sort — generate_matchups_table.py's _team_injuries
+  // already orders this list (inactive-in-any-way first, then Madden
+  // rating descending, then snap_share descending, then name; see that
+  // file's "Injury ordering" docstring section). renderInjuryRow still
+  // switches per-row on likely_starter for which card style to use, just
+  // not for ordering.
+  const rows = injuries;
 
   let html = `<div class="team-col-head">${team}</div>`;
   html += renderFormStrip(summary.recent_games);
