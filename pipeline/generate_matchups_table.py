@@ -4,8 +4,9 @@ data/schedules.parquet (the games list itself, and — across its full
 multi-season history, not just the current season — each team's recent
 game log), data/injury_reports.parquet, data/team_games.parquet,
 data/game_lines.parquet, data/win_totals.parquet, data/snap_counts.parquet,
-and data/madden_ratings.parquet — deliberately never data/pbp.parquet
-directly (see "Starting QB" below for why). A full matchup view, not just injuries:
+data/madden_ratings.parquet, and data/depth_chart.parquet (the last two
+via pipeline/team_rating.py, see "roster_rating" below) — deliberately
+never data/pbp.parquet directly (see "Starting QB" below for why). A full matchup view, not just injuries:
 each game shows the current line (and, once played, the final score),
 and each team shows season-to-date point differential/EPA per
 play/success rate plus its head coach, both coordinators, starting QB,
@@ -167,6 +168,18 @@ pipeline/fetch_win_totals.py) and never changes, so
 it's just looked up for the season, not averaged or windowed. The
 before-this-week cutoff applies to
 starting_qb below, for the same reason.
+
+roster_rating (pipeline/team_rating.py)
+--------------------------------------------
+Shown right after preseason_win_total on the compare table — a
+position-weighted-Madden-rating talent score, calibrated to real NFL
+scoring history so it reads as "expected points against a league-average
+opponent." See that file's own module docstring for the full system and
+every weighting/calibration decision; not reproduced here. Unlike every
+other per-week stat above, this ISN'T derived from team_games.parquet at
+all (so there's no "before this week" cutoff to apply) — it comes from
+the CURRENT depth chart and that week's own injury-report snapshot, both
+independent of game results.
 
 Power record (power_wins_full, power_losses_full, power_win_pct —
 plus power_wins/power_losses, computed but not displayed)
@@ -810,7 +823,7 @@ def _recent_games_before_week(log: pd.DataFrame, season: int, week: int, team: s
     ]
 
 
-def _team_summary_entry(team, summaries, coordinators, starting_qbs, win_totals, recent_games, power_records):
+def _team_summary_entry(team, summaries, coordinators, starting_qbs, win_totals, roster_ratings, week, recent_games, power_records):
     entry = dict(summaries.get(team, {
         "games_played": 0, "point_differential": None, "points_per_game": None,
         "offensive_points_per_game": None, "epa_per_play": None,
@@ -819,6 +832,13 @@ def _team_summary_entry(team, summaries, coordinators, starting_qbs, win_totals,
     entry.update(coordinators.get(team, {f: None for f in _COORD_FIELDS} | {f"{f}_as_of": None for f in _COORD_FIELDS}))
     entry["starting_qb"] = starting_qbs.get(team)
     entry["preseason_win_total"] = _clean(win_totals.get(team))
+    # See pipeline/team_rating.py's module docstring for the full system
+    # (position-weighted Madden ratings, calibrated to real NFL scoring
+    # history) — {} (and therefore None here) whenever a required source
+    # (depth_chart.parquet, madden_ratings.parquet) isn't available yet,
+    # so this stat degrades gracefully rather than blocking the rest of
+    # the page.
+    entry["roster_rating"] = _clean(roster_ratings.get((team, week)))
     entry["recent_games"] = recent_games.get(team, [])
     power = power_records.get(team, {
         "power_wins": 0, "power_losses": 0, "power_wins_full": 0, "power_losses_full": 0,
@@ -860,6 +880,9 @@ def build():
     power_record_by_week = _power_record_before_week(sched)
 
     weeks = sorted(sched["week"].unique().tolist())
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from pipeline.team_rating import team_ratings_by_week
+    roster_ratings = team_ratings_by_week(season, weeks)
     # "Upcoming" = the earliest week with at least one game not yet
     # played (home_score still null) — falls back to the final week once
     # the whole season is complete.
@@ -891,8 +914,8 @@ def build():
                 "home_team": home,
                 "lines": lines_lookup.get((home, away)),
                 "final": {"home_score": int(g["home_score"]), "away_score": int(g["away_score"])} if played else None,
-                "away_team_summary": _team_summary_entry(away, summaries, coordinators, starting_qbs, win_totals, recent_games, power_records),
-                "home_team_summary": _team_summary_entry(home, summaries, coordinators, starting_qbs, win_totals, recent_games, power_records),
+                "away_team_summary": _team_summary_entry(away, summaries, coordinators, starting_qbs, win_totals, roster_ratings, week, recent_games, power_records),
+                "home_team_summary": _team_summary_entry(home, summaries, coordinators, starting_qbs, win_totals, roster_ratings, week, recent_games, power_records),
                 "away_injuries": _team_injuries(inj, season, week, away, snap_shares, week1_starters, player_ids, madden_ratings),
                 "home_injuries": _team_injuries(inj, season, week, home, snap_shares, week1_starters, player_ids, madden_ratings),
             })
