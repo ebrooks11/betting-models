@@ -97,13 +97,31 @@ def _open_sheet():
 
 
 def _team_name_map() -> dict:
+    # data/team_desc.parquet is NOT a tracked .gitignore exception and
+    # isn't produced by any script either GitHub Actions workflow that
+    # calls into this file runs (injury_reports_sync.yml via
+    # fetch_injury_reports_from_drive.py, weekly_stats_refresh.yml
+    # directly) — a bare pd.read_parquet() here crashed every fresh-CI
+    # run with FileNotFoundError, confirmed live: a backfill run that had
+    # otherwise worked (injury_reports.parquet rebuilt successfully) still
+    # failed outright at this exact line, since fetch_injury_reports_from_drive.py's
+    # sync() only tolerates a SystemExit from build_game_lines(), not this.
+    # src.data_loader.get_team_desc() is this project's existing
+    # self-sufficient fetch-and-cache for this exact file (same pattern
+    # used to fix the identical data/ids.parquet crash in
+    # generate_matchups_table.py's _player_id_lookup) — reusing it here
+    # instead of a raw read means a missing cache just costs one small
+    # nfl_data_py call instead of aborting the whole sync.
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from src.data_loader import get_team_desc
+
+    desc = get_team_desc()
     # team_desc.parquet has two rows for "Los Angeles Rams" — team_abbr
     # 'LA' and 'LAR' both map to the same franchise (an nflverse source
     # quirk, not a typo). Since dict(zip(...)) keeps whichever row comes
     # last, that would otherwise silently resolve to 'LAR', while every
     # other table in this pipeline normalizes the Rams to 'LA' — patched
     # explicitly here to match that convention.
-    desc = pd.read_parquet(DATA_DIR / "team_desc.parquet")
     name_map = dict(zip(desc["team_name"], desc["team_abbr"]))
     name_map["Los Angeles Rams"] = "LA"
     return name_map
