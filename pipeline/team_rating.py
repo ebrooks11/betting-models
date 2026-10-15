@@ -83,95 +83,104 @@ convention (see build_week1_baseline_starters.py's own "Offense/defense
 only" section) and the user's own framing of this feature.
 
 ------------------------------------------------------------------------
-Position weights — the actual numbers, and why
+Position weights — grounded in 2026 NFL franchise tag values
 ------------------------------------------------------------------------
-Anchored first to two explicit examples the project owner gave (QB=10,
-a mid-tier skill position like WR=5), then to NFL positional-value
-research (market/draft-capital-based rankings — see the "Positional
-Value in the NFL" research consulted while designing this: QB is
-~2.7x the value of an average non-QB starter; edge rusher is the
-clear #2 position, narrowly ahead of wide receiver; offensive tackle
-and interior defensive line follow closely behind those two; running
-back and off-ball linebacker are consistently the most devalued
-starting positions in modern cap/draft markets), then filled in with
-ordinary football judgment for positions the research didn't address
-directly (interior OL, safety, slot corner, fullback).
+SUPERSEDES an earlier version of this file that hand-tuned these weights
+from positional-value research and the project owner's own examples
+(QB=10, WR=5, MLB/FB=0.5-1). Replaced on the project owner's explicit
+instruction to anchor them to real contract data instead: the 2026 NFL
+franchise tag amount for each position, confirmed directly against two
+independent sources (NBC Sports' report on the NFL's own announcement,
+and Over the Cap's published figures) —
 
-POSITION_WEIGHTS values (at a 100 Madden overall, this is the full
-point contribution; scales linearly down to 0 at a 0 overall):
-  QB   10.0  — the clear outlier, matches both the explicit example and
-               the "~2.7x an average starter" research finding
-  WR    5.0  — the project owner's own example; 3 starting WR slots per
-               team, so a true WR corps can out-weigh any other single
-               position group
-  LDE/
-  RDE   5.5  — edge rushers, research's narrow #2 behind QB (just above
-               WR) — true pass-rushing ends in both 4-3 and 3-4 share
-               this weight (see the 3-4 OLB note below for why the
-               *other* edge-ish position in a 3-4 is handled differently)
-  LT/RT 4.5  — tackles, research's next tier down from edge/WR
-  LCB/
-  RCB   4.5  — outside corner; not covered directly by the research
-               consulted, but shutdown corners command some of the
-               largest non-QB second contracts in the league, so this
-               sits with tackles rather than down with safety
-  LDT/
-  RDT   4.0  — 4-3 defensive tackle (interior DL), research's tier
-               alongside tackle, just under edge
-  NT    8.0  — the 3-4's single nose tackle anchors the ENTIRE interior
-               line alone, where a 4-3 splits that job across two DTs
-               (4.0 + 4.0 = 8.0) — weighted so a team's interior-line
-               talent budget is scheme-neutral: a 3-4 team isn't
-               penalized for running a 1-man line unless its nose
-               tackle is actually weaker than the other team's two DTs
-               combined (see "scheme neutrality" below)
-  NB    3.5  — slot corner; a full-time starter in modern 3-WR
-               sub-packages but still a half-step behind an outside
-               corner by convention
-  RB    3.0  — explicitly one of the most devalued starting positions
-               in current NFL cap/draft markets ("running back
-               devaluation" is a well-established theme), set below
-               tackle/edge/corner and roughly level with TE
-  TE    3.0  — level with RB; valuable but a clear step behind the
-               WR corps
-  LG/RG/
-  C     2.5  — interior offensive line; valuable but a step behind
-               tackle, who faces the harder one-on-one pass-rush
-               matchups on the edge
-  FS/SS 2.5  — safety; set level with interior OL rather than with
-               corner, matching how safety typically trails corner in
-               cap-market research even though both cover
-  WLB/SLB 2.5 — see "3-4 OLB" note directly below
-  MLB   1.0  — off-ball linebacker, the project owner's own example of
-               a low-weight position, and consistently one of the two
-               most devalued starting spots (with RB) in cap-market
-               research
-  LILB/
-  RILB  0.5  — half of MLB's weight each, so the 3-4's two inside
-               backers (0.5 + 0.5 = 1.0) sum to the SAME total as the
-               4-3's single Mike linebacker — scheme neutrality again
-  FB    0.5  — the project owner's own low-weight example; only 13/32
-               teams even list a starting fullback, so this also only
-               ever applies to a minority of teams
+  FRANCHISE_TAG_2026 ($ millions, non-exclusive tag, one year):
+    QB  43.895   WR  27.298   DT  27.127   LB  26.865   OL  25.773
+    DE  24.434   CB  21.161   S   20.149   TE  15.045   RB  14.293
 
-3-4 OLB note (WLB/SLB): a 3-4 defense's weak-side/strong-side
-linebackers are frequently its primary EDGE rushers (functionally close
-to a 4-3's defensive end), while a 4-3's WLB/SLB are conventional
-off-ball linebackers closer to MLB in role. This is a real scheme
-difference this model does NOT attempt to detect or weight differently
-— WLB/SLB get one fixed weight (2.5) regardless of scheme, deliberately
-set above MLB's pure-off-ball weight (1.0) but below a true primary edge
-(5.5) as a single blended compromise. Flagged explicitly as a
-simplification, not an oversight.
+The franchise tag is a clean, externally-verifiable number for exactly
+the thing this model wants — "what does the market pay for a top-5
+player at this position" — since by rule it's defined as the average of
+the top 5 cap hits at the position (or 120% of the player's own prior
+salary, if greater), recalculated by the league every year. Using it
+instead of hand-tuned numbers means this table updates by replacing ten
+numbers with next year's tag values, not by re-litigating judgment calls.
 
-Scheme neutrality: by design, a team's defensive-line weight total
-(LDE+RDE+LDT+RDT = 19.0, vs LDE+RDE+NT = 19.0) and linebacker weight
-total (MLB = 1.0, vs LILB+RILB = 1.0) are identical whether the team
-runs a 4-3 or a 3-4 — so this model doesn't systematically favor either
-scheme; a team's rating differs based on its players' Madden ratings,
-not which scheme label ESPN's depth chart happens to use. Confirmed
-directly: every 4-3 and 3-4 team's maximum-possible defensive raw score
-(all starters at 100 overall) sums to the same 42.5.
+POSITION_WEIGHTS = 10.0 * (that position's tag value / the QB tag value)
+— QB is kept as the anchor at exactly 10.0 (preserving the scale of the
+original design) and every other position is a direct proportional
+share of QB's tag value, not a re-guessed number:
+  QB   10.00  (43.895 / 43.895)
+  WR    6.22  (27.298 / 43.895)
+  DT    6.18  (27.127 / 43.895)  — interior defensive line
+  LB    6.12  (26.865 / 43.895)  — see "LB tag quirk" below
+  OL    5.87  (25.773 / 43.895)  — every offensive line spot
+  DE    5.57  (24.434 / 43.895)  — edge
+  CB    4.82  (21.161 / 43.895)  — every cornerback spot
+  S     4.59  (20.149 / 43.895)
+  TE    3.43  (15.045 / 43.895)
+  RB    3.26  (14.293 / 43.895)  — FB uses this too, see below
+
+Coarser than the position labels this model otherwise uses — mapped
+onto POSITION_WEIGHTS as follows:
+  QB -> QB
+  WR -> WR (all 3 starting slots)
+  RB, FB -> RB — the CBA's tag rules don't give fullback its own
+    category at all; a tagged FB would be tagged as a running back, so
+    this model values the two identically rather than inventing an
+    unsupported fullback discount
+  TE -> TE
+  LT, RT, LG, RG, C -> OL — the tag doesn't distinguish tackle from
+    guard from center, so neither does this model anymore (the earlier
+    hand-tuned version gave tackle a premium over guard/center; that
+    distinction isn't in the data, so it's gone)
+  LDE, RDE -> DE
+  LDT, RDT -> DT (one slot each, see "scheme-neutral slot splitting" below)
+  NT -> DT x2 (one slot covering the same two-gap job, see below)
+  LCB, RCB, NB -> CB — the tag doesn't distinguish outside corner from
+    slot/nickel either; the earlier version's nickel discount is gone
+    for the same reason as the tackle/guard distinction above
+  FS, SS -> S
+  MLB -> LB (one slot, see below)
+  LILB, RILB -> LB / 2 each (two slots splitting the same job, see below)
+  WLB, SLB -> LB (one slot each, see below)
+
+LB tag quirk (worth stating plainly): the NFL's own "linebacker" tag
+category is known to run high because it includes premium EDGE-rushing
+3-4 outside linebackers (pass rushers who are nominally listed as LB,
+not DE) alongside ordinary off-ball run-and-cover linebackers — which is
+exactly why LB's tag value (26.865) sits almost as high as DT (27.127)
+and well above DE's own (24.434). This model does NOT try to separate
+those two very different real-world linebacker jobs back out — every
+linebacker slot (MLB, LILB/RILB, WLB, SLB) draws from the same LB tag
+figure, full stop. That's a direct, transparent consequence of using the
+league's own tag categories as given rather than re-imposing a manual
+split the data doesn't support; it does mean a true off-ball Mike
+linebacker is valued more generously here than positional-value research
+alone would suggest, and that's an accepted tradeoff of being data-driven
+rather than hand-tuned.
+
+Scheme-neutral slot splitting (NOT a valuation choice — a structural
+one): the tag gives one value per position CATEGORY, but this model
+needs a value per SLOT, and some categories map to a different number of
+slots depending on a team's scheme (a 4-3 splits its interior line
+across 2 DTs where a 3-4 uses 1 NT; a 4-3 uses 1 MLB where a 3-4 uses 2
+inside linebackers). Dividing a shared job's value across however many
+bodies a given scheme uses for it (NT = 2x the per-DT-slot value, since
+one nose tackle alone occupies the same two interior gaps a 4-3 splits
+across two tackles; LILB/RILB = half the per-LB-slot value each, since
+two insiders split the same single "middle of the defense" job a 4-3
+gives to one Mike) keeps a team's defensive-line and linebacker talent
+BUDGET identical regardless of which scheme label ESPN's depth chart
+happens to use for it — this is about fairly counting personnel, not
+about re-deciding what a position is worth, so it's kept even though the
+underlying per-position weights are now externally sourced. WLB and SLB
+are NOT split this way in either scheme — both 4-3 and 3-4 defenses
+field exactly one WLB and one SLB as standalone slots, so each gets the
+full per-slot LB weight in both cases. Confirmed directly: every 4-3 and
+3-4 team's maximum-possible defensive-line-plus-linebacker raw score
+(all starters at 100 overall) sums to the same 41.85 (DE 11.13 + DT/NT
+12.36 + LB 18.36), and its full defensive total (adding CB/NB/S, neither
+of which differs by scheme) sums to the same 65.50 either way.
 
 ------------------------------------------------------------------------
 Injury substitution
@@ -236,27 +245,37 @@ import pandas as pd
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
-# See this file's docstring "Position weights" section for the reasoning
-# behind every one of these numbers.
+# 2026 NFL non-exclusive franchise tag values ($ millions) — confirmed
+# directly against two independent sources (NBC Sports' report on the
+# league's own announcement, and Over the Cap's published figures). See
+# this file's docstring "Position weights" section for the full
+# reasoning behind using these at all, the QB=10.0 anchor, and every
+# slot-mapping/splitting decision below.
+FRANCHISE_TAG_2026 = {
+    "QB": 43.895, "WR": 27.298, "DT": 27.127, "LB": 26.865, "OL": 25.773,
+    "DE": 24.434, "CB": 21.161, "S": 20.149, "TE": 15.045, "RB": 14.293,
+}
+_QB_ANCHOR = 10.0
+_TAG_WEIGHT = {pos: _QB_ANCHOR * val / FRANCHISE_TAG_2026["QB"] for pos, val in FRANCHISE_TAG_2026.items()}
+
 POSITION_WEIGHTS = {
     # Offense
-    "QB": 10.0,
-    "WR": 5.0,
-    "RB": 3.0,
-    "TE": 3.0,
-    "LT": 4.5, "RT": 4.5,
-    "LG": 2.5, "RG": 2.5, "C": 2.5,
-    "FB": 0.5,
+    "QB": _TAG_WEIGHT["QB"],
+    "WR": _TAG_WEIGHT["WR"],
+    "RB": _TAG_WEIGHT["RB"],
+    "FB": _TAG_WEIGHT["RB"],  # no separate FB tag category — CBA tags a fullback as a running back
+    "TE": _TAG_WEIGHT["TE"],
+    "LT": _TAG_WEIGHT["OL"], "RT": _TAG_WEIGHT["OL"],
+    "LG": _TAG_WEIGHT["OL"], "RG": _TAG_WEIGHT["OL"], "C": _TAG_WEIGHT["OL"],
     # Defense
-    "LDE": 5.5, "RDE": 5.5,
-    "LDT": 4.0, "RDT": 4.0,
-    "NT": 8.0,
-    "LCB": 4.5, "RCB": 4.5,
-    "NB": 3.5,
-    "FS": 2.5, "SS": 2.5,
-    "WLB": 2.5, "SLB": 2.5,
-    "MLB": 1.0,
-    "LILB": 0.5, "RILB": 0.5,
+    "LDE": _TAG_WEIGHT["DE"], "RDE": _TAG_WEIGHT["DE"],
+    "LDT": _TAG_WEIGHT["DT"], "RDT": _TAG_WEIGHT["DT"],
+    "NT": _TAG_WEIGHT["DT"] * 2,  # one slot covering the same two-gap job a 4-3 splits across 2 DTs
+    "LCB": _TAG_WEIGHT["CB"], "RCB": _TAG_WEIGHT["CB"], "NB": _TAG_WEIGHT["CB"],
+    "FS": _TAG_WEIGHT["S"], "SS": _TAG_WEIGHT["S"],
+    "WLB": _TAG_WEIGHT["LB"], "SLB": _TAG_WEIGHT["LB"],  # standalone slots in both schemes, not split
+    "MLB": _TAG_WEIGHT["LB"],
+    "LILB": _TAG_WEIGHT["LB"] / 2, "RILB": _TAG_WEIGHT["LB"] / 2,  # split the same job a 4-3 gives one MLB
 }
 
 CALIBRATION_SPREAD = 9.0  # see docstring's "Why 9" section
