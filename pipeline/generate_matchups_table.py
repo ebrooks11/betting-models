@@ -451,8 +451,27 @@ def _player_id_lookup() -> dict:
     — see build_week1_baseline_starters.py), not comparable to
     injury_reports.parquet's full names ("Saquon Barkley") via text
     normalization alone — matched on that table's player_id (also a
-    gsis_id) instead."""
-    ids = pd.read_parquet(DATA_DIR / "ids.parquet", columns=["gsis_id", "name"])
+    gsis_id) instead.
+
+    data/ids.parquet is NOT a tracked exception in .gitignore (unlike
+    week1_baseline_starters.parquet and madden_ratings.parquet) — it's
+    only ever produced locally by src/data_loader.py's fetch_all(), which
+    neither the injury-report-sync nor the weekly-stats-refresh GitHub
+    Actions workflow runs. Confirmed directly: a fresh checkout has no
+    data/ids.parquet at all, so a hard pd.read_parquet() here crashed
+    every single CI run of this file from the day this function was
+    added (commit 87ec7fc) — both workflows' "regenerate matchups.json"
+    step failed outright, not just silently lost the gsis_id match.
+    Returns {} if the file doesn't exist, same as _week1_starter_lookup
+    right below: every (team, gsis_id) lookup below then simply misses,
+    and _player_row's likely_starter falls back to its snap_share
+    threshold check for every player instead of just the ones Week 1 has
+    no opinion on — a known-imperfect but functioning degrade, not a
+    crash."""
+    path = DATA_DIR / "ids.parquet"
+    if not path.exists():
+        return {}
+    ids = pd.read_parquet(path, columns=["gsis_id", "name"])
     ids = ids.dropna(subset=["gsis_id", "name"])
     return dict(zip(ids["name"], ids["gsis_id"]))
 
