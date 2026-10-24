@@ -256,41 +256,57 @@ Per-slot weights, and why they're NOT from FRANCHISE_TAG_2026
 The project owner asked for this to be weighted by franchise tag salary,
 same as roster_rating — but the actual rule book doesn't cooperate here:
 the NFL's franchise tag has exactly one blended "Offensive Line" category
-(see FRANCHISE_TAG_2026 above), with no separate tackle/guard/center
-split at all. Using that single blended number would make every one of
-the 5 OL slots worth the same, which defeats the entire point of a
-request for POSITION-weighted O-line grading (a left tackle and a guard
-are not interchangeable).
+(see FRANCHISE_TAG_2026 above), with no tackle/guard/center split, and
+no left/right split either. Using that single blended number would make
+every one of the 5 OL slots worth the same, which defeats the entire
+point of a request for POSITION-weighted O-line grading.
 
 So OL_SUBPOSITION_TOP5_APY substitutes the closest real-data equivalent:
 each sub-position's own top-5 highest-APY contracts in the league right
-now (average annual value; confirmed across multiple sources per
-position), using the EXACT SAME METHODOLOGY the official tag itself uses
-("average of the top 5 salaries at the position") — just computed
-per-sub-position instead of blended, since the league doesn't publish
-that split itself.
-  Tackle (T): Tunsil 30.1, Sewell 30.0, Slater 28.7, Wirfs 28.6,
-              Williams 27.5 -> avg 28.98
-  Guard  (G): Skoronski 25.0, Bergeron 24.0, Tyler Smith 24.0,
-              Trey Smith 23.5, Lindstrom 20.5 -> avg 23.40
-  Center (C): Linderbaum 27.0, Humphrey 18.0, Jurgens 17.0,
-              McGovern 13.0, McCoy 12.0 -> avg 17.40
-Worth stating plainly since it's a little surprising: this shows guard
-now paying ABOVE center in today's market (23.40 vs 17.40) — several
-guard contracts reset that market in 2026 (Tyler Smith, then Skoronski).
-Real, current data, not a transcription error.
+now (average annual value; each individual contract figure confirmed via
+its own search, not just taken from one blended "top tackles" list — see
+below for why that distinction mattered here), using the EXACT SAME
+METHODOLOGY the official tag itself uses ("average of the top 5 salaries
+at the position") — just computed per-sub-position instead of blended,
+since the league doesn't publish that split itself. Left and right
+tackle are split out separately (not just "Tackle"), per the project
+owner's explicit follow-up request — left tackle protects a
+(presumptively right-handed) quarterback's blind side and has always
+commanded a real market premium over right tackle, which a single
+blended "Tackle" figure would have erased:
+  Left Tackle (LT):  Tunsil 30.1, Slater 28.7, Wirfs 28.12, Williams
+                      25.75, Dawkins 24.84 -> avg 27.50
+  Right Tackle (RT): Sewell 28.0, Lane Johnson 25.0, Goedeke 22.5,
+                      Tom 22.0, Moton 22.0 -> avg 23.90
+  Guard (G):         Skoronski 25.0, Bergeron 24.0, Tyler Smith 24.0,
+                      Trey Smith 23.5, Lindstrom 20.5 -> avg 23.40
+  Center (C):        Linderbaum 27.0, Humphrey 18.0, Jurgens 17.0,
+                      McGovern 13.0, McCoy 12.0 -> avg 17.40
+A first pass at this used one generic "Tackle" top-5 list sourced
+without checking which side each player actually plays — it turned out
+to be almost entirely left tackles anyway (Tunsil, Slater, Wirfs,
+Williams are all LTs; only Sewell, a right tackle, slipped in), which is
+itself evidence of the LT premium, but wasn't a real RT-specific figure.
+Re-sourced RT separately once that was caught. Two more findings worth
+stating plainly since they're a little surprising: guard (23.40) now
+pays ABOVE center (17.40) — several guard contracts reset that market in
+2026 (Tyler Smith, then Skoronski) — and right tackle (23.90) now pays
+almost exactly the same as guard, not meaningfully more, even though RT
+is still well below LT (27.50). Real, current data, not transcription
+errors.
 
 Per-SLOT weights (not per-sub-position) are each sub-position's share of
-the 5-slot "value budget" — 2 tackles + 2 guards + 1 center, weighted by
+the 5-slot "value budget" — LT + RT + 2 guards + 1 center, weighted by
 OL_SUBPOSITION_TOP5_APY — chosen so the 5 weights sum to exactly 1.0,
 which is what makes an all-100-overall line score exactly 100:
-  LT = RT = 28.98 / (2*28.98 + 2*23.40 + 17.40) = 0.2372 each
-  LG = RG = 23.40 / (same total 122.16)          = 0.1915 each
-  C                                               = 0.1424
-OL Rating = 100 * (0.2372*LT_ovr/100 + 0.1915*LG_ovr/100 + 0.1424*C_ovr/100
-                    + 0.1915*RG_ovr/100 + 0.2372*RT_ovr/100), i.e. just the
-weighted-average overall across the 5 slots — computed in code from
-OL_SUBPOSITION_TOP5_APY (not hardcoded weights), same pattern as
+  LT           = 27.50 / (27.50 + 23.90 + 2*23.40 + 17.40) = 0.2379
+  RT           = 23.90 / (same total 115.60)                = 0.2068
+  LG = RG      = 23.40 / 115.60                              = 0.2024 each
+  C            = 17.40 / 115.60                               = 0.1505
+OL Rating = LT_wt*LT_ovr + LG_wt*LG_ovr + C_wt*C_ovr + RG_wt*RG_ovr +
+RT_wt*RT_ovr — i.e. just the weighted-average overall across the 5 slots
+(weights already sum to 1, so no /100 or *100 needed) — computed in code
+from OL_SUBPOSITION_TOP5_APY (not hardcoded weights), same pattern as
 POSITION_WEIGHTS being derived from FRANCHISE_TAG_2026 above.
 """
 
@@ -338,22 +354,30 @@ CALIBRATION_SPREAD = 9.0  # see docstring's "Why 9" section
 CALIBRATION_SEASON_WINDOW = 5  # "the last 5 years" per the project owner's request
 
 # Top-5 highest-APY ($ millions) contracts by offensive-line SUB-position,
-# right now — see docstring's "Offensive Line Rating" section for why
-# this (not FRANCHISE_TAG_2026's single blended "OL" figure) is used, and
-# for the sourcing of each individual contract value.
+# right now — LEFT and RIGHT tackle split separately (not blended), per
+# the project owner's explicit request to distinguish them. See
+# docstring's "Offensive Line Rating" section for why this (not
+# FRANCHISE_TAG_2026's single blended "OL" figure) is used, and for the
+# sourcing of each individual contract value.
 OL_SUBPOSITION_TOP5_APY = {
-    "T": (30.1 + 30.0 + 28.7 + 28.6 + 27.5) / 5,   # Tunsil, Sewell, Slater, Wirfs, Williams
-    "G": (25.0 + 24.0 + 24.0 + 23.5 + 20.5) / 5,   # Skoronski, Bergeron, Ty.Smith, Tr.Smith, Lindstrom
-    "C": (27.0 + 18.0 + 17.0 + 13.0 + 12.0) / 5,   # Linderbaum, Humphrey, Jurgens, McGovern, McCoy
+    "LT": (30.1 + 28.7 + 28.12 + 25.75 + 24.84) / 5,  # Tunsil, Slater, Wirfs, Williams, Dawkins
+    "RT": (28.0 + 25.0 + 22.5 + 22.0 + 22.0) / 5,      # Sewell, Lane Johnson, Goedeke, Tom, Moton
+    "G": (25.0 + 24.0 + 24.0 + 23.5 + 20.5) / 5,       # Skoronski, Bergeron, Ty.Smith, Tr.Smith, Lindstrom
+    "C": (27.0 + 18.0 + 17.0 + 13.0 + 12.0) / 5,       # Linderbaum, Humphrey, Jurgens, McGovern, McCoy
 }
 
 
 def _ol_slot_weights() -> dict:
     """Per-slot weights for LT/RT/LG/RG/C that sum to exactly 1.0 — see
-    docstring's "Offensive Line Rating" section for the derivation."""
-    t, g, c = OL_SUBPOSITION_TOP5_APY["T"], OL_SUBPOSITION_TOP5_APY["G"], OL_SUBPOSITION_TOP5_APY["C"]
-    total = 2 * t + 2 * g + c
-    return {"LT": t / total, "RT": t / total, "LG": g / total, "RG": g / total, "C": c / total}
+    docstring's "Offensive Line Rating" section for the derivation. LT
+    and RT get their own distinct weights now (left tackle pays a real
+    market premium over right tackle); only the two guard slots still
+    share one weight, since there's no left/right guard salary split in
+    the market the way there is for tackle."""
+    lt, rt, g, c = (OL_SUBPOSITION_TOP5_APY["LT"], OL_SUBPOSITION_TOP5_APY["RT"],
+                     OL_SUBPOSITION_TOP5_APY["G"], OL_SUBPOSITION_TOP5_APY["C"])
+    total = lt + rt + 2 * g + c
+    return {"LT": lt / total, "RT": rt / total, "LG": g / total, "RG": g / total, "C": c / total}
 
 
 OL_SLOT_WEIGHTS = _ol_slot_weights()
