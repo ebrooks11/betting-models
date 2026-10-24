@@ -237,6 +237,15 @@ button { cursor: pointer; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
+/* Positional-count summary (see renderPositionSummary) — a quick "what's
+   actually hurting this team" read before the individual rows. */
+.pos-summary { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-bottom: 6px; }
+.pos-count-badge {
+  font-family: var(--font-mono); font-weight: 700; font-size: .62rem;
+  color: var(--text-muted); background: var(--surface-3);
+  padding: 1px 7px; border-radius: 20px; white-space: nowrap;
+}
+
 .state-msg { text-align: center; padding: 60px 20px; color: var(--text-muted); font-family: var(--font-mono); font-size: .85rem; }
 </style>
 </head>
@@ -333,6 +342,53 @@ function renderInjuryRow(r) {
       <span class="inj-detail">${detailParts.join(' · ')}</span>
       <span class="status-badge ${statusClass(r.status)}">${r.status}</span>
     </div>`;
+}
+
+// Broad position groups for the "what's actually hurting this team"
+// summary at the top of each injury list — built from every pos value
+// actually observed in injury_reports.parquet. Offensive line variants
+// (center/guard/tackle, plus the injury report's own combo labels like
+// "G/T" for a player who plays either) all roll up into one "OL" count,
+// since a fantasy manager mostly cares "how many linemen are out," not
+// which specific spot. CB and S are kept split out from a generic "DB"
+// bucket instead of merged together — corner and safety are different
+// enough roles that lumping them would hide which one a team is actually
+// short at (a generic "DB" label is used for the rare injury-report row
+// that doesn't specify further). Kickers/punters/long snappers roll into
+// "ST" for completeness, though they're rarely the headline.
+const POS_GROUP = {
+  QB: 'QB',
+  RB: 'RB', FB: 'RB',
+  WR: 'WR',
+  TE: 'TE',
+  C: 'OL', G: 'OL', T: 'OL', OG: 'OL', OT: 'OL', OL: 'OL',
+  'C/G': 'OL', 'G/T': 'OL', 'T/G': 'OL',
+  DE: 'DL', DT: 'DL', DL: 'DL', EDGE: 'DL',
+  ILB: 'LB', OLB: 'LB', LB: 'LB',
+  CB: 'CB',
+  S: 'S',
+  DB: 'DB',
+  K: 'ST', P: 'ST', LS: 'ST',
+};
+
+// Counts over the SAME filtered rows actually rendered below it (see
+// renderTeamCol) — not the full unfiltered injury list — so the summary
+// never claims a count the visible rows don't back up.
+function positionCounts(rows) {
+  const counts = {};
+  rows.forEach(r => {
+    const group = POS_GROUP[r.pos];
+    if (!group) return;
+    counts[group] = (counts[group] || 0) + 1;
+  });
+  return Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+
+function renderPositionSummary(rows) {
+  const counts = positionCounts(rows);
+  if (!counts.length) return '';
+  const badges = counts.map(([pos, n]) => `<span class="pos-count-badge">${pos}: ${n}</span>`).join('');
+  return `<div class="pos-summary">${badges}</div>`;
 }
 
 function fmtStat(v, digits, suffix) {
@@ -528,6 +584,7 @@ function renderTeamCol(team, summary, injuries) {
     html += `<div class="empty-note">No injuries reported</div>`;
     return html;
   }
+  html += renderPositionSummary(rows);
   html += rows.map(renderInjuryRow).join('');
   return html;
 }
