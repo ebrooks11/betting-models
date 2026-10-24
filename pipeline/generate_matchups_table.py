@@ -169,20 +169,21 @@ it's just looked up for the season, not averaged or windowed. The
 before-this-week cutoff applies to
 starting_qb below, for the same reason.
 
-roster_rating, ol_rating (pipeline/team_rating.py)
---------------------------------------------------------
+roster_rating, ol_rating, dl_rating, qb_rating (pipeline/team_rating.py)
+------------------------------------------------------------------------------
 Shown right after preseason_win_total on the compare table. roster_rating
 is a position-weighted-Madden-rating talent score, calibrated to real NFL
 scoring history so it reads as "expected points against a league-average
-opponent." ol_rating is a narrower, second stat scoped to just the 5
-offensive-line slots and reported directly on a 0-100 scale, not run
-through roster_rating's points-calibration — a perfect (all-100-overall)
-line scores exactly 100. See team_rating.py's own module docstring for
-the full system and every weighting/calibration decision for both; not
-reproduced here. Unlike every other per-week stat above, neither is
-derived from team_games.parquet at all (so there's no "before this week"
-cutoff to apply) — both come from the CURRENT depth chart and that
-week's own injury-report snapshot, independent of game results.
+opponent." ol_rating, dl_rating, and qb_rating are narrower stats, each
+scoped to one position group (offensive line; defensive line; just the
+starting QB) and reported directly on a 0-100 scale, not run through
+roster_rating's points-calibration — a perfect (all-100-overall) group
+scores exactly 100. See team_rating.py's own module docstring for the
+full system and every weighting/calibration decision for all four; not
+reproduced here. Unlike every other per-week stat above, none of the
+four is derived from team_games.parquet at all (so there's no "before
+this week" cutoff to apply) — all come from the CURRENT depth chart and
+that week's own injury-report snapshot, independent of game results.
 
 Power record (power_wins_full, power_losses_full, power_win_pct —
 plus power_wins/power_losses, computed but not displayed)
@@ -826,7 +827,7 @@ def _recent_games_before_week(log: pd.DataFrame, season: int, week: int, team: s
     ]
 
 
-def _team_summary_entry(team, summaries, coordinators, starting_qbs, win_totals, roster_ratings, ol_ratings, week, recent_games, power_records):
+def _team_summary_entry(team, summaries, coordinators, starting_qbs, win_totals, roster_ratings, ol_ratings, dl_ratings, qb_ratings, week, recent_games, power_records):
     entry = dict(summaries.get(team, {
         "games_played": 0, "point_differential": None, "points_per_game": None,
         "offensive_points_per_game": None, "epa_per_play": None,
@@ -842,11 +843,13 @@ def _team_summary_entry(team, summaries, coordinators, starting_qbs, win_totals,
     # so this stat degrades gracefully rather than blocking the rest of
     # the page.
     entry["roster_rating"] = _clean(roster_ratings.get((team, week)))
-    # Same source/machinery as roster_rating, scoped to the 5 O-line
-    # slots and reported directly on a 0-100 scale (no points-calibration
-    # stage) — see team_rating.py's "Offensive Line Rating" docstring
-    # section.
+    # Same source/machinery as roster_rating, each scoped to one position
+    # group and reported directly on a 0-100 scale (no points-calibration
+    # stage) — see team_rating.py's "Offensive Line Rating, Defensive
+    # Line Rating" / "Quarterback Rating" docstring sections.
     entry["ol_rating"] = _clean(ol_ratings.get((team, week)))
+    entry["dl_rating"] = _clean(dl_ratings.get((team, week)))
+    entry["qb_rating"] = _clean(qb_ratings.get((team, week)))
     entry["recent_games"] = recent_games.get(team, [])
     power = power_records.get(team, {
         "power_wins": 0, "power_losses": 0, "power_wins_full": 0, "power_losses_full": 0,
@@ -889,9 +892,11 @@ def build():
 
     weeks = sorted(sched["week"].unique().tolist())
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from pipeline.team_rating import team_ratings_by_week, ol_ratings_by_week
+    from pipeline.team_rating import team_ratings_by_week, ol_ratings_by_week, dl_ratings_by_week, qb_ratings_by_week
     roster_ratings = team_ratings_by_week(season, weeks)
     ol_ratings = ol_ratings_by_week(season, weeks)
+    dl_ratings = dl_ratings_by_week(season, weeks)
+    qb_ratings = qb_ratings_by_week(season, weeks)
     # "Upcoming" = the earliest week with at least one game not yet
     # played (home_score still null) — falls back to the final week once
     # the whole season is complete.
@@ -923,8 +928,8 @@ def build():
                 "home_team": home,
                 "lines": lines_lookup.get((home, away)),
                 "final": {"home_score": int(g["home_score"]), "away_score": int(g["away_score"])} if played else None,
-                "away_team_summary": _team_summary_entry(away, summaries, coordinators, starting_qbs, win_totals, roster_ratings, ol_ratings, week, recent_games, power_records),
-                "home_team_summary": _team_summary_entry(home, summaries, coordinators, starting_qbs, win_totals, roster_ratings, ol_ratings, week, recent_games, power_records),
+                "away_team_summary": _team_summary_entry(away, summaries, coordinators, starting_qbs, win_totals, roster_ratings, ol_ratings, dl_ratings, qb_ratings, week, recent_games, power_records),
+                "home_team_summary": _team_summary_entry(home, summaries, coordinators, starting_qbs, win_totals, roster_ratings, ol_ratings, dl_ratings, qb_ratings, week, recent_games, power_records),
                 "away_injuries": _team_injuries(inj, season, week, away, snap_shares, week1_starters, player_ids, madden_ratings),
                 "home_injuries": _team_injuries(inj, season, week, home, snap_shares, week1_starters, player_ids, madden_ratings),
             })

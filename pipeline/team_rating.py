@@ -238,76 +238,106 @@ manual Madden scrape, which is an accepted, documented staleness, not a
 bug.
 
 ------------------------------------------------------------------------
-Offensive Line Rating (ol_ratings_by_week) — a second, narrower stat
+Offensive Line Rating, Defensive Line Rating (ol_ratings_by_week,
+dl_ratings_by_week) — two narrower, position-group stats
 ------------------------------------------------------------------------
 Same starter-resolution machinery as roster_rating (current depth chart,
 that week's own injury substitution via _resolve_slot, that week's own
-Madden snapshot via _madden_iteration_for_week) but scoped to just the 5
-offensive-line slots (LT, LG, C, RG, RT) and reported directly on a 0-100
-scale — NOT run through roster_rating's points-calibration stage, since
-the project owner asked for this one on "a 100 point scale" as a
-standalone O-line quality score, not a points projection. A line of five
-100-overall players scores exactly 100; the formula is a straight
-weighted average, no rescaling against real NFL data the way
-roster_rating's avg/+9/-9 calibration is.
+Madden snapshot via _madden_iteration_for_week) but each scoped to one
+position group and reported directly on a 0-100 scale — NOT run through
+roster_rating's points-calibration stage, since the project owner asked
+for these on "a 100 point scale" as standalone position-group quality
+scores, not points projections. A unit of all-100-overall players scores
+exactly 100; the formula is a straight weighted average, no rescaling
+against real NFL data the way roster_rating's avg/+9/-9 calibration is.
+Offensive line is LT/LG/C/RG/RT; defensive line is LDE/RDE plus interior
+(LDT/RDT in a 4-3, NT in a 3-4 — same scheme-neutral slot-splitting
+roster_rating's POSITION_WEIGHTS already uses for this, see below).
 
 Per-slot weights, and why they're NOT from FRANCHISE_TAG_2026
 --------------------------------------------------------------------
-The project owner asked for this to be weighted by franchise tag salary,
-same as roster_rating — but the actual rule book doesn't cooperate here:
-the NFL's franchise tag has exactly one blended "Offensive Line" category
-(see FRANCHISE_TAG_2026 above), with no tackle/guard/center split, and
-no left/right split either. Using that single blended number would make
-every one of the 5 OL slots worth the same, which defeats the entire
-point of a request for POSITION-weighted O-line grading.
+The project owner asked for both of these to be weighted by salary, same
+spirit as roster_rating — but the actual tag doesn't cooperate for
+offensive line specifically: the NFL's franchise tag has exactly one
+blended "Offensive Line" category (see FRANCHISE_TAG_2026 above), with
+no tackle/guard/center split and no left/right split either. Using that
+single blended number would make every one of the 5 OL slots worth the
+same, which defeats the point of a position-weighted O-line grade.
+(Defensive line doesn't have this problem on the edge/interior split —
+the tag's own DE and DT categories already exist separately — but using
+the tag's own methodology would still just reproduce POSITION_WEIGHTS'
+numbers and couldn't give edge a left/right split consistent with how
+tackle got one, so both OL and DL use the same from-scratch sourcing
+approach below for consistency between the two.)
 
-So OL_SUBPOSITION_TOP5_APY substitutes the closest real-data equivalent:
-each sub-position's own top-5 highest-APY contracts in the league right
-now (average annual value; each individual contract figure confirmed via
-its own search, not just taken from one blended "top tackles" list — see
-below for why that distinction mattered here), using the EXACT SAME
-METHODOLOGY the official tag itself uses ("average of the top 5 salaries
-at the position") — just computed per-sub-position instead of blended,
-since the league doesn't publish that split itself. Left and right
-tackle are split out separately (not just "Tackle"), per the project
-owner's explicit follow-up request — left tackle protects a
-(presumptively right-handed) quarterback's blind side and has always
-commanded a real market premium over right tackle, which a single
-blended "Tackle" figure would have erased:
-  Left Tackle (LT):  Tunsil 30.1, Slater 28.7, Wirfs 28.12, Williams
-                      25.75, Dawkins 24.84 -> avg 27.50
-  Right Tackle (RT): Sewell 28.0, Lane Johnson 25.0, Goedeke 22.5,
-                      Tom 22.0, Moton 22.0 -> avg 23.90
-  Guard (G):         Skoronski 25.0, Bergeron 24.0, Tyler Smith 24.0,
-                      Trey Smith 23.5, Lindstrom 20.5 -> avg 23.40
-  Center (C):        Linderbaum 27.0, Humphrey 18.0, Jurgens 17.0,
-                      McGovern 13.0, McCoy 12.0 -> avg 17.40
-A first pass at this used one generic "Tackle" top-5 list sourced
-without checking which side each player actually plays — it turned out
-to be almost entirely left tackles anyway (Tunsil, Slater, Wirfs,
-Williams are all LTs; only Sewell, a right tackle, slipped in), which is
-itself evidence of the LT premium, but wasn't a real RT-specific figure.
-Re-sourced RT separately once that was caught. Two more findings worth
-stating plainly since they're a little surprising: guard (23.40) now
-pays ABOVE center (17.40) — several guard contracts reset that market in
-2026 (Tyler Smith, then Skoronski) — and right tackle (23.90) now pays
-almost exactly the same as guard, not meaningfully more, even though RT
-is still well below LT (27.50). Real, current data, not transcription
-errors.
+So both OL_SUBPOSITION_RANK3_7_APY and DL_SUBPOSITION_RANK3_7_APY
+substitute the closest real-data equivalent: each sub-position's own
+market rate right now (average annual value; each individual contract
+figure confirmed via its own search), using RANKS 3 THROUGH 7 at the
+position (not 1 through 5) — a deliberate change from this file's first
+version, which used ranks 1-5, matching the official tag's own "top 5"
+rule. The project owner asked specifically for ranks 3-7 instead, to
+drop the very top 1-2 contracts at each position before averaging: those
+are frequently one-off, market-resetting outlier deals (a position's
+single record-breaking contract, signed by whoever's current best
+player, can run 30-50% above the next tier down) that would otherwise
+skew a 5-contract average toward one anomalous number rather than
+reflecting the real going rate for a good starter at that spot. Dropping
+to ranks 3-7 trades a small amount of "top of market" signal for a
+steadier, more representative middle-of-the-market number — the
+project owner's own stated purpose for the change.
+  Left Tackle (LT):  Williams 27.55, Darrisaw 26.0, Raimann 25.0,
+                      Tunsil 25.0, Thomas 23.5 -> avg 25.41
+  Right Tackle (RT): O'Neill 24.0, Goedeke 22.5, Howard 22.5, Tom 22.0,
+                      Brown 18.0 -> avg 21.80
+  Guard (G):         Tyler Smith 24.0, Trey Smith 23.5, Lindstrom 20.5,
+                      Hunt 20.0, Nelson 20.0 -> avg 21.60
+  Center (C):        Brewer 17.5, Jurgens 17.0, McGovern 13.0,
+                      Jenkins 12.0, McCoy 12.0 -> avg 14.30
+  Edge (LDE/RDE):    Hutchinson 45.0, Garrett 41.64, Watt 41.0,
+                      Hunter 40.1, Crosby 35.5 -> avg 40.65
+  Interior (DT/NT):  Simmons 35.28, Chris Jones 31.75, Vea 30.0,
+                      Leonard Williams 30.0, Dex.Lawrence 28.0 -> avg 31.01
+Left tackle keeps a clear premium over right tackle even with the top
+contracts excluded (25.41 vs 21.80) — the blind-side-protection premium
+isn't just a top-of-market artifact. Edge still dwarfs interior D-line
+(40.65 vs 31.01) for the same reason pass rushers dominate defensive
+cap spend generally. Guard and right tackle remain close to each other
+(21.60 vs 21.80) even after the ranks-3-7 change, reinforcing that this
+(not just a quirk of whichever record deal happened to be signed most
+recently) looks like a real, current-market relationship between the two.
 
 Per-SLOT weights (not per-sub-position) are each sub-position's share of
-the 5-slot "value budget" — LT + RT + 2 guards + 1 center, weighted by
-OL_SUBPOSITION_TOP5_APY — chosen so the 5 weights sum to exactly 1.0,
-which is what makes an all-100-overall line score exactly 100:
-  LT           = 27.50 / (27.50 + 23.90 + 2*23.40 + 17.40) = 0.2379
-  RT           = 23.90 / (same total 115.60)                = 0.2068
-  LG = RG      = 23.40 / 115.60                              = 0.2024 each
-  C            = 17.40 / 115.60                               = 0.1505
-OL Rating = LT_wt*LT_ovr + LG_wt*LG_ovr + C_wt*C_ovr + RG_wt*RG_ovr +
-RT_wt*RT_ovr — i.e. just the weighted-average overall across the 5 slots
-(weights already sum to 1, so no /100 or *100 needed) — computed in code
-from OL_SUBPOSITION_TOP5_APY (not hardcoded weights), same pattern as
+that unit's "value budget" (OL: LT + RT + 2 guards + 1 center; DL: 2 edge
++ 2 interior, mirroring roster_rating's existing DL scheme-neutral
+handling), chosen so the weights sum to exactly 1.0, which is what makes
+an all-100-overall unit score exactly 100:
+  LT       = 25.41 / (25.41 + 21.80 + 2*21.60 + 14.30) = 0.2427
+  RT       = 21.80 / (same total 104.71)                 = 0.2082
+  LG = RG  = 21.60 / 104.71                              = 0.2063 each
+  C        = 14.30 / 104.71                               = 0.1366
+  LDE = RDE          = 40.65 / (2*40.65 + 2*31.01)       = 0.2837 each
+  LDT = RDT          = 31.01 / (same total 143.32)        = 0.2164 each
+  NT (single slot, covers both interior gaps a 4-3 splits
+      across 2 DTs — see roster_rating's own "scheme-neutral
+      slot splitting" note for this exact same structural choice)
+                     = 2 * 31.01 / 143.32                 = 0.4328
+Rating = sum of (slot weight * that slot's resolved Madden overall) —
+weights already sum to 1, so no additional /100 or *100 scaling needed.
+Computed in code from OL_SUBPOSITION_RANK3_7_APY /
+DL_SUBPOSITION_RANK3_7_APY (not hardcoded weights), same pattern as
 POSITION_WEIGHTS being derived from FRANCHISE_TAG_2026 above.
+
+------------------------------------------------------------------------
+Quarterback Rating (qb_ratings_by_week) — a third, single-slot stat
+------------------------------------------------------------------------
+The simplest of the three: that week's starting QB's own Madden overall
+(0-100, already the natural scale — no weighting needed, since there's
+only one slot to begin with), resolved through the exact same
+starter/injury-substitution machinery (_resolve_slot) as every other
+rating in this file — if the starter is out, the highest-Madden-rated
+backup QB on the depth chart is used instead, same rule as everywhere
+else. No calibration stage, same reasoning as OL/DL ratings above.
 """
 
 import re
@@ -353,34 +383,57 @@ POSITION_WEIGHTS = {
 CALIBRATION_SPREAD = 9.0  # see docstring's "Why 9" section
 CALIBRATION_SEASON_WINDOW = 5  # "the last 5 years" per the project owner's request
 
-# Top-5 highest-APY ($ millions) contracts by offensive-line SUB-position,
-# right now — LEFT and RIGHT tackle split separately (not blended), per
-# the project owner's explicit request to distinguish them. See
-# docstring's "Offensive Line Rating" section for why this (not
-# FRANCHISE_TAG_2026's single blended "OL" figure) is used, and for the
-# sourcing of each individual contract value.
-OL_SUBPOSITION_TOP5_APY = {
-    "LT": (30.1 + 28.7 + 28.12 + 25.75 + 24.84) / 5,  # Tunsil, Slater, Wirfs, Williams, Dawkins
-    "RT": (28.0 + 25.0 + 22.5 + 22.0 + 22.0) / 5,      # Sewell, Lane Johnson, Goedeke, Tom, Moton
-    "G": (25.0 + 24.0 + 24.0 + 23.5 + 20.5) / 5,       # Skoronski, Bergeron, Ty.Smith, Tr.Smith, Lindstrom
-    "C": (27.0 + 18.0 + 17.0 + 13.0 + 12.0) / 5,       # Linderbaum, Humphrey, Jurgens, McGovern, McCoy
+# Ranks-3-through-7 highest-APY ($ millions) contracts by offensive-line
+# SUB-position, right now — LEFT and RIGHT tackle split separately (not
+# blended). Ranks 3-7 (not 1-5) per the project owner's explicit request,
+# to exclude the top 1-2 outlier/market-resetting contracts at each
+# position — see docstring's "Offensive Line Rating, Defensive Line
+# Rating" section for the full reasoning and sourcing of each contract.
+OL_SUBPOSITION_RANK3_7_APY = {
+    "LT": (27.55 + 26.0 + 25.0 + 25.0 + 23.5) / 5,  # Williams, Darrisaw, Raimann, Tunsil, Thomas
+    "RT": (24.0 + 22.5 + 22.5 + 22.0 + 18.0) / 5,   # O'Neill, Goedeke, Howard, Tom, Brown
+    "G": (24.0 + 23.5 + 20.5 + 20.0 + 20.0) / 5,    # Ty.Smith, Tr.Smith, Lindstrom, Hunt, Nelson
+    "C": (17.5 + 17.0 + 13.0 + 12.0 + 12.0) / 5,    # Brewer, Jurgens, McGovern, Jenkins, McCoy
+}
+
+# Same ranks-3-7 methodology, defensive line: edge (LDE/RDE) vs interior
+# (LDT/RDT in a 4-3, NT in a 3-4) — see docstring for sourcing.
+DL_SUBPOSITION_RANK3_7_APY = {
+    "EDGE": (45.0 + 41.64 + 41.0 + 40.1 + 35.5) / 5,       # Hutchinson, Garrett, Watt, Hunter, Crosby
+    "INTERIOR": (35.28 + 31.75 + 30.0 + 30.0 + 28.0) / 5,  # Simmons, C.Jones, Vea, L.Williams, Lawrence
 }
 
 
 def _ol_slot_weights() -> dict:
     """Per-slot weights for LT/RT/LG/RG/C that sum to exactly 1.0 — see
-    docstring's "Offensive Line Rating" section for the derivation. LT
-    and RT get their own distinct weights now (left tackle pays a real
-    market premium over right tackle); only the two guard slots still
-    share one weight, since there's no left/right guard salary split in
-    the market the way there is for tackle."""
-    lt, rt, g, c = (OL_SUBPOSITION_TOP5_APY["LT"], OL_SUBPOSITION_TOP5_APY["RT"],
-                     OL_SUBPOSITION_TOP5_APY["G"], OL_SUBPOSITION_TOP5_APY["C"])
+    docstring's "Offensive Line Rating, Defensive Line Rating" section
+    for the derivation. LT and RT get their own distinct weights (left
+    tackle pays a real market premium over right tackle); only the two
+    guard slots still share one weight, since there's no left/right
+    guard salary split in the market the way there is for tackle."""
+    lt, rt, g, c = (OL_SUBPOSITION_RANK3_7_APY["LT"], OL_SUBPOSITION_RANK3_7_APY["RT"],
+                     OL_SUBPOSITION_RANK3_7_APY["G"], OL_SUBPOSITION_RANK3_7_APY["C"])
     total = lt + rt + 2 * g + c
     return {"LT": lt / total, "RT": rt / total, "LG": g / total, "RG": g / total, "C": c / total}
 
 
+def _dl_slot_weights() -> dict:
+    """Per-slot weights for LDE/RDE/LDT/RDT/NT that sum to exactly 1.0 —
+    same scheme-neutral slot-splitting roster_rating's own POSITION_WEIGHTS
+    uses (NT = 2x a single DT slot's weight, since one nose tackle alone
+    covers the same two gaps a 4-3 splits across two tackles), now built
+    from DL_SUBPOSITION_RANK3_7_APY instead of FRANCHISE_TAG_2026."""
+    edge, interior = DL_SUBPOSITION_RANK3_7_APY["EDGE"], DL_SUBPOSITION_RANK3_7_APY["INTERIOR"]
+    total = 2 * edge + 2 * interior
+    return {
+        "LDE": edge / total, "RDE": edge / total,
+        "LDT": interior / total, "RDT": interior / total,
+        "NT": 2 * interior / total,
+    }
+
+
 OL_SLOT_WEIGHTS = _ol_slot_weights()
+DL_SLOT_WEIGHTS = _dl_slot_weights()
 
 # Duplicated (not imported) from generate_matchups_table.py deliberately —
 # that file imports FROM this module (team_ratings_by_week), so importing
@@ -527,30 +580,47 @@ def _apply_calibration(raw: float, cal: dict) -> float:
         return avg_ppg - CALIBRATION_SPREAD * frac
 
 
-def team_ratings_by_week(season: int, weeks: list) -> dict:
-    """Returns {(team, week): rating} for every team and every week in
-    `weeks`, rounded to 1 decimal. Returns {} entirely if any required
-    source is missing or has no rows for this season (e.g. depth_chart.parquet
-    hasn't been scraped yet, or madden_ratings.parquet has no data for a
-    new season) — this stat is additive, not load-bearing, so the rest of
-    matchups.json should build fine without it."""
+def _load_depth_madden_injuries(season: int):
+    """Shared loader for team_ratings_by_week/ol_ratings_by_week/
+    dl_ratings_by_week/qb_ratings_by_week's common sources — returns
+    (depth_chart, madden, injuries), each already filtered to `season`,
+    or None if a required file is missing or depth_chart/madden has no
+    rows at all for this season (e.g. depth_chart.parquet hasn't been
+    scraped yet, or madden_ratings.parquet has no data for a new
+    season). Every *_ratings_by_week function below returns {} in that
+    case rather than raising — these stats are additive, not
+    load-bearing, so the rest of matchups.json should build fine
+    without them."""
     depth_chart_path = DATA_DIR / "depth_chart.parquet"
     madden_path = DATA_DIR / "madden_ratings.parquet"
-    team_games_path = DATA_DIR / "team_games.parquet"
     injuries_path = DATA_DIR / "injury_reports.parquet"
-    if not (depth_chart_path.exists() and madden_path.exists() and team_games_path.exists() and injuries_path.exists()):
-        return {}
+    if not (depth_chart_path.exists() and madden_path.exists() and injuries_path.exists()):
+        return None
 
     depth_chart = pd.read_parquet(depth_chart_path)
     depth_chart = depth_chart[depth_chart.season == season]
     madden = pd.read_parquet(madden_path)
     madden = madden[madden.season == season]
-    team_games = pd.read_parquet(team_games_path)
     injuries = pd.read_parquet(injuries_path)
     injuries = injuries[injuries.season == season]
 
     if depth_chart.empty or madden.empty:
+        return None
+    return depth_chart, madden, injuries
+
+
+def team_ratings_by_week(season: int, weeks: list) -> dict:
+    """Returns {(team, week): rating} for every team and every week in
+    `weeks`, rounded to 1 decimal. See _load_depth_madden_injuries for
+    the {} early-return contract."""
+    team_games_path = DATA_DIR / "team_games.parquet"
+    if not team_games_path.exists():
         return {}
+    loaded = _load_depth_madden_injuries(season)
+    if loaded is None:
+        return {}
+    depth_chart, madden, injuries = loaded
+    team_games = pd.read_parquet(team_games_path)
 
     slots = _starter_slots(depth_chart)
     madden_lookup = _madden_overall_lookup(madden)
@@ -579,48 +649,62 @@ def team_ratings_by_week(season: int, weeks: list) -> dict:
     return ratings
 
 
-def _ol_rating_for_team_week(team: str, iteration: str, ol_slots: pd.DataFrame, madden_lookup: dict, unavailable: set) -> float:
+def _weighted_slot_rating_for_team_week(team: str, iteration: str, slots: pd.DataFrame, weights: dict, madden_lookup: dict, unavailable: set) -> float:
+    """Shared by ol_ratings_by_week/dl_ratings_by_week/qb_ratings_by_week:
+    sum of (slot weight * that slot's resolved Madden overall) across
+    every (position, slot_index) group in `slots` for this team. `weights`
+    always sums to 1.0 across the positions it covers, so this is a
+    straight weighted average, already on the right 0-100 scale."""
     total = 0.0
-    for (position, slot_index), group in ol_slots[ol_slots.team == team].groupby(["position", "slot_index"]):
+    for (position, slot_index), group in slots[slots.team == team].groupby(["position", "slot_index"]):
         group = group.sort_values("depth_rank")
         rating = _resolve_slot(group, team, iteration, madden_lookup, unavailable)
         if rating is not None:
-            total += OL_SLOT_WEIGHTS[position] * rating
+            total += weights[position] * rating
     return round(total, 1)
 
 
-def ol_ratings_by_week(season: int, weeks: list) -> dict:
-    """Returns {(team, week): rating} for the Offensive Line Rating — see
-    docstring's "Offensive Line Rating" section. Same starter/injury-
-    substitution machinery as team_ratings_by_week, scoped to just the 5
-    OL slots, no points-calibration stage (already a natural 0-100
-    scale). Returns {} if a required source is missing, same
-    additive-not-load-bearing contract as team_ratings_by_week."""
-    depth_chart_path = DATA_DIR / "depth_chart.parquet"
-    madden_path = DATA_DIR / "madden_ratings.parquet"
-    injuries_path = DATA_DIR / "injury_reports.parquet"
-    if not (depth_chart_path.exists() and madden_path.exists() and injuries_path.exists()):
+def _position_group_ratings_by_week(season: int, weeks: list, slot_weights: dict) -> dict:
+    """Shared engine for ol_ratings_by_week/dl_ratings_by_week/
+    qb_ratings_by_week — same starter/injury-substitution machinery as
+    team_ratings_by_week, scoped to whichever positions `slot_weights`
+    covers, no points-calibration stage (see docstring's "Offensive Line
+    Rating, Defensive Line Rating" / "Quarterback Rating" sections)."""
+    loaded = _load_depth_madden_injuries(season)
+    if loaded is None:
         return {}
+    depth_chart, madden, injuries = loaded
 
-    depth_chart = pd.read_parquet(depth_chart_path)
-    depth_chart = depth_chart[depth_chart.season == season]
-    madden = pd.read_parquet(madden_path)
-    madden = madden[madden.season == season]
-    injuries = pd.read_parquet(injuries_path)
-    injuries = injuries[injuries.season == season]
-
-    if depth_chart.empty or madden.empty:
-        return {}
-
-    ol_slots = depth_chart[depth_chart.position.isin(OL_SLOT_WEIGHTS)]
+    slots = depth_chart[depth_chart.position.isin(slot_weights)]
     madden_lookup = _madden_overall_lookup(madden)
     available_iterations = set(madden["madden_iteration"].unique())
-    all_teams = sorted(ol_slots["team"].unique())
+    all_teams = sorted(slots["team"].unique())
 
     ratings = {}
     for week in weeks:
         iteration = _madden_iteration_for_week(week, available_iterations)
         unavailable = _unavailable_players(injuries, season, week)
         for team in all_teams:
-            ratings[(team, week)] = _ol_rating_for_team_week(team, iteration, ol_slots, madden_lookup, unavailable)
+            ratings[(team, week)] = _weighted_slot_rating_for_team_week(team, iteration, slots, slot_weights, madden_lookup, unavailable)
     return ratings
+
+
+def ol_ratings_by_week(season: int, weeks: list) -> dict:
+    """Returns {(team, week): rating} for the Offensive Line Rating — see
+    docstring's "Offensive Line Rating, Defensive Line Rating" section."""
+    return _position_group_ratings_by_week(season, weeks, OL_SLOT_WEIGHTS)
+
+
+def dl_ratings_by_week(season: int, weeks: list) -> dict:
+    """Returns {(team, week): rating} for the Defensive Line Rating — see
+    docstring's "Offensive Line Rating, Defensive Line Rating" section."""
+    return _position_group_ratings_by_week(season, weeks, DL_SLOT_WEIGHTS)
+
+
+def qb_ratings_by_week(season: int, weeks: list) -> dict:
+    """Returns {(team, week): rating} for the Quarterback Rating — see
+    docstring's "Quarterback Rating" section. A single-slot "group" (QB
+    weight 1.0), so this just resolves that week's starting QB (or their
+    highest-Madden-rated backup, if the starter's out) and reports their
+    Madden overall directly."""
+    return _position_group_ratings_by_week(season, weeks, {"QB": 1.0})
