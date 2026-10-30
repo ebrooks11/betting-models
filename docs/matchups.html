@@ -238,13 +238,17 @@ button { cursor: pointer; }
 }
 
 /* Positional-count summary (see renderPositionSummary) — a quick "what's
-   actually hurting this team" read before the individual rows. */
+   actually hurting this team" read before the individual rows, and each
+   pill doubles as a filter for that team's list (see togglePositionFilter). */
 .pos-summary { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-bottom: 6px; }
 .pos-count-badge {
   font-family: var(--font-mono); font-weight: 700; font-size: .62rem;
   color: var(--text-muted); background: var(--surface-3);
   padding: 1px 7px; border-radius: 20px; white-space: nowrap;
+  border: 1px solid transparent; cursor: pointer;
 }
+.pos-count-badge:hover { color: var(--text); border-color: var(--border-hi); }
+.pos-count-badge.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
 
 .state-msg { text-align: center; padding: 60px 20px; color: var(--text-muted); font-family: var(--font-mono); font-size: .85rem; }
 </style>
@@ -275,6 +279,13 @@ button { cursor: pointer; }
 <script>
 let DATA = null;
 let selectedWeek = null;
+// {team: posGroup} — which position-pill filter (if any) is active for
+// that team's injury list this week. Keyed by team abbreviation rather
+// than per-game-card index since a team appears in at most one game per
+// week, so this is unambiguous within a single week's view. Reset
+// whenever the selected week changes (see buildWeekChips), but NOT when
+// a filter pill itself is toggled (see togglePositionFilter).
+let positionFilters = {};
 
 function toggleTheme() {
   const r = document.documentElement;
@@ -305,7 +316,7 @@ function buildWeekChips() {
     const chip = document.createElement('button');
     chip.className = 'week-chip' + (w === selectedWeek ? ' selected' : '');
     chip.textContent = `Week ${w}`;
-    chip.onclick = () => { selectedWeek = w; buildWeekChips(); render(); };
+    chip.onclick = () => { selectedWeek = w; positionFilters = {}; buildWeekChips(); render(); };
     container.appendChild(chip);
   });
 }
@@ -371,9 +382,10 @@ const POS_GROUP = {
   K: 'ST', P: 'ST', LS: 'ST',
 };
 
-// Counts over the SAME filtered rows actually rendered below it (see
-// renderTeamCol) — not the full unfiltered injury list — so the summary
-// never claims a count the visible rows don't back up.
+// Counts over the full status-filtered list (see renderTeamCol) —
+// deliberately NOT re-filtered by the active position-pill filter, so a
+// pill's own count stays stable (and every other pill stays visible and
+// clickable) while one of its siblings is selected.
 function positionCounts(rows) {
   const counts = {};
   rows.forEach(r => {
@@ -384,10 +396,23 @@ function positionCounts(rows) {
   return Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
 }
 
-function renderPositionSummary(rows) {
+// Clicking a pill filters that team's injury list to just that position
+// group; clicking the already-active pill clears it back to "show all"
+// (a toggle, not a one-way switch) — see positionFilters' own comment
+// for why this is keyed by team rather than by game/column.
+function togglePositionFilter(team, pos) {
+  positionFilters[team] = positionFilters[team] === pos ? null : pos;
+  render();
+}
+
+function renderPositionSummary(team, rows) {
   const counts = positionCounts(rows);
   if (!counts.length) return '';
-  const badges = counts.map(([pos, n]) => `<span class="pos-count-badge">${pos}: ${n}</span>`).join('');
+  const active = positionFilters[team];
+  const badges = counts.map(([pos, n]) => {
+    const isActive = pos === active;
+    return `<span class="pos-count-badge${isActive ? ' active' : ''}" title="${isActive ? 'Click to clear filter' : `Filter to ${pos} only`}" onclick="togglePositionFilter('${team}','${pos}')">${pos}: ${n}</span>`;
+  }).join('');
   return `<div class="pos-summary">${badges}</div>`;
 }
 
@@ -590,8 +615,16 @@ function renderTeamCol(team, summary, injuries) {
     html += `<div class="empty-note">No injuries reported</div>`;
     return html;
   }
-  html += renderPositionSummary(rows);
-  html += rows.map(renderInjuryRow).join('');
+  html += renderPositionSummary(team, rows);
+  // The position-pill filter (if any) only narrows what's LISTED below
+  // the pills — positionCounts/renderPositionSummary above already ran
+  // on the full `rows`, so every pill (including ones at 0 matches once
+  // filtered) stays visible and clickable regardless of which one is active.
+  const activeFilter = positionFilters[team];
+  const displayRows = activeFilter ? rows.filter(r => POS_GROUP[r.pos] === activeFilter) : rows;
+  html += displayRows.length
+    ? displayRows.map(renderInjuryRow).join('')
+    : `<div class="empty-note">No ${activeFilter} injuries</div>`;
   return html;
 }
 
