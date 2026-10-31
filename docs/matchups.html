@@ -252,20 +252,21 @@ button { cursor: pointer; }
 .pos-count-badge:hover { color: var(--text); border-color: var(--border-hi); }
 .pos-count-badge.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
 
-/* Full-season schedule (see renderFullSchedule) — collapsed by default
-   via the native <details> element, no JS state needed to track it. */
-.schedule-details { margin-top: 10px; }
-.schedule-summary {
-  cursor: pointer; user-select: none;
-}
-.schedule-summary:hover { color: var(--text); }
-.schedule-list { margin-top: 6px; }
+/* Injuries and the full schedule side by side, each in its own narrower
+   pane (see renderTeamCol) — the point of putting them next to each
+   other instead of stacked is to use the column's width instead of just
+   its height, so both fit without as much scrolling. */
+.team-sub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; margin-top: 2px; }
+.team-sub-pane { min-width: 0; }
+
+/* Full-season schedule (see renderFullSchedule). */
+.schedule-list { margin-top: 2px; }
 .sched-row {
-  display: flex; align-items: baseline; gap: 8px; padding: 2px 0;
-  font-size: .68rem; border-bottom: 1px solid var(--border);
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; padding: 2px 0;
+  font-size: .64rem; border-bottom: 1px solid var(--border);
 }
 .sched-row:last-child { border-bottom: none; }
-.sched-wk { font-family: var(--font-mono); color: var(--text-dim); width: 36px; flex-shrink: 0; }
+.sched-wk { font-family: var(--font-mono); color: var(--text-dim); flex-shrink: 0; }
 .sched-opp { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sched-result { font-family: var(--font-mono); font-weight: 700; flex-shrink: 0; }
 .sched-w { color: var(--good); }
@@ -354,6 +355,18 @@ const STATUS_CLASS = {
 };
 function statusClass(status) { return STATUS_CLASS[status] || 'status-reserve'; }
 
+// Shortened badge text — injury_reports.parquet's own status strings
+// ("Injured Reserve", "IR - Designated to Return", "Inactive
+// (healthy/other)") are too wide now that the injury list shares its
+// column with the schedule (see renderTeamCol); everything else (Out,
+// Doubtful, PUP, NFI, Suspended) is already short enough as-is.
+const STATUS_LABEL = {
+  'Injured Reserve': 'IR',
+  'IR - Designated to Return': 'IR',
+  'Inactive (healthy/other)': 'Inactive',
+};
+function statusLabel(status) { return STATUS_LABEL[status] || status; }
+
 // madden_rating comes from the most recent snapshot in
 // data/madden_ratings.parquet, joined by (team, name) — see
 // generate_matchups_table.py's "Madden rating on injury rows" docstring
@@ -381,7 +394,7 @@ function renderInjuryRow(r) {
     <div class="inj-row">
       <span class="inj-name">${dot}<span class="inj-player">${r.player}</span><span class="inj-pos">${r.pos || ''}</span>${maddenBadge(r)}</span>
       <span class="inj-detail">${detailParts.join(' · ')}</span>
-      <span class="status-badge ${statusClass(r.status)}">${r.status}</span>
+      <span class="status-badge ${statusClass(r.status)}" title="${r.status}">${statusLabel(r.status)}</span>
     </div>`;
 }
 
@@ -658,8 +671,9 @@ function schedResultClass(result) {
 // Full season (full_schedule, see generate_matchups_table.py's "Full
 // schedule" docstring section) — every REG game this team has, played or
 // not, always the complete slate regardless of which week is selected
-// (unlike the last-5 form strip above it). Collapsed by default via the
-// native <details> element.
+// (unlike the last-5 form strip above it). Always shown in full, not
+// collapsed — it sits in its own pane next to the injury list (see
+// renderTeamCol), so there's no need to hide it behind a toggle.
 function renderScheduleRow(r) {
   const loc = r.home_away === 'home' ? 'vs' : '@';
   const scoreText = r.result != null ? `${r.result} ${r.team_score}-${r.opp_score}` : '—';
@@ -672,12 +686,8 @@ function renderScheduleRow(r) {
 }
 
 function renderFullSchedule(fullSchedule) {
-  if (!fullSchedule || !fullSchedule.length) return '';
-  return `
-    <details class="schedule-details">
-      <summary class="sub-head schedule-summary">Full Schedule</summary>
-      <div class="schedule-list">${fullSchedule.map(renderScheduleRow).join('')}</div>
-    </details>`;
+  if (!fullSchedule || !fullSchedule.length) return '<div class="empty-note">No schedule yet</div>';
+  return `<div class="schedule-list">${fullSchedule.map(renderScheduleRow).join('')}</div>`;
 }
 
 function renderTeamCol(team, summary, injuries) {
@@ -690,24 +700,34 @@ function renderTeamCol(team, summary, injuries) {
   // this page only wants players who are actually not expected to play.
   const rows = injuries.filter(r => r.status !== 'Questionable' && r.status !== 'No designation');
 
-  let html = `<div class="team-col-head">${team}</div>`;
-  html += renderFormStrip(summary.recent_games);
-  html += `<div class="sub-head">Injuries</div>`;
+  let injuriesHtml = `<div class="sub-head">Injuries</div>`;
   if (!rows.length) {
-    html += `<div class="empty-note">No injuries reported</div>`;
+    injuriesHtml += `<div class="empty-note">No injuries reported</div>`;
   } else {
-    html += renderPositionSummary(team, rows);
+    injuriesHtml += renderPositionSummary(team, rows);
     // The position-pill filter (if any) only narrows what's LISTED below
     // the pills — positionCounts/renderPositionSummary above already ran
     // on the full `rows`, so every pill (including ones at 0 matches once
     // filtered) stays visible and clickable regardless of which one is active.
     const activeFilter = positionFilters[team];
     const displayRows = activeFilter ? rows.filter(r => POS_GROUP[r.pos] === activeFilter) : rows;
-    html += displayRows.length
+    injuriesHtml += displayRows.length
       ? displayRows.map(renderInjuryRow).join('')
       : `<div class="empty-note">No ${activeFilter} injuries</div>`;
   }
-  html += renderFullSchedule(summary.full_schedule);
+
+  const scheduleHtml = `<div class="sub-head">Schedule</div>${renderFullSchedule(summary.full_schedule)}`;
+
+  let html = `<div class="team-col-head">${team}</div>`;
+  html += renderFormStrip(summary.recent_games);
+  // Injuries and the full schedule sit side by side (not stacked) to
+  // conserve vertical space — see .team-sub-grid and the shortened
+  // status badges (statusLabel) this layout needed to fit.
+  html += `
+    <div class="team-sub-grid">
+      <div class="team-sub-pane">${injuriesHtml}</div>
+      <div class="team-sub-pane">${scheduleHtml}</div>
+    </div>`;
   return html;
 }
 
