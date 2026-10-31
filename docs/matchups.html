@@ -256,7 +256,10 @@ button { cursor: pointer; }
    pane (see renderTeamCol) — the point of putting them next to each
    other instead of stacked is to use the column's width instead of just
    its height, so both fit without as much scrolling. */
-.team-sub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; margin-top: 2px; }
+/* Schedule rows are short ("Wk 8  @ GB  L 13-43") and never wrap, so
+   that pane gets a narrow fixed width instead of splitting evenly with
+   injuries — which needs the remaining room for player names/details. */
+.team-sub-grid { display: grid; grid-template-columns: 1fr 135px; gap: 0 14px; margin-top: 2px; }
 .team-sub-pane { min-width: 0; }
 
 /* Full-season schedule (see renderFullSchedule). */
