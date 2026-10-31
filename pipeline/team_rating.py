@@ -338,6 +338,35 @@ starter/injury-substitution machinery (_resolve_slot) as every other
 rating in this file — if the starter is out, the highest-Madden-rated
 backup QB on the depth chart is used instead, same rule as everywhere
 else. No calibration stage, same reasoning as OL/DL ratings above.
+
+------------------------------------------------------------------------
+Per-player replacements (injury_replacements_by_week) — not a rating
+------------------------------------------------------------------------
+Not a team-level score like the four above — a per-INJURED-PLAYER lookup
+for generate_matchups_table.py's injury rows: "if this specific player
+is hurt, who's the Madden-highest-rated OTHER player at their exact
+depth-chart slot?" Shown on the matchups page right next to each injury
+row as that player's "replacement."
+
+Built the same way _resolve_slot's one-level substitution already works
+elsewhere in this file, just reported per-player instead of folded into
+a composite score: find the injured player on the CURRENT depth chart
+(matched by (team, normalized name) — a player not on it at all, e.g.
+released or too deep on the practice squad for ESPN's depth chart to
+list, simply gets no replacement shown, same graceful-null handling
+madden_rating already has on injury rows), note their exact (position,
+slot_index), then look at every OTHER player listed at that same slot
+and take whichever has the highest Madden overall for that week's own
+snapshot. This is deliberately NOT "whoever is one depth_rank below the
+injured player" — it's the single best alternative at that slot, however
+the depth chart currently has them ordered, which matters when the
+injured player isn't the depth_rank == 1 starter (e.g. a hurt backup CB
+still gets the team's actual best healthy-rated alternative shown as
+their "replacement," not strictly whoever is one slot behind THEM
+specifically). The replacement's own availability isn't re-checked
+either (same one-level-only rule as _resolve_slot) — if that player is
+ALSO injured, that's a fact this project leaves to the injury list
+itself to show, not something this lookup tries to chain through.
 """
 
 import re
@@ -708,3 +737,58 @@ def qb_ratings_by_week(season: int, weeks: list) -> dict:
     highest-Madden-rated backup, if the starter's out) and reports their
     Madden overall directly."""
     return _position_group_ratings_by_week(season, weeks, {"QB": 1.0})
+
+
+def _depth_chart_slot_lookup(depth_chart: pd.DataFrame) -> dict:
+    """(team, normalized player name) -> (position, slot_index) for
+    EVERY player on the current depth chart, any depth_rank — not just
+    starters, since a backup can himself be hurt and needs his own
+    replacement looked up too."""
+    out = {}
+    for r in depth_chart.itertuples():
+        out[(r.team, _norm_player_name(r.player))] = (r.position, r.slot_index)
+    return out
+
+
+def injury_replacements_by_week(season: int, weeks: list) -> dict:
+    """Returns {(team, normalized injured-player name, week): (replacement
+    name, replacement Madden overall)} — see docstring's "Per-player
+    replacements" section for the full rule. Only covers injured players
+    who (a) are on the current depth chart at all and (b) have at least
+    one other depth-chart player at that exact slot with a usable Madden
+    rating that week; every other injured player simply has no entry
+    here, and callers should treat a missing key as "no replacement to
+    show," not an error."""
+    loaded = _load_depth_madden_injuries(season)
+    if loaded is None:
+        return {}
+    depth_chart, madden, injuries = loaded
+
+    slot_lookup = _depth_chart_slot_lookup(depth_chart)
+    madden_lookup = _madden_overall_lookup(madden)
+    available_iterations = set(madden["madden_iteration"].unique())
+
+    out = {}
+    for week in weeks:
+        iteration = _madden_iteration_for_week(week, available_iterations)
+        wk_injuries = injuries[injuries.week == week]
+        for r in wk_injuries.itertuples():
+            norm_name = _norm_player_name(r.player)
+            slot = slot_lookup.get((r.team, norm_name))
+            if slot is None:
+                continue
+            position, slot_index = slot
+            candidates = depth_chart[
+                (depth_chart.team == r.team) & (depth_chart.position == position) & (depth_chart.slot_index == slot_index)
+            ]
+            best_name, best_rating = None, None
+            for c in candidates.itertuples():
+                cand_norm = _norm_player_name(c.player)
+                if cand_norm == norm_name:
+                    continue  # exclude the injured player themselves
+                rating = madden_lookup.get((iteration, r.team, cand_norm))
+                if rating is not None and (best_rating is None or rating > best_rating):
+                    best_name, best_rating = c.player, rating
+            if best_name is not None:
+                out[(r.team, norm_name, week)] = (best_name, best_rating)
+    return out

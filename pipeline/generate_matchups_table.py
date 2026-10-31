@@ -51,7 +51,8 @@ and a matchups page is a list of per-game cards, not a table. Shape here:
         "home_team_summary": { ... },
         "away_injuries": [ {player, pos, status, injury, practice: [d1,d2,d3],
                              game_day_inactive, expected_return, notes,
-                             snap_share, likely_starter, madden_rating}, ... ],
+                             snap_share, likely_starter, madden_rating,
+                             replacement_player, replacement_rating}, ... ],
         "home_injuries": [ ... ]
       }, ...
     ],
@@ -139,6 +140,17 @@ fails to match even though both clearly mean the same player, and (2) a
 good chunk of practice-squad/deep-roster players simply aren't rated in
 Madden at all. madden_rating is null in both cases — the UI treats a
 missing rating as "no Madden data for this player," not an error.
+
+Replacement player on injury rows
+--------------------------------------
+Each injury row also carries replacement_player and replacement_rating —
+who would step into that specific injured player's depth-chart slot, and
+that replacement's Madden overall. Computed by
+pipeline/team_rating.py's injury_replacements_by_week (see that module's
+"Per-player replacements" docstring section for the full rule); both
+fields are null whenever that function has no entry for this player,
+e.g. the player isn't on the current depth chart at all, or none of
+their slot-mates has a usable Madden rating that week.
 
 Team season summary
 -----------------------
@@ -516,7 +528,7 @@ def _week1_starter_lookup(path: Path) -> tuple:
     return all_keys, rank1_keys
 
 
-def _player_row(r, snap_shares, week1_starters, player_ids, madden_ratings):
+def _player_row(r, snap_shares, week1_starters, player_ids, madden_ratings, injury_replacements):
     week1_all, week1_rank1 = week1_starters
     norm_name = _norm_player_name(r["player"])
     snap_share = snap_shares.get((r["team"], norm_name))
@@ -534,6 +546,13 @@ def _player_row(r, snap_shares, week1_starters, player_ids, madden_ratings):
         likely_starter = week1_key in week1_rank1
     else:
         likely_starter = bool(snap_share is not None and snap_share >= SNAP_SHARE_STARTER_THRESHOLD)
+    # See pipeline/team_rating.py's "Per-player replacements" docstring
+    # section — null for a player not on the current depth chart at all
+    # (released, or too deep on the practice squad for ESPN's depth
+    # chart to list), same graceful-null handling madden_rating above
+    # already has.
+    replacement = injury_replacements.get((r["team"], norm_name, r["week"]))
+    replacement_player, replacement_rating = replacement if replacement else (None, None)
     return {
         "player": r["player"],
         "pos": _clean(r["pos"]),
@@ -546,6 +565,8 @@ def _player_row(r, snap_shares, week1_starters, player_ids, madden_ratings):
         "snap_share": _round(snap_share, 2),
         "likely_starter": likely_starter,
         "madden_rating": _clean(madden_rating),
+        "replacement_player": _clean(replacement_player),
+        "replacement_rating": _clean(replacement_rating),
     }
 
 
@@ -561,14 +582,14 @@ def _desc_none_last(value):
     return (0, -value) if value is not None else (1, 0)
 
 
-def _team_injuries(df, season, week, team, snap_shares, week1_starters, player_ids, madden_ratings):
+def _team_injuries(df, season, week, team, snap_shares, week1_starters, player_ids, madden_ratings, injury_replacements):
     # Keyed by (season, week, team) only, not also by the injury sheet's
     # own "AWAY @ HOME" game string — the games list itself now comes from
     # schedules.parquet (see build()), a different source, so matching on
     # team identity alone is both simpler and more robust than requiring
     # the two sources' game-string formatting to agree.
     rows = df[(df.season == season) & (df.week == week) & (df.team == team)]
-    players = [_player_row(r, snap_shares, week1_starters, player_ids, madden_ratings) for _, r in rows.iterrows()]
+    players = [_player_row(r, snap_shares, week1_starters, player_ids, madden_ratings, injury_replacements) for _, r in rows.iterrows()]
     players.sort(key=lambda p: (
         0 if _is_inactive(p) else 1,
         _desc_none_last(p["madden_rating"]),
@@ -892,11 +913,12 @@ def build():
 
     weeks = sorted(sched["week"].unique().tolist())
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from pipeline.team_rating import team_ratings_by_week, ol_ratings_by_week, dl_ratings_by_week, qb_ratings_by_week
+    from pipeline.team_rating import team_ratings_by_week, ol_ratings_by_week, dl_ratings_by_week, qb_ratings_by_week, injury_replacements_by_week
     roster_ratings = team_ratings_by_week(season, weeks)
     ol_ratings = ol_ratings_by_week(season, weeks)
     dl_ratings = dl_ratings_by_week(season, weeks)
     qb_ratings = qb_ratings_by_week(season, weeks)
+    injury_replacements = injury_replacements_by_week(season, weeks)
     # "Upcoming" = the earliest week with at least one game not yet
     # played (home_score still null) — falls back to the final week once
     # the whole season is complete.
@@ -930,8 +952,8 @@ def build():
                 "final": {"home_score": int(g["home_score"]), "away_score": int(g["away_score"])} if played else None,
                 "away_team_summary": _team_summary_entry(away, summaries, coordinators, starting_qbs, win_totals, roster_ratings, ol_ratings, dl_ratings, qb_ratings, week, recent_games, power_records),
                 "home_team_summary": _team_summary_entry(home, summaries, coordinators, starting_qbs, win_totals, roster_ratings, ol_ratings, dl_ratings, qb_ratings, week, recent_games, power_records),
-                "away_injuries": _team_injuries(inj, season, week, away, snap_shares, week1_starters, player_ids, madden_ratings),
-                "home_injuries": _team_injuries(inj, season, week, home, snap_shares, week1_starters, player_ids, madden_ratings),
+                "away_injuries": _team_injuries(inj, season, week, away, snap_shares, week1_starters, player_ids, madden_ratings, injury_replacements),
+                "home_injuries": _team_injuries(inj, season, week, home, snap_shares, week1_starters, player_ids, madden_ratings, injury_replacements),
             })
         games_by_week[str(week)] = week_games
 

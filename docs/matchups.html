@@ -224,6 +224,11 @@ button { cursor: pointer; }
   color: var(--accent); background: var(--accent-dim);
   padding: 1px 6px; border-radius: 20px; margin-left: 6px; white-space: nowrap;
 }
+.replacement-badge {
+  font-family: var(--font-mono); font-weight: 600; font-size: .64rem;
+  color: var(--text-muted); background: var(--surface-3);
+  padding: 1px 6px; border-radius: 20px; margin-left: 6px; white-space: nowrap;
+}
 /* Every injury row gets this same single-line treatment now — no
    starter/compact distinction (see renderInjuryRow). */
 .inj-row {
@@ -341,6 +346,16 @@ function maddenBadge(r) {
   return r.madden_rating != null ? `<span class="madden-badge" title="Madden overall">${r.madden_rating} OVR</span>` : '';
 }
 
+// Who'd fill this player's depth-chart slot and that replacement's Madden
+// overall — see pipeline/team_rating.py's "Per-player replacements"
+// docstring section. Null (no badge shown) when the player isn't on the
+// current depth chart at all, or no slot-mate has a usable Madden rating.
+function replacementBadge(r) {
+  if (r.replacement_player == null) return '';
+  const rating = r.replacement_rating != null ? ` ${r.replacement_rating} OVR` : '';
+  return `<span class="replacement-badge" title="Likely replacement">→ ${r.replacement_player}${rating}</span>`;
+}
+
 function renderInjuryRow(r) {
   const detailParts = [];
   if (r.injury) detailParts.push(r.injury);
@@ -349,7 +364,7 @@ function renderInjuryRow(r) {
 
   return `
     <div class="inj-row">
-      <span class="inj-name">${dot}<span class="inj-player">${r.player}</span><span class="inj-pos">${r.pos || ''}</span>${maddenBadge(r)}</span>
+      <span class="inj-name">${dot}<span class="inj-player">${r.player}</span><span class="inj-pos">${r.pos || ''}</span>${maddenBadge(r)}${replacementBadge(r)}</span>
       <span class="inj-detail">${detailParts.join(' · ')}</span>
       <span class="status-badge ${statusClass(r.status)}">${r.status}</span>
     </div>`;
