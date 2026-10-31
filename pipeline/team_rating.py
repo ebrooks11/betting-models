@@ -219,6 +219,22 @@ that week rather than raising an error — rare, and worth monitoring, but
 not fatal to the rest of the computation.
 
 ------------------------------------------------------------------------
+Healthy roster rating (team_ratings_by_week's second return value)
+------------------------------------------------------------------------
+team_ratings_by_week returns (ratings, healthy_ratings) — healthy_ratings
+is the same roster_rating computation, same week's Madden snapshot, same
+calibration curve, but with the injury-substitution step skipped
+entirely (unavailable=set()), i.e. "what would this team's roster_rating
+be if every depth-chart starter were available this week." Sharing one
+calibration fit between the two (rather than each calling
+_fit_calibration independently) is what makes them directly comparable —
+roster_rating_healthy - roster_rating is a meaningful "how many points
+is the current injury situation costing this team" read, not two
+numbers on accidentally-different scales. Only computed for roster_rating
+itself, not ol_rating/dl_rating/qb_rating — the project owner's request
+was specifically "in the roster rating column."
+
+------------------------------------------------------------------------
 Which Madden snapshot applies to which NFL week
 ------------------------------------------------------------------------
 Per EA's own convention (confirmed via the ratings site's own "Weekly
@@ -367,6 +383,23 @@ specifically). The replacement's own availability isn't re-checked
 either (same one-level-only rule as _resolve_slot) — if that player is
 ALSO injured, that's a fact this project leaves to the injury list
 itself to show, not something this lookup tries to chain through.
+
+KNOWN FLAW, confirmed by the project owner with a real example: that
+"don't chain through" choice can produce a visibly wrong-looking pair
+when BOTH players at a slot are hurt the same week — e.g. CB Mike
+Jackson (hurt) shows "replacement: Akayleb Evans," while Akayleb Evans
+(also hurt that week) shows "replacement: Mike Jackson" right back,
+since each is the other's single best candidate once you exclude only
+the player being looked up. Mutually "replacing" each other is a real
+correctness bug for a viewer scanning the page, not just an edge case to
+footnote. Properly fixing it (e.g. excluding every OTHER currently-
+unavailable player at the slot too, not just the one being looked up, or
+chaining to the next-best-available) is follow-up work, not done here.
+This function and its data are intentionally left as-is in the
+meantime — generate_matchups_table.py still computes and carries
+replacement_player/replacement_rating on every injury row — but
+docs/matchups.html no longer renders them, on the project owner's
+explicit instruction, until the substitution logic itself is corrected.
 """
 
 import re
@@ -638,16 +671,19 @@ def _load_depth_madden_injuries(season: int):
     return depth_chart, madden, injuries
 
 
-def team_ratings_by_week(season: int, weeks: list) -> dict:
-    """Returns {(team, week): rating} for every team and every week in
-    `weeks`, rounded to 1 decimal. See _load_depth_madden_injuries for
-    the {} early-return contract."""
+def team_ratings_by_week(season: int, weeks: list):
+    """Returns (ratings, healthy_ratings), each {(team, week): rating} for
+    every team and every week in `weeks`, rounded to 1 decimal.
+    healthy_ratings is the same stat with injury substitution skipped
+    (unavailable=set()) and shares ratings' own calibration curve — see
+    docstring's "Healthy roster rating" section. See
+    _load_depth_madden_injuries for the ({}, {}) early-return contract."""
     team_games_path = DATA_DIR / "team_games.parquet"
     if not team_games_path.exists():
-        return {}
+        return {}, {}
     loaded = _load_depth_madden_injuries(season)
     if loaded is None:
-        return {}
+        return {}, {}
     depth_chart, madden, injuries = loaded
     team_games = pd.read_parquet(team_games_path)
 
@@ -669,13 +705,16 @@ def team_ratings_by_week(season: int, weeks: list) -> dict:
     calibration = _fit_calibration(raw_full_strength, avg_ppg)
 
     ratings = {}
+    healthy_ratings = {}
     for week in weeks:
         iteration = _madden_iteration_for_week(week, available_iterations)
         unavailable = _unavailable_players(injuries, season, week)
         for team in all_teams:
             raw = _raw_score_for_team_week(team, iteration, slots, madden_lookup, unavailable)
             ratings[(team, week)] = round(_apply_calibration(raw, calibration), 1)
-    return ratings
+            raw_healthy = _raw_score_for_team_week(team, iteration, slots, madden_lookup, unavailable=set())
+            healthy_ratings[(team, week)] = round(_apply_calibration(raw_healthy, calibration), 1)
+    return ratings, healthy_ratings
 
 
 def _weighted_slot_rating_for_team_week(team: str, iteration: str, slots: pd.DataFrame, weights: dict, madden_lookup: dict, unavailable: set) -> float:

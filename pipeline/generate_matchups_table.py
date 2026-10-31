@@ -45,9 +45,12 @@ and a matchups page is a list of per-game cards, not a table. Shape here:
         "lines": {"bookmaker": "draftkings", "home_moneyline": ..., ...} | null,
         "final": {"home_score": 24, "away_score": 17} | null,
         "away_team_summary": { ...see _team_summary_for_season/_coordinators_with_fallback...,
+                                "wins": 5, "losses": 2, "ties": 0,
                                 "recent_games": [ {season, week, opponent, home_away,
                                                     team_score, opp_score, result,
-                                                    covered, total_result}, ... ] },
+                                                    covered, total_result}, ... ],
+                                "full_schedule": [ {week, opponent, home_away, game_date,
+                                                     team_score, opp_score, result}, ... ] },
         "home_team_summary": { ... },
         "away_injuries": [ {player, pos, status, injury, practice: [d1,d2,d3],
                              game_day_inactive, expected_return, notes,
@@ -167,6 +170,13 @@ stats, not "season including tonight and afterward." games_played is
 included alongside the rates so a 1-game and a 10-game average aren't
 read as equally confident.
 
+wins/losses/ties use the same before-this-week cutoff and the same
+team_games.parquet rows as the rates above — derived from points_scored
+vs points_allowed per game (team_games.parquet has no separate
+win/loss column), not from schedules.parquet directly, so the record
+shown always agrees with whichever games this file otherwise counts as
+"played so far." Shown next to the team's name on the compare table.
+
 The matchups page's compare table is offense-only throughout (point_differential
 and points_per_game are kept here as general-purpose facts since other
 code may still want them, but aren't surfaced in the compare table — see
@@ -196,6 +206,13 @@ reproduced here. Unlike every other per-week stat above, none of the
 four is derived from team_games.parquet at all (so there's no "before
 this week" cutoff to apply) — all come from the CURRENT depth chart and
 that week's own injury-report snapshot, independent of game results.
+
+roster_rating_healthy sits right next to roster_rating — the same stat
+recomputed as if every depth-chart starter were available that week (no
+injury substitution), sharing roster_rating's own calibration curve so
+the two are directly comparable. See team_rating.py's "Healthy roster
+rating" docstring section. Only computed for roster_rating, not the
+other three.
 
 Power record (power_wins_full, power_losses_full, power_win_pct —
 plus power_wins/power_losses, computed but not displayed)
@@ -288,6 +305,22 @@ sportsbook-board convention used in the Lines row above) — confirmed
 directly against a shared game (2026 week 4 CLE/PIT: spread_line -2.5
 here vs. home_spread +2.5 there, an exact negation). See the comments
 in _team_game_log for the cover/total formulas.
+
+Full schedule (full_schedule)
+----------------------------------
+Every REG-season game on the team's CURRENT-season schedule, week 1
+through however many weeks the season has, in week order — see
+_full_schedule_by_team. Unlike recent_games above, this is (1) not
+windowed to the last 5, (2) not cut off "strictly before the week being
+shown" — the same complete slate is attached to every week's card,
+since a team's full-season schedule is a fixed fact, not something that
+should look different depending on which week of the page you're
+browsing, and (3) includes games NOT YET PLAYED, with team_score/
+opp_score/result all null for those, rather than only listing games
+played so far. A played game's result/score fields are populated exactly
+like recent_games' own (same W/L/T convention), just without the
+covered/total_result ATS/O-U grading recent_games carries — this is a
+schedule-at-a-glance list, not a betting-form strip.
 
 Game lines
 -------------
@@ -603,8 +636,19 @@ def _team_summary_before_week(team_games: pd.DataFrame, season: int, week: int) 
     season_df = team_games[(team_games.season == season) & (team_games.week < week)]
     out = {}
     for team, g in season_df.groupby("team"):
+        wins = int((g["points_scored"] > g["points_allowed"]).sum())
+        losses = int((g["points_scored"] < g["points_allowed"]).sum())
         out[team] = {
             "games_played": int(len(g)),
+            # Season record as of this week (games strictly before it, same
+            # cutoff as every other stat here) — shown next to the team's
+            # name on the compare table per the project owner's request.
+            # Ties aren't broken out as their own field since team_games.parquet
+            # effectively never has them in the modern NFL; len(g) - wins -
+            # losses covers the rare case without a dedicated column.
+            "wins": wins,
+            "losses": losses,
+            "ties": int(len(g)) - wins - losses,
             # point_differential/points_per_game are team-level (they
             # include defensive/special-teams scoring via points_scored/
             # points_allowed) — kept here as general-purpose facts for
@@ -848,9 +892,60 @@ def _recent_games_before_week(log: pd.DataFrame, season: int, week: int, team: s
     ]
 
 
-def _team_summary_entry(team, summaries, coordinators, starting_qbs, win_totals, roster_ratings, ol_ratings, dl_ratings, qb_ratings, week, recent_games, power_records):
+def _full_schedule_by_team(sched: pd.DataFrame) -> dict:
+    """Every REG-season game for every team, current season only, ordered
+    by week ascending — the full slate (played AND not-yet-played), unlike
+    _recent_games_before_week's rolling last-5 window above. Not "before
+    this week" either: the same full schedule is shown regardless of
+    which week the page happens to be browsing, since "what's this team's
+    whole season look like" is a fixed fact, not something that should
+    change as you flip weeks. Unplayed games carry null team_score/
+    opp_score/result rather than being left out, so the list is always
+    the team's complete week-1-through-however-many-weeks slate."""
+    played = sched["home_score"].notna() & sched["away_score"].notna()
+
+    home = sched.rename(columns={
+        "home_team": "team", "away_team": "opponent",
+        "home_score": "team_score", "away_score": "opp_score",
+    }).copy()
+    home["home_away"] = "home"
+    away = sched.rename(columns={
+        "away_team": "team", "home_team": "opponent",
+        "away_score": "team_score", "home_score": "opp_score",
+    }).copy()
+    away["home_away"] = "away"
+    home["played"] = played.values
+    away["played"] = played.values
+
+    cols = ["week", "team", "opponent", "team_score", "opp_score", "home_away", "gameday", "played"]
+    log = pd.concat([home[cols], away[cols]], ignore_index=True)
+    log["result"] = None
+    log.loc[log["played"] & (log["team_score"] > log["opp_score"]), "result"] = "W"
+    log.loc[log["played"] & (log["team_score"] < log["opp_score"]), "result"] = "L"
+    log.loc[log["played"] & (log["team_score"] == log["opp_score"]), "result"] = "T"
+
+    out = {}
+    for team, g in log.groupby("team"):
+        g = g.sort_values("week")
+        out[team] = [
+            {
+                "week": int(r.week),
+                "opponent": r.opponent,
+                "home_away": r.home_away,
+                "game_date": _clean(r.gameday),
+                "team_score": int(r.team_score) if r.played else None,
+                "opp_score": int(r.opp_score) if r.played else None,
+                "result": _clean(r.result),
+            }
+            for r in g.itertuples()
+        ]
+    return out
+
+
+def _team_summary_entry(team, summaries, coordinators, starting_qbs, win_totals, roster_ratings, roster_ratings_healthy, ol_ratings, dl_ratings, qb_ratings, week, recent_games, full_schedules, power_records):
     entry = dict(summaries.get(team, {
-        "games_played": 0, "point_differential": None, "points_per_game": None,
+        "games_played": 0, "wins": 0, "losses": 0, "ties": 0,
+        "point_differential": None, "points_per_game": None,
         "offensive_points_per_game": None, "epa_per_play": None,
         "success_rate": None, "early_down_success_rate": None,
     }))
@@ -864,6 +959,12 @@ def _team_summary_entry(team, summaries, coordinators, starting_qbs, win_totals,
     # so this stat degrades gracefully rather than blocking the rest of
     # the page.
     entry["roster_rating"] = _clean(roster_ratings.get((team, week)))
+    # roster_rating as if every depth-chart starter were available this
+    # week (no injury substitution) — see team_rating.py's "Healthy
+    # roster rating" docstring section. Shares roster_rating's own
+    # calibration curve, so the gap between the two is a meaningful
+    # "what the current injury situation is costing this team" read.
+    entry["roster_rating_healthy"] = _clean(roster_ratings_healthy.get((team, week)))
     # Same source/machinery as roster_rating, each scoped to one position
     # group and reported directly on a 0-100 scale (no points-calibration
     # stage) — see team_rating.py's "Offensive Line Rating, Defensive
@@ -872,6 +973,7 @@ def _team_summary_entry(team, summaries, coordinators, starting_qbs, win_totals,
     entry["dl_rating"] = _clean(dl_ratings.get((team, week)))
     entry["qb_rating"] = _clean(qb_ratings.get((team, week)))
     entry["recent_games"] = recent_games.get(team, [])
+    entry["full_schedule"] = full_schedules.get(team, [])
     power = power_records.get(team, {
         "power_wins": 0, "power_losses": 0, "power_wins_full": 0, "power_losses_full": 0,
     })
@@ -910,11 +1012,12 @@ def build():
     game_log = _team_game_log(schedules)
     all_teams = sorted(set(sched["home_team"]) | set(sched["away_team"]))
     power_record_by_week = _power_record_before_week(sched)
+    full_schedules = _full_schedule_by_team(sched)
 
     weeks = sorted(sched["week"].unique().tolist())
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from pipeline.team_rating import team_ratings_by_week, ol_ratings_by_week, dl_ratings_by_week, qb_ratings_by_week, injury_replacements_by_week
-    roster_ratings = team_ratings_by_week(season, weeks)
+    roster_ratings, roster_ratings_healthy = team_ratings_by_week(season, weeks)
     ol_ratings = ol_ratings_by_week(season, weeks)
     dl_ratings = dl_ratings_by_week(season, weeks)
     qb_ratings = qb_ratings_by_week(season, weeks)
@@ -950,8 +1053,8 @@ def build():
                 "home_team": home,
                 "lines": lines_lookup.get((home, away)),
                 "final": {"home_score": int(g["home_score"]), "away_score": int(g["away_score"])} if played else None,
-                "away_team_summary": _team_summary_entry(away, summaries, coordinators, starting_qbs, win_totals, roster_ratings, ol_ratings, dl_ratings, qb_ratings, week, recent_games, power_records),
-                "home_team_summary": _team_summary_entry(home, summaries, coordinators, starting_qbs, win_totals, roster_ratings, ol_ratings, dl_ratings, qb_ratings, week, recent_games, power_records),
+                "away_team_summary": _team_summary_entry(away, summaries, coordinators, starting_qbs, win_totals, roster_ratings, roster_ratings_healthy, ol_ratings, dl_ratings, qb_ratings, week, recent_games, full_schedules, power_records),
+                "home_team_summary": _team_summary_entry(home, summaries, coordinators, starting_qbs, win_totals, roster_ratings, roster_ratings_healthy, ol_ratings, dl_ratings, qb_ratings, week, recent_games, full_schedules, power_records),
                 "away_injuries": _team_injuries(inj, season, week, away, snap_shares, week1_starters, player_ids, madden_ratings, injury_replacements),
                 "home_injuries": _team_injuries(inj, season, week, home, snap_shares, week1_starters, player_ids, madden_ratings, injury_replacements),
             })
