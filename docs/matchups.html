@@ -221,6 +221,17 @@ button { cursor: pointer; }
 .status-reserve { background: var(--surface-3); color: var(--text-dim); }
 .empty-note { color: var(--text-dim); font-size: .7rem; font-style: italic; }
 
+/* Position-group header within the injury list itself (see
+   groupInjuriesByPosition) — deliberately smaller/quieter than
+   .sub-head, since it's a sub-division of the Injuries section rather
+   than a peer of it. */
+.inj-group-head {
+  font-family: var(--font-mono); font-size: .58rem; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--text-dim);
+  margin: 6px 0 2px;
+}
+.inj-group-head:first-child { margin-top: 0; }
+
 .madden-badge {
   font-family: var(--font-mono); font-weight: 700; font-size: .68rem;
   color: var(--accent); background: var(--accent-dim);
@@ -449,6 +460,27 @@ function positionCounts(rows) {
 function togglePositionFilter(team, pos) {
   positionFilters[team] = positionFilters[team] === pos ? null : pos;
   render();
+}
+
+// Groups the (already correctly ordered, per renderTeamCol's own comment)
+// injury rows by POS_GROUP, without disturbing that order WITHIN each
+// group — only the grouping/group order is new here. Groups themselves
+// are ordered count descending (ties alphabetical), the same ordering
+// positionCounts already uses for the pills above the list, so the
+// grouped list reads in the same priority order the pills already imply.
+function groupInjuriesByPosition(rows) {
+  const buckets = {};
+  const order = [];
+  rows.forEach(r => {
+    const group = POS_GROUP[r.pos] || 'Other';
+    if (!buckets[group]) { buckets[group] = []; order.push(group); }
+    buckets[group].push(r);
+  });
+  order.sort((a, b) => (buckets[b].length - buckets[a].length) || a.localeCompare(b));
+  return order.map(group => `
+    <div class="inj-group-head">${group}</div>
+    ${buckets[group].map(renderInjuryRow).join('')}`
+  ).join('');
 }
 
 function renderPositionSummary(team, rows) {
@@ -694,10 +726,12 @@ function renderFullSchedule(fullSchedule) {
 }
 
 function renderTeamCol(team, summary, injuries) {
-  // No frontend re-sort — generate_matchups_table.py's _team_injuries
-  // already orders this list (inactive-in-any-way first, then Madden
-  // rating descending, then snap_share descending, then name; see that
-  // file's "Injury ordering" docstring section). Questionable/No
+  // No frontend re-sort WITHIN a position group — generate_matchups_table.py's
+  // _team_injuries already orders this list (inactive-in-any-way first,
+  // then Madden rating descending, then snap_share descending, then
+  // name; see that file's "Injury ordering" docstring section). Grouping
+  // BY position group is still done here, in groupInjuriesByPosition
+  // below, without touching that order. Questionable/No
   // designation players are still in the underlying data (and still
   // factor into likely_starter/sorting upstream) but aren't shown here —
   // this page only wants players who are actually not expected to play.
@@ -715,7 +749,7 @@ function renderTeamCol(team, summary, injuries) {
     const activeFilter = positionFilters[team];
     const displayRows = activeFilter ? rows.filter(r => POS_GROUP[r.pos] === activeFilter) : rows;
     injuriesHtml += displayRows.length
-      ? displayRows.map(renderInjuryRow).join('')
+      ? groupInjuriesByPosition(displayRows)
       : `<div class="empty-note">No ${activeFilter} injuries</div>`;
   }
 
