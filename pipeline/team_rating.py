@@ -244,14 +244,16 @@ BEFORE week N+1 — i.e. they're the right snapshot to use for week N+1's
 game. So: NFL week 1 uses "1-base" (Launch/preseason) ratings, since no
 in-season snapshot exists yet; NFL week W (W >= 2) uses
 "madden-ratings-week-{W-1}". Once a requested week is beyond the latest
-snapshot actually scraped (this is a manual process — see
-fetch_madden_ratings.py — not something that updates itself every week),
-this falls back to whatever the latest available snapshot is, same
-"most recent wins" rule generate_matchups_table.py's own
-_madden_iteration_rank already uses. That means every future week's
-rating is frozen at the most recently scraped ratings until the next
-manual Madden scrape, which is an accepted, documented staleness, not a
-bug.
+snapshot actually scraped (this is refreshed weekly by
+.github/workflows/madden_ratings_refresh.yml — see
+fetch_madden_ratings.py — so normally no more than a few days stale, but
+not instantaneous either), this falls back to whatever the latest
+available snapshot is, same "most recent wins" rule
+generate_matchups_table.py's own _madden_iteration_rank already uses.
+That means a week's rating can be frozen at the most recently scraped
+ratings for up to a week if EA hasn't published a new snapshot yet (or,
+rarely, if that week's automated refresh failed), which is an accepted,
+documented staleness, not a bug.
 
 ------------------------------------------------------------------------
 Offensive Line Rating, Defensive Line Rating (ol_ratings_by_week,

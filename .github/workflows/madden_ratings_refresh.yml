@@ -1,0 +1,57 @@
+name: Madden ratings refresh
+
+on:
+  schedule:
+    # Tuesday 11:07am ET — same day as weekly_stats_refresh.yml (Madden's
+    # own weekly roster-rating updates have historically landed on
+    # Tuesdays), offset by 2 hours so the two workflows' commits don't race
+    # each other, and late enough to give EA's own update a buffer if it
+    # hasn't landed right at the start of the day. This is a judgment call,
+    # not a confirmed EA publish schedule — pipeline/fetch_madden_ratings.py's
+    # build() is idempotent either way (a no-op if the current iteration is
+    # already captured), so running an hour or a day "early" relative to
+    # EA's actual update just means this week's run is a no-op and next
+    # week's run catches the new iteration instead; nothing duplicates or
+    # breaks either way. Not :00 — see odds_snapshot.yml's cron comment for
+    # why. Both DST equivalents are listed permanently, same pattern as
+    # injury_reports_sync.yml/weekly_stats_refresh.yml.
+    - cron: "7 15 * * 2"  # 11:07am EDT (now through ~Nov 1, 2026)
+    - cron: "7 16 * * 2"  # 11:07am EST (~Nov 1, 2026 onward)
+  workflow_dispatch: {}  # lets you trigger a run manually from the Actions tab
+
+permissions:
+  contents: write  # needed to commit the refreshed madden_ratings.parquet/matchups.json
+
+jobs:
+  refresh-madden-ratings:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Fetch current Madden ratings
+        run: python3 pipeline/fetch_madden_ratings.py
+
+      - name: Regenerate matchups.json
+        run: python3 pipeline/generate_matchups_table.py
+
+      - name: Commit and push if anything changed
+        # data/madden_ratings.parquet is a tracked exception to data/'s
+        # usual gitignore (see .gitignore), same pattern as every other
+        # accumulating source this pipeline keeps in the repo.
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/madden_ratings.parquet docs/data/matchups.json
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Weekly refresh: Madden ratings"
+            git push
+          fi

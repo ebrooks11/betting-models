@@ -23,8 +23,9 @@ __pycache__/
 #   historical backfill endpoint, only "current state right now." See
 #   pipeline/fetch_game_lines_from_sheet.py, pipeline/build_injury_reports_table.py,
 #   pipeline/fetch_depth_chart.py, and pipeline/fetch_madden_ratings.py.
-#   madden_ratings.parquet is refreshed manually, not by CI — see that
-#   file's docstring for why.
+#   madden_ratings.parquet is refreshed weekly by CI (see
+#   .github/workflows/madden_ratings_refresh.yml) — see that file's
+#   docstring for the scrape mechanism.
 !data/team_games.parquet
 !data/coordinators.parquet
 !data/win_totals.parquet
