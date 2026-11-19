@@ -2,21 +2,27 @@ name: Madden ratings refresh
 
 on:
   schedule:
-    # Tuesday 11:07am ET — same day as weekly_stats_refresh.yml (Madden's
-    # own weekly roster-rating updates have historically landed on
-    # Tuesdays), offset by 2 hours so the two workflows' commits don't race
-    # each other, and late enough to give EA's own update a buffer if it
-    # hasn't landed right at the start of the day. This is a judgment call,
-    # not a confirmed EA publish schedule — pipeline/fetch_madden_ratings.py's
-    # build() is idempotent either way (a no-op if the current iteration is
-    # already captured), so running an hour or a day "early" relative to
-    # EA's actual update just means this week's run is a no-op and next
-    # week's run catches the new iteration instead; nothing duplicates or
-    # breaks either way. Not :00 — see odds_snapshot.yml's cron comment for
-    # why. Both DST equivalents are listed permanently, same pattern as
-    # injury_reports_sync.yml/weekly_stats_refresh.yml.
-    - cron: "7 15 * * 2"  # 11:07am EDT (now through ~Nov 1, 2026)
-    - cron: "7 16 * * 2"  # 11:07am EST (~Nov 1, 2026 onward)
+    # Thursday 7:07pm ET. Checked directly (2026-11-19, web search): EA
+    # doesn't publish an official schedule, and the ratings page itself
+    # carries no publish-timestamp field (only iteration.id/label — see
+    # fetch_madden_ratings.py) — but multiple third-party Madden-roster
+    # trackers (ClutchPoints, Timesaver) consistently report weekly roster
+    # updates land on THURSDAYS during the season, "Thursday afternoon ET,
+    # before Thursday Night Football." 7:07pm ET is chosen to land after
+    # that reported afternoon window but before TNF's ~8:15pm ET kickoff.
+    # This supersedes an earlier version of this file that guessed Tuesday
+    # (offset from weekly_stats_refresh.yml) with no real sourcing at all.
+    # Still just third-party reporting, not an EA-confirmed schedule, so
+    # could be off by a day some weeks — low-risk either way, since
+    # pipeline/fetch_madden_ratings.py's build() is idempotent (a no-op if
+    # the current iteration is already captured): running early just means
+    # this run no-ops and the following Thursday's run catches the new
+    # iteration instead, nothing duplicates or breaks. Not :00 — see
+    # odds_snapshot.yml's cron comment for why. Both DST equivalents are
+    # listed permanently, same pattern as injury_reports_sync.yml/
+    # weekly_stats_refresh.yml.
+    - cron: "7 23 * * 4"  # 7:07pm EDT (now through ~Nov 1, 2026)
+    - cron: "7 0 * * 5"   # 7:07pm EST (~Nov 1, 2026 onward) -> Fri 00:07 UTC
   workflow_dispatch: {}  # lets you trigger a run manually from the Actions tab
 
 permissions:
