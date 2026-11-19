@@ -78,6 +78,22 @@ does and doesn't work).
   stat_<name>       — one column per Madden attribute (stat_speed,
                        stat_awareness, stat_catching, stat_manCoverage, ...),
                        flattened from the API's stats.<name>.value
+
+Known gap: madden-ratings-week-7 and -week-8 are missing
+----------------------------------------------------------------
+data/madden_ratings.parquet jumps straight from madden-ratings-week-6 to
+madden-ratings-week-9, with no week-7 or week-8 snapshot in between.
+This isn't a bug — nobody scraped again between those two EA updates,
+and by the time this data was next refreshed, EA's site had already
+moved on to serving "madden-ratings-week-9" as current. Since EA only
+ever serves whichever iteration is current right now (see above — there
+is no historical endpoint), weeks 7 and 8 are permanently unrecoverable,
+not just temporarily missing. Any code consuming this file (see
+pipeline/team_rating.py's _madden_iteration_for_week) already falls back
+to the latest available iteration for a week with no exact match, so
+this gap degrades gracefully rather than breaking anything — but it's
+worth knowing the gap is real and permanent, not an oversight to go
+back and fix.
 """
 
 # EA's own numeric team id -> this project's nflverse team abbreviation —
