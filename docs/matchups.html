@@ -533,6 +533,12 @@ function fmtOdds(v) {
 // rather than a per-play offensive rate.
 const COMPARE_METRICS = [
   { key: 'preseason_win_total', label: 'Win Total', fmt: v => v != null ? v.toFixed(1) : '—' },
+  // Days since this team's last game (see generate_matchups_table.py's
+  // "Rest days" docstring section) — null for a season-opening Week 1
+  // game, which has no prior game to diff against. "Higher is better"
+  // still applies here (more rest is generically an advantage), so no
+  // special-cased compare-better logic is needed for this row either.
+  { key: 'rest_days', label: 'Rest Days', fmt: v => v != null ? `${v} day${v === 1 ? '' : 's'}` : '—' },
   // roster_rating_healthy is the same stat with the current week's
   // injury substitution skipped (see pipeline/team_rating.py's "Healthy
   // roster rating" docstring section) — shown alongside roster_rating

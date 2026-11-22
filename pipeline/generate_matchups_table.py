@@ -50,7 +50,8 @@ and a matchups page is a list of per-game cards, not a table. Shape here:
                                                     team_score, opp_score, result,
                                                     covered, total_result}, ... ],
                                 "full_schedule": [ {week, opponent, home_away, game_date,
-                                                     team_score, opp_score, result}, ... ] },
+                                                     team_score, opp_score, result}, ... ],
+                                "rest_days": 7 | null },
         "home_team_summary": { ... },
         "away_injuries": [ {player, pos, status, injury, practice: [d1,d2,d3],
                              game_day_inactive, expected_return, notes,
@@ -321,6 +322,20 @@ played so far. A played game's result/score fields are populated exactly
 like recent_games' own (same W/L/T convention), just without the
 covered/total_result ATS/O-U grading recent_games carries — this is a
 schedule-at-a-glance list, not a betting-form strip.
+
+Rest days (rest_days)
+-------------------------
+Days between THIS week's game and the team's immediately preceding game,
+by actual calendar date rather than week number — see
+_rest_days_by_team. Sorting by date rather than week means a bye week
+correctly shows up as extra rest (the games on either side of the bye are
+still "consecutive" in this sort, just 14 days apart instead of 7) and a
+Thursday-night game correctly shows up as short rest (4 days instead of
+7), without either case needing its own special-cased logic. Null for a
+team's first game of the season, since there's no preceding game to diff
+against — rather than inventing some default number, that's a real "not
+applicable yet" case the page should show as blank, same as every other
+before-this-team-has-played null on this page.
 
 Game lines
 -------------
@@ -942,7 +957,33 @@ def _full_schedule_by_team(sched: pd.DataFrame) -> dict:
     return out
 
 
-def _team_summary_entry(team, summaries, coordinators, starting_qbs, win_totals, roster_ratings, roster_ratings_healthy, ol_ratings, dl_ratings, qb_ratings, week, recent_games, full_schedules, power_records):
+def _rest_days_by_team(sched: pd.DataFrame) -> dict:
+    """Returns {(team, week): rest_days} — the number of days between a
+    team's game in that week and its immediately preceding game, sorted
+    by actual calendar date rather than week number so a bye week
+    correctly shows up as extra rest (the two surrounding games are still
+    "consecutive" in this sort, just >7 days apart) and a Thursday game
+    correctly shows up as short rest, without either case needing to be
+    special-cased. A team's first game of the season has no preceding
+    game to diff against, so it's simply absent from this dict (null on
+    the page) rather than reported as some made-up default."""
+    home = sched[["week", "home_team", "gameday"]].rename(columns={"home_team": "team"})
+    away = sched[["week", "away_team", "gameday"]].rename(columns={"away_team": "team"})
+    log = pd.concat([home, away], ignore_index=True)
+    log["gameday"] = pd.to_datetime(log["gameday"])
+
+    out = {}
+    for team, g in log.groupby("team"):
+        g = g.sort_values("gameday")
+        prev_date = None
+        for r in g.itertuples():
+            if prev_date is not None:
+                out[(team, int(r.week))] = (r.gameday - prev_date).days
+            prev_date = r.gameday
+    return out
+
+
+def _team_summary_entry(team, summaries, coordinators, starting_qbs, win_totals, roster_ratings, roster_ratings_healthy, ol_ratings, dl_ratings, qb_ratings, week, recent_games, full_schedules, rest_days_lookup, power_records):
     entry = dict(summaries.get(team, {
         "games_played": 0, "wins": 0, "losses": 0, "ties": 0,
         "point_differential": None, "points_per_game": None,
@@ -974,6 +1015,7 @@ def _team_summary_entry(team, summaries, coordinators, starting_qbs, win_totals,
     entry["qb_rating"] = _clean(qb_ratings.get((team, week)))
     entry["recent_games"] = recent_games.get(team, [])
     entry["full_schedule"] = full_schedules.get(team, [])
+    entry["rest_days"] = rest_days_lookup.get((team, week))
     power = power_records.get(team, {
         "power_wins": 0, "power_losses": 0, "power_wins_full": 0, "power_losses_full": 0,
     })
@@ -1013,6 +1055,7 @@ def build():
     all_teams = sorted(set(sched["home_team"]) | set(sched["away_team"]))
     power_record_by_week = _power_record_before_week(sched)
     full_schedules = _full_schedule_by_team(sched)
+    rest_days_lookup = _rest_days_by_team(sched)
 
     weeks = sorted(sched["week"].unique().tolist())
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -1053,8 +1096,8 @@ def build():
                 "home_team": home,
                 "lines": lines_lookup.get((home, away)),
                 "final": {"home_score": int(g["home_score"]), "away_score": int(g["away_score"])} if played else None,
-                "away_team_summary": _team_summary_entry(away, summaries, coordinators, starting_qbs, win_totals, roster_ratings, roster_ratings_healthy, ol_ratings, dl_ratings, qb_ratings, week, recent_games, full_schedules, power_records),
-                "home_team_summary": _team_summary_entry(home, summaries, coordinators, starting_qbs, win_totals, roster_ratings, roster_ratings_healthy, ol_ratings, dl_ratings, qb_ratings, week, recent_games, full_schedules, power_records),
+                "away_team_summary": _team_summary_entry(away, summaries, coordinators, starting_qbs, win_totals, roster_ratings, roster_ratings_healthy, ol_ratings, dl_ratings, qb_ratings, week, recent_games, full_schedules, rest_days_lookup, power_records),
+                "home_team_summary": _team_summary_entry(home, summaries, coordinators, starting_qbs, win_totals, roster_ratings, roster_ratings_healthy, ol_ratings, dl_ratings, qb_ratings, week, recent_games, full_schedules, rest_days_lookup, power_records),
                 "away_injuries": _team_injuries(inj, season, week, away, snap_shares, week1_starters, player_ids, madden_ratings, injury_replacements),
                 "home_injuries": _team_injuries(inj, season, week, home, snap_shares, week1_starters, player_ids, madden_ratings, injury_replacements),
             })
