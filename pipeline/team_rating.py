@@ -61,13 +61,32 @@ pick given that, not an aggressive one.
 Which players count, and how they're identified (data sources)
 ------------------------------------------------------------------------
 Starters come from data/depth_chart.parquet (ESPN's own stated depth
-chart — ONE value per (team, position, slot_index), see fetch_depth_chart.py).
-Known limitation, stated plainly: that file is a single current-week
-snapshot, not an accumulating weekly history the way injury_reports.parquet
-is — so there is no way to know who ESPN listed as starting QB in, say,
-Week 2 after the fact. Every week's rating in this file is therefore
-built from the SAME current depth chart (who's listed as starting now),
-not a week-specific one. What DOES vary week to week is (1) which Madden
+chart — ONE value per (team, position, slot_index) PER SCRAPED WEEK, see
+fetch_depth_chart.py). That file actually accumulates one snapshot per
+week it's scraped (like injury_reports.parquet), NOT a single
+always-current snapshot — an earlier version of this docstring claimed
+the opposite, which was true when it was written but became false once
+fetch_current_season_data.py started splicing in a new week's snapshot
+alongside every earlier one instead of overwriting it. _load_depth_
+madden_injuries explicitly narrows to only the MOST RECENTLY scraped
+week's rows (`depth_chart.week == depth_chart.week.max()`) before this
+file ever sees it — without that filter, a team whose starter changed
+between two scraped weeks (e.g. an injury promoting a backup) ends up
+with BOTH weeks' depth_rank==1 player colliding at the same slot, and
+whichever one happens to sort first silently wins regardless of which is
+actually current (confirmed as a real bug, not hypothetical: Baltimore's
+QB1 was Lamar Jackson in an older scraped snapshot and Jacoby Brissett in
+the next one after an injury; before this filter existed, qb_rating kept
+resolving to Jackson's overall even in weeks Brissett was ESPN's actual
+listed starter). So: every week's rating in this file is still built from
+the SAME current depth chart (who's listed as starting now, not a
+week-specific one) — that part of the original design is unchanged and
+correct, it's just now enforced by an explicit max-week filter instead of
+being true "for free" because the file only ever held one snapshot. There
+is still no way to know who ESPN listed as starting QB in, say, Week 2
+after the fact (depth_chart.parquet's earlier snapshots exist now, but
+nothing here reads them for anything — only the latest is ever used).
+What DOES vary week to week is (1) which Madden
 ratings snapshot applies (see _madden_iteration_for_week) and (2) which
 of those depth-chart starters were actually unavailable that specific
 week per data/injury_reports.parquet's real per-week history — so a
@@ -663,6 +682,16 @@ def _load_depth_madden_injuries(season: int):
 
     depth_chart = pd.read_parquet(depth_chart_path)
     depth_chart = depth_chart[depth_chart.season == season]
+    # depth_chart.parquet accumulates one snapshot per scraped week (see
+    # fetch_current_season_data.py's _splice_week) — narrow to only the
+    # MOST RECENTLY scraped week's rows, since this file's whole design
+    # (see docstring's "Which players count" section) is "the current
+    # depth chart," not a week-specific history. Without this filter, a
+    # team whose starter changed between two scraped weeks ends up with
+    # both weeks' depth_rank==1 player colliding at the same slot, and
+    # _resolve_slot can silently pick the stale one.
+    if not depth_chart.empty:
+        depth_chart = depth_chart[depth_chart.week == depth_chart["week"].max()]
     madden = pd.read_parquet(madden_path)
     madden = madden[madden.season == season]
     injuries = pd.read_parquet(injuries_path)
