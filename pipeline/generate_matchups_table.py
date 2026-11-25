@@ -287,6 +287,16 @@ quietly stopped mattering once the game ended.
 
 Recent form (recent_games)
 -------------------------------
+Still computed and present in the JSON, but no longer rendered anywhere
+on the matchups page — docs/matchups.html's last-5-games form strip
+(cards plus separate ATS/O-U pill rows) was removed once the project
+owner compared it against showing the same ATS/O-U outcomes inline in
+the full_schedule table below and preferred that table. Left in the
+data rather than removed outright since nothing else here depends on
+removing it and a future UI might still want it; if that stops being
+true this field is safe to delete along with _team_game_log/
+_recent_games_before_week.
+
 Each team's last up to RECENT_GAMES_WINDOW (5) played REG-season games
 this season, strictly before the one being shown — see _team_game_log
 and _recent_games_before_week. Current season only, same as the
@@ -327,10 +337,11 @@ covered/total_result use the exact same nflverse-closing-line grading
 recent_games' own fields do (see _team_game_log's comments for the
 formulas and the spread_line/home_spread sign-convention caveat) — this
 list originally shipped without them ("a schedule-at-a-glance list, not
-a betting-form strip"), but the project owner asked to compare showing
-ATS/O-U inline here against the existing form-strip pills, so both now
-carry the same grading; whichever reads better in practice is still an
-open question, not a decided one.
+a betting-form strip"), but the project owner asked to add them here to
+compare against the form strip's own ATS/O-U pills. That comparison is
+now settled: the form strip (and its pills) was removed from
+docs/matchups.html in favor of showing the same outcomes inline here,
+one row per game, alongside each game's opponent_starting_qb (below).
 
 opponent_starting_qb is the OTHER team's actual starting QB for that
 specific game (format "F.Last", e.g. "L.Jackson" — straight off
