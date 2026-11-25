@@ -259,6 +259,7 @@ button { cursor: pointer; }
    for every row. */
 .team-sub-grid { display: grid; grid-template-columns: 210px 1fr; gap: 0 14px; margin-top: 2px; }
 .team-sub-pane { min-width: 0; }
+.team-sub-pane + .team-sub-pane { border-left: 1px solid var(--border); }
 
 /* Full-season schedule (see renderFullSchedule) — one line per game:
    week/opponent (with the opponent's starting QB in parens), then the
