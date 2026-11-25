@@ -289,25 +289,43 @@ button { cursor: pointer; }
    pane (see renderTeamCol) — the point of putting them next to each
    other instead of stacked is to use the column's width instead of just
    its height, so both fit without as much scrolling. */
-/* Schedule rows are short ("Wk 8  @ GB  L 13-43") and never wrap, so
-   that pane gets a narrow fixed width instead of splitting evenly with
-   injuries — which needs the remaining room for player names/details. */
-.team-sub-grid { display: grid; grid-template-columns: 1fr 135px; gap: 0 14px; margin-top: 2px; }
+/* The schedule pane carries a second line per game now (opponent QB,
+   ATS/O-U tags — see renderScheduleRow), so it needs more room than the
+   original single-line "Wk 8  @ GB  L 13-43" did; still narrower than an
+   even split since injuries needs the remaining room for player names/
+   details. */
+.team-sub-grid { display: grid; grid-template-columns: 1fr 190px; gap: 0 14px; margin-top: 2px; }
 .team-sub-pane { min-width: 0; }
 
-/* Full-season schedule (see renderFullSchedule). */
+/* Full-season schedule (see renderFullSchedule) — each game is two
+   stacked lines: identity (week/opponent/result) on top, context
+   (opponent's starting QB, ATS/O-U outcome) below it in a quieter size/
+   color, so the two don't compete for the same line's width. */
 .schedule-list { margin-top: 2px; }
 .sched-row {
-  display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; padding: 2px 0;
+  display: flex; flex-direction: column; gap: 1px; padding: 3px 0;
   font-size: .64rem; border-bottom: 1px solid var(--border);
 }
 .sched-row:last-child { border-bottom: none; }
+.sched-line1 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; }
 .sched-wk { font-family: var(--font-mono); color: var(--text-dim); flex-shrink: 0; }
 .sched-opp { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sched-result { font-family: var(--font-mono); font-weight: 700; flex-shrink: 0; }
 .sched-w { color: var(--good); }
 .sched-l { color: var(--bad); }
 .sched-t, .sched-pending { color: var(--text-dim); }
+.sched-line2 {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-family: var(--font-mono); font-size: .58rem; color: var(--text-dim);
+}
+.sched-qb { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sched-tags { display: flex; gap: 5px; flex-shrink: 0; }
+.sched-tag { font-weight: 700; }
+.sched-tag.sched-cover { color: var(--good); }
+.sched-tag.sched-nocover { color: var(--bad); }
+.sched-tag.sched-push { color: var(--text-dim); }
+.sched-tag.sched-over { color: var(--good); }
+.sched-tag.sched-under { color: var(--accent); }
 
 .state-msg { text-align: center; padding: 60px 20px; color: var(--text-muted); font-family: var(--font-mono); font-size: .85rem; }
 </style>
@@ -737,14 +755,44 @@ function schedResultClass(result) {
 // (unlike the last-5 form strip above it). Always shown in full, not
 // collapsed — it sits in its own pane next to the injury list (see
 // renderTeamCol), so there's no need to hide it behind a toggle.
+//
+// ATS/O-U tags and the opponent's starting QB were added here
+// specifically to compare against the form strip's existing ATS/O-U
+// pills above (see pillRow/atsLabel/totalLabel) — same color semantics
+// (covered/over = good, no-cover = bad, under = the page's existing
+// "under" accent color, push = neutral) so a reader isn't asked to learn
+// a second color language for the same two facts. Null fields (an
+// unplayed game, or no spread/total line for that game) render as
+// nothing rather than a placeholder dash, matching every other optional
+// field on this page.
+function schedAtsTag(covered) {
+  if (covered === true) return '<span class="sched-tag sched-cover" title="Covered">C</span>';
+  if (covered === false) return '<span class="sched-tag sched-nocover" title="Did not cover">NC</span>';
+  if (covered === 'push') return '<span class="sched-tag sched-push" title="Push">P</span>';
+  return '';
+}
+function schedOuTag(totalResult) {
+  if (totalResult === 'over') return '<span class="sched-tag sched-over" title="Over">O</span>';
+  if (totalResult === 'under') return '<span class="sched-tag sched-under" title="Under">U</span>';
+  if (totalResult === 'push') return '<span class="sched-tag sched-push" title="Push">P</span>';
+  return '';
+}
+
 function renderScheduleRow(r) {
   const loc = r.home_away === 'home' ? 'vs' : '@';
   const scoreText = r.result != null ? `${r.result} ${r.team_score}-${r.opp_score}` : '—';
+  const tags = schedAtsTag(r.covered) + schedOuTag(r.total_result);
   return `
     <div class="sched-row">
-      <span class="sched-wk">Wk ${r.week}</span>
-      <span class="sched-opp">${loc} ${r.opponent}</span>
-      <span class="sched-result ${schedResultClass(r.result)}">${scoreText}</span>
+      <div class="sched-line1">
+        <span class="sched-wk">Wk ${r.week}</span>
+        <span class="sched-opp">${loc} ${r.opponent}</span>
+        <span class="sched-result ${schedResultClass(r.result)}">${scoreText}</span>
+      </div>
+      <div class="sched-line2">
+        <span class="sched-qb">${r.opponent_starting_qb || ''}</span>
+        <span class="sched-tags">${tags}</span>
+      </div>
     </div>`;
 }
 

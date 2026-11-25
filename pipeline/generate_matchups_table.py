@@ -51,7 +51,9 @@ and a matchups page is a list of per-game cards, not a table. Shape here:
                                                     team_score, opp_score, result,
                                                     covered, total_result}, ... ],
                                 "full_schedule": [ {week, opponent, home_away, game_date,
-                                                     team_score, opp_score, result}, ... ],
+                                                     team_score, opp_score, result,
+                                                     covered, total_result,
+                                                     opponent_starting_qb}, ... ],
                                 "rest_days": 7 | null },
         "home_team_summary": { ... },
         "away_injuries": [ {player, pos, status, injury, practice: [d1,d2,d3],
@@ -318,11 +320,23 @@ shown" — the same complete slate is attached to every week's card,
 since a team's full-season schedule is a fixed fact, not something that
 should look different depending on which week of the page you're
 browsing, and (3) includes games NOT YET PLAYED, with team_score/
-opp_score/result all null for those, rather than only listing games
-played so far. A played game's result/score fields are populated exactly
-like recent_games' own (same W/L/T convention), just without the
-covered/total_result ATS/O-U grading recent_games carries — this is a
-schedule-at-a-glance list, not a betting-form strip.
+opp_score/result/covered/total_result/opponent_starting_qb all null for
+those, rather than only listing games played so far.
+
+covered/total_result use the exact same nflverse-closing-line grading
+recent_games' own fields do (see _team_game_log's comments for the
+formulas and the spread_line/home_spread sign-convention caveat) — this
+list originally shipped without them ("a schedule-at-a-glance list, not
+a betting-form strip"), but the project owner asked to compare showing
+ATS/O-U inline here against the existing form-strip pills, so both now
+carry the same grading; whichever reads better in practice is still an
+open question, not a decided one.
+
+opponent_starting_qb is the OTHER team's actual starting QB for that
+specific game (format "F.Last", e.g. "L.Jackson" — straight off
+team_games.parquet, see _starting_qb_by_team_week), not a projection:
+null until the game has actually been played and team_games.parquet has
+a row for it, same no-lookahead discipline as every other field here.
 
 Rest days (rest_days)
 -------------------------
@@ -957,7 +971,21 @@ def _recent_games_before_week(log: pd.DataFrame, season: int, week: int, team: s
     ]
 
 
-def _full_schedule_by_team(sched: pd.DataFrame) -> dict:
+def _starting_qb_by_team_week(team_games: pd.DataFrame, season: int) -> dict:
+    """(week, team) -> starting_qb for every PLAYED game this season,
+    straight from team_games.parquet's own per-game column (already
+    formatted "F.Last", e.g. "L.Jackson" — see that table's own
+    docstring, no reformatting needed here). Unlike
+    _starting_qbs_before_week (which looks BACKWARD from a given week to
+    find each team's most recently known starter, for previewing an
+    upcoming game), this is keyed by the exact week a QB actually
+    started — for attaching to a specific past game in full_schedule,
+    where "who started" is a settled historical fact, not a projection."""
+    df = team_games[(team_games.season == season) & team_games.starting_qb.notna()]
+    return {(int(r.week), r.team): r.starting_qb for r in df.itertuples()}
+
+
+def _full_schedule_by_team(sched: pd.DataFrame, qb_by_team_week: dict) -> dict:
     """Every REG-season game for every team, current season only, ordered
     by week ascending — the full slate (played AND not-yet-played), unlike
     _recent_games_before_week's rolling last-5 window above. Not "before
@@ -965,16 +993,41 @@ def _full_schedule_by_team(sched: pd.DataFrame) -> dict:
     which week the page happens to be browsing, since "what's this team's
     whole season look like" is a fixed fact, not something that should
     change as you flip weeks. Unplayed games carry null team_score/
-    opp_score/result rather than being left out, so the list is always
-    the team's complete week-1-through-however-many-weeks slate."""
-    played = sched["home_score"].notna() & sched["away_score"].notna()
+    opp_score/result/covered/total_result/opponent_starting_qb rather
+    than being left out, so the list is always the team's complete
+    week-1-through-however-many-weeks slate.
 
-    home = sched.rename(columns={
+    covered/total_result use the exact same grading as _team_game_log
+    above (spread_line/total_line, nflverse's historical closing lines —
+    see that function's own comments for the sign convention and why
+    those lines specifically, not data/game_lines.parquet's accumulated
+    snapshots). opponent_starting_qb is the OTHER team's actual starter
+    for that specific game (via qb_by_team_week), null for a game that
+    hasn't been played yet, same "no lookahead" discipline as every other
+    before-it-happens null on this page — there's no "projected" starter
+    shown here, just the settled fact once there is one."""
+    s = sched.copy()
+    played = s["home_score"].notna() & s["away_score"].notna()
+
+    home_margin = s["home_score"] - s["away_score"]
+    cover_diff = home_margin - s["spread_line"]
+    s["_cover_side"] = None
+    s.loc[s.spread_line.notna() & (cover_diff > 0), "_cover_side"] = "home"
+    s.loc[s.spread_line.notna() & (cover_diff < 0), "_cover_side"] = "away"
+    s.loc[s.spread_line.notna() & (cover_diff == 0), "_cover_side"] = "push"
+
+    actual_total = s["home_score"] + s["away_score"]
+    s["_total_result"] = None
+    s.loc[s.total_line.notna() & (actual_total > s["total_line"]), "_total_result"] = "over"
+    s.loc[s.total_line.notna() & (actual_total < s["total_line"]), "_total_result"] = "under"
+    s.loc[s.total_line.notna() & (actual_total == s["total_line"]), "_total_result"] = "push"
+
+    home = s.rename(columns={
         "home_team": "team", "away_team": "opponent",
         "home_score": "team_score", "away_score": "opp_score",
     }).copy()
     home["home_away"] = "home"
-    away = sched.rename(columns={
+    away = s.rename(columns={
         "away_team": "team", "home_team": "opponent",
         "away_score": "team_score", "home_score": "opp_score",
     }).copy()
@@ -982,12 +1035,19 @@ def _full_schedule_by_team(sched: pd.DataFrame) -> dict:
     home["played"] = played.values
     away["played"] = played.values
 
-    cols = ["week", "team", "opponent", "team_score", "opp_score", "home_away", "gameday", "played"]
+    cols = ["week", "team", "opponent", "team_score", "opp_score", "home_away", "gameday", "played", "_cover_side", "_total_result"]
     log = pd.concat([home[cols], away[cols]], ignore_index=True)
     log["result"] = None
     log.loc[log["played"] & (log["team_score"] > log["opp_score"]), "result"] = "W"
     log.loc[log["played"] & (log["team_score"] < log["opp_score"]), "result"] = "L"
     log.loc[log["played"] & (log["team_score"] == log["opp_score"]), "result"] = "T"
+    # covered: whether THIS team (not just the home side) covered — same
+    # "push" handling as _team_game_log's own covered column.
+    log["covered"] = pd.Series([None] * len(log), dtype=object)
+    log.loc[log["_cover_side"] == log["home_away"], "covered"] = True
+    log.loc[(log["_cover_side"].notna()) & (log["_cover_side"] != log["home_away"]) & (log["_cover_side"] != "push"), "covered"] = False
+    log.loc[log["_cover_side"] == "push", "covered"] = "push"
+    log = log.rename(columns={"_total_result": "total_result"}).drop(columns=["_cover_side"])
 
     out = {}
     for team, g in log.groupby("team"):
@@ -1001,6 +1061,9 @@ def _full_schedule_by_team(sched: pd.DataFrame) -> dict:
                 "team_score": int(r.team_score) if r.played else None,
                 "opp_score": int(r.opp_score) if r.played else None,
                 "result": _clean(r.result),
+                "covered": _clean(r.covered),
+                "total_result": _clean(r.total_result),
+                "opponent_starting_qb": qb_by_team_week.get((int(r.week), r.opponent)),
             }
             for r in g.itertuples()
         ]
@@ -1105,7 +1168,8 @@ def build():
     game_log = _team_game_log(schedules)
     all_teams = sorted(set(sched["home_team"]) | set(sched["away_team"]))
     power_record_by_week = _power_record_before_week(sched)
-    full_schedules = _full_schedule_by_team(sched)
+    qb_by_team_week = _starting_qb_by_team_week(team_games, season)
+    full_schedules = _full_schedule_by_team(sched, qb_by_team_week)
     rest_days_lookup = _rest_days_by_team(sched)
 
     weeks = sorted(sched["week"].unique().tolist())
