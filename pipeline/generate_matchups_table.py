@@ -43,6 +43,7 @@ and a matchups page is a list of per-game cards, not a table. Shape here:
         "game_date": "...", "kickoff_et": "...",
         "away_team": "ATL", "home_team": "GB",
         "lines": {"bookmaker": "draftkings", "home_moneyline": ..., ...} | null,
+        "line_movement": [ {snapshot, home_spread, total_point}, ... ],
         "final": {"home_score": 24, "away_score": 17} | null,
         "away_team_summary": { ...see _team_summary_for_season/_coordinators_with_fallback...,
                                 "wins": 5, "losses": 2, "ties": 0,
@@ -348,6 +349,28 @@ matchup — most commonly because the game has already kicked off (books
 pull lines once a game starts) or the odds Sheet simply hasn't been
 snapshotted for that far-out a game yet; either way, the page should
 render fine without it.
+
+Line movement (line_movement)
+----------------------------------
+Companion to lines above, for the same (home_team, away_team): instead
+of "the line right now," the home spread and the game total's whole path
+to get there, oldest-to-newest. Built via
+pipeline/fetch_game_lines_from_sheet.py's line_movement(), which uses
+the SAME single-bookmaker selection as current_lines() (DraftKings if
+present, else whichever book has this event's most recent snapshot) —
+using the same book for both the headline line and its movement history
+means the two always agree with each other, and the series can't appear
+to jump just because a different book happened to get read at a
+different snapshot.
+
+Each point is {snapshot (ISO datetime string), home_spread, total_point}
+— either field can be independently null for a given snapshot (the two
+markets aren't always captured together in the same scrape), and the
+whole list is empty (not a missing key) for a game with no snapshot
+history yet, e.g. one far enough out that the daily odds-snapshot
+workflow hasn't logged it. This only covers two numbers (spread and
+total), not moneyline or alternate lines/other bookmakers — those would
+need their own series if ever wanted, same pattern.
 """
 
 import json
@@ -748,6 +771,33 @@ def _game_lines_lookup(path: Path) -> dict:
     return lookup
 
 
+def _line_movement_lookup(path: Path) -> dict:
+    """{(home_team, away_team): [ {snapshot_datetime_utc, home_spread,
+    total_point}, ... ]} — see pipeline/fetch_game_lines_from_sheet.py's
+    line_movement() for the single-bookmaker reduction this wraps,
+    and this file's "Line movement" docstring section for how it's
+    displayed. Empty list (not missing key) for a game with no snapshot
+    history at all yet, same "nothing to show, not an error" convention
+    as every other optional section on this page."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from pipeline.fetch_game_lines_from_sheet import line_movement
+
+    if not path.exists():
+        return {}
+    movement = line_movement(pd.read_parquet(path))
+    return {
+        key: [
+            {
+                "snapshot": str(pt["snapshot_datetime_utc"]),
+                "home_spread": _clean(pt["home_spread"]),
+                "total_point": _clean(pt["total_point"]),
+            }
+            for pt in series
+        ]
+        for key, series in movement.items()
+    }
+
+
 def _win_totals_lookup(path: Path, season: int) -> dict:
     if not path.exists():
         return {}
@@ -1044,6 +1094,7 @@ def build():
     team_games = pd.read_parquet(DATA_DIR / "team_games.parquet")
     coordinators = _coordinators_with_fallback(team_games, season)
     lines_lookup = _game_lines_lookup(DATA_DIR / "game_lines.parquet")
+    line_movement_lookup = _line_movement_lookup(DATA_DIR / "game_lines.parquet")
     win_totals = _win_totals_lookup(DATA_DIR / "win_totals.parquet", season)
     snap_counts = pd.read_parquet(DATA_DIR / "snap_counts.parquet", columns=[
         "season", "week", "team", "player", "offense_snaps", "offense_pct", "defense_snaps", "defense_pct", "st_snaps",
@@ -1095,6 +1146,7 @@ def build():
                 "away_team": away,
                 "home_team": home,
                 "lines": lines_lookup.get((home, away)),
+                "line_movement": line_movement_lookup.get((home, away), []),
                 "final": {"home_score": int(g["home_score"]), "away_score": int(g["away_score"])} if played else None,
                 "away_team_summary": _team_summary_entry(away, summaries, coordinators, starting_qbs, win_totals, roster_ratings, roster_ratings_healthy, ol_ratings, dl_ratings, qb_ratings, week, recent_games, full_schedules, rest_days_lookup, power_records),
                 "home_team_summary": _team_summary_entry(home, summaries, coordinators, starting_qbs, win_totals, roster_ratings, roster_ratings_healthy, ol_ratings, dl_ratings, qb_ratings, week, recent_games, full_schedules, rest_days_lookup, power_records),

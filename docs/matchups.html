@@ -113,6 +113,28 @@ button { cursor: pointer; }
 .line-under { color: var(--accent); font-weight: 700; }
 .line-push { color: var(--text-dim); font-weight: 600; }
 
+/* Line movement (see renderLineMovement) — two independent single-series
+   sparklines (spread, total), never combined on one axis since they're
+   different scales. Direction arrows are neutral-colored on purpose:
+   a line moving up or down isn't "good" or "bad" the way a cover/hit is,
+   it's just market movement, so this deliberately avoids the good/bad
+   color vocabulary the lines-row above it uses. */
+.line-movement {
+  display: flex; gap: 18px; justify-content: center; flex-wrap: wrap;
+  padding: 8px 16px; background: var(--surface-2); border-bottom: 1px solid var(--border);
+}
+.spark { min-width: 150px; }
+.spark-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-family: var(--font-mono); font-size: .62rem; margin-bottom: 2px;
+}
+.spark-label { color: var(--text-dim); letter-spacing: .04em; text-transform: uppercase; }
+.spark-value { color: var(--text-muted); }
+.spark-value strong { color: var(--text); font-weight: 700; }
+.spark-svg { display: block; width: 100%; height: 30px; overflow: visible; }
+.spark-svg circle { cursor: default; }
+.spark-svg circle:hover { r: 3.5; }
+
 .final-row {
   display: flex; align-items: center; justify-content: center; gap: 10px;
   padding: 7px 16px; background: var(--surface-2); border-bottom: 1px solid var(--border);
@@ -799,6 +821,66 @@ function betResults(g) {
   return { moneylineWinner, spreadCover, totalResult, actualTotal };
 }
 
+// Line movement (see generate_matchups_table.py's "Line movement"
+// docstring section) — g.line_movement is a single bookmaker's full
+// snapshot history, oldest-to-newest, for the home spread and the game
+// total independently. Two separate single-series sparklines, not one
+// combined chart: the two numbers live on different scales (a spread in
+// single-digit points, a total in the 40s), so plotting them together
+// would need a dual axis, which reads as two different charts pretending
+// to be one — see renderLineMovement below for how they're laid out side
+// by side instead.
+function sparklineCoords(values, width, height, pad) {
+  const xStep = values.length > 1 ? (width - 2 * pad) / (values.length - 1) : 0;
+  const xs = values.map((_, i) => pad + i * xStep);
+  const min = Math.min(...values), max = Math.max(...values);
+  const span = (max - min) || 1;
+  const ys = values.map(v => pad + (1 - (v - min) / span) * (height - 2 * pad));
+  return { xs, ys };
+}
+
+// Direction arrow is neutral-colored (see .spark-value) — this isn't a
+// "better/worse" comparison the way the compare table's highlighting is,
+// just which way the market moved.
+function renderSparkline(label, series, valueKey, fmt) {
+  const points = series.filter(p => p[valueKey] != null);
+  if (points.length < 2) return '';
+
+  const values = points.map(p => p[valueKey]);
+  const width = 150, height = 30, pad = 4;
+  const { xs, ys } = sparklineCoords(values, width, height, pad);
+  const pathD = xs.map((x, i) => `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${ys[i].toFixed(1)}`).join(' ');
+
+  const dots = xs.map((x, i) => {
+    const when = new Date(points[i].snapshot).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return `<circle cx="${x.toFixed(1)}" cy="${ys[i].toFixed(1)}" r="2.2" fill="var(--accent)"><title>${when}: ${fmt(values[i])}</title></circle>`;
+  }).join('');
+
+  const first = values[0], last = values[values.length - 1];
+  const arrow = last > first ? '↑' : last < first ? '↓' : '→';
+
+  return `
+    <div class="spark">
+      <div class="spark-head">
+        <span class="spark-label">${label}</span>
+        <span class="spark-value">${fmt(first)} ${arrow} <strong>${fmt(last)}</strong></span>
+      </div>
+      <svg class="spark-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
+        <path d="${pathD}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        ${dots}
+      </svg>
+    </div>`;
+}
+
+function renderLineMovement(g) {
+  const series = g.line_movement;
+  if (!series || series.length < 2) return '';
+  const spreadChart = renderSparkline('Spread', series, 'home_spread', v => fmtSigned(v));
+  const totalChart = renderSparkline('Total', series, 'total_point', v => String(v));
+  if (!spreadChart && !totalChart) return '';
+  return `<div class="line-movement">${spreadChart}${totalChart}</div>`;
+}
+
 function renderLinesRow(g) {
   const l = g.lines;
   if (!l) return `<div class="no-lines">Line not yet available</div>`;
@@ -846,6 +928,7 @@ function renderGameCard(g) {
       </div>
       ${renderFinalRow(g)}
       ${renderLinesRow(g)}
+      ${renderLineMovement(g)}
       ${renderStaffTable(g)}
       ${renderCompareTable(g)}
       <div class="game-body">

@@ -26,12 +26,15 @@ This file intentionally keeps every snapshot at the Sheet's own
 granularity (every bookmaker, not reduced to one) — current_lines() below
 reduces that down to one row per game (preferred bookmaker, latest
 snapshot per market/outcome) for pipeline/generate_matchups_table.py to
-show "the line right now." Anything that wants line movement over time
-instead should read data/game_lines.parquet directly rather than going
-through current_lines().
+show "the line right now." line_movement() is the companion to that:
+same single-bookmaker reduction, but keeps the whole path (every
+distinct snapshot) instead of collapsing to the latest one — for
+generate_matchups_table.py's line-movement chart. Both exist precisely
+so nothing downstream needs to read data/game_lines.parquet directly or
+re-implement the bookmaker-selection judgment call below.
 
-Reference bookmaker (used by current_lines(), not by the accumulation above)
----------------------------------------------------------------------------------
+Reference bookmaker (used by current_lines() and line_movement(), not by the accumulation above)
+-----------------------------------------------------------------------------------------------------
 The Odds API returns the same market from ~10 different books, which
 usually disagree slightly. Rather than averaging across books (hiding
 which number came from where) or showing all of them (too much for a
@@ -236,6 +239,50 @@ def current_lines(df: pd.DataFrame = None) -> pd.DataFrame:
         })
 
     return pd.DataFrame(rows)
+
+
+def line_movement(df: pd.DataFrame = None) -> dict:
+    """Companion to current_lines(): instead of reducing to "the line right
+    now," keeps the full path the home spread and the game total took to
+    get there. Returns {(home_team, away_team): [ {snapshot_datetime_utc,
+    home_spread, total_point}, ... ]}, oldest-to-newest, one entry per
+    distinct snapshot time this event was actually logged.
+
+    Built from a SINGLE bookmaker for the whole series — same "DraftKings
+    if present, else whichever book has this event's most recent
+    snapshot" rule _pick_bookmaker already uses for current_lines() — so
+    the line can't appear to jump just because a different book happened
+    to be the one read at a given snapshot. home_spread/total_point are
+    each independently null for any snapshot where that market wasn't
+    logged for the picked book (rather than dropping the whole snapshot),
+    since the two markets aren't always captured in the same requests."""
+    if df is None:
+        df = pd.read_parquet(OUT_PATH) if OUT_PATH.exists() else pd.DataFrame()
+    if df.empty:
+        return {}
+
+    out = {}
+    for event_id, event_df in df.groupby("event_id"):
+        book = _pick_bookmaker(event_df)
+        book_df = event_df[event_df["bookmaker"] == book]
+        first = book_df.iloc[0]
+        home, away = first["home_team"], first["away_team"]
+
+        spreads = book_df[(book_df["market"] == "spreads") & (book_df["outcome"] == home)]
+        totals = book_df[(book_df["market"] == "totals") & (book_df["outcome"] == "Over")]
+
+        points = {}
+        for _, r in spreads.iterrows():
+            points.setdefault(r["snapshot_datetime_utc"], {})["home_spread"] = r["point"]
+        for _, r in totals.iterrows():
+            points.setdefault(r["snapshot_datetime_utc"], {})["total_point"] = r["point"]
+
+        series = [
+            {"snapshot_datetime_utc": ts, "home_spread": vals.get("home_spread"), "total_point": vals.get("total_point")}
+            for ts, vals in sorted(points.items())
+        ]
+        out[(home, away)] = series
+    return out
 
 
 if __name__ == "__main__":
