@@ -34,6 +34,20 @@ count rather than counted as wrong — same "don't penalize an ungradeable
 case" discipline the rest of this project already uses for covered/
 total_result elsewhere, not a new rule invented for this script.
 
+High-conviction vs. low-conviction picks (summarize_by_edge)
+-------------------------------------------------------------------
+The project owner asked whether games where the model disagreed more
+sharply with the market (|edge| > 3 points) hit at a higher rate than
+games where it barely disagreed — the theory being that if roster_rating
+had real signal, a bigger edge should mean more confidence, not less.
+Checked directly (2026-11-27, season through week 11): the opposite.
+|edge| > 3 hit at 52.0% (52/100); |edge| <= 3 hit at 55.4% (31/56). Bigger
+disagreement with the market did not correlate with being more often
+right — if anything, slightly the reverse, though both sample sizes are
+small enough that this isn't a confident conclusion either way, just
+another data point alongside the overall ~53% finding that there's no
+demonstrated edge against the market yet.
+
 Run locally:
     python3 pipeline/backtest_roster_rating.py
 """
@@ -96,6 +110,30 @@ def summarize(df: pd.DataFrame) -> None:
     )
     by_week["pct"] = (by_week["correct"] / by_week["n"] * 100).round(1)
     print(by_week.to_string())
+    print()
+
+    summarize_by_edge(graded)
+
+
+def summarize_by_edge(graded: pd.DataFrame, threshold: float = 3.0) -> None:
+    """Splits the already-graded picks into "high conviction" (|edge| >
+    threshold — the model disagrees with the market by more than this
+    many points) vs. "low conviction" (<= threshold), and prints each
+    side's hit rate. See team_rating.py's "Backtest: roster_rating
+    against the closing spread" docstring section for why this split
+    matters: if the model had real signal, a bigger edge should mean
+    higher accuracy, not lower."""
+    strong = graded[graded["edge"].abs() > threshold]
+    weak = graded[graded["edge"].abs() <= threshold]
+
+    def pct(g):
+        correct = int((g.pick == g.actual).sum())
+        return correct, len(g), (correct / len(g) * 100) if len(g) else float("nan")
+
+    sc, sn, sp = pct(strong)
+    wc, wn, wp = pct(weak)
+    print(f"|edge| > {threshold}: {sc}/{sn} correct ({sp:.1f}%)")
+    print(f"|edge| <= {threshold}: {wc}/{wn} correct ({wp:.1f}%)")
 
 
 if __name__ == "__main__":

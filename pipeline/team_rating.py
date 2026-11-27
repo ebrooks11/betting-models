@@ -81,6 +81,12 @@ game between two runs minutes apart, from a late injury-status
 correction on an already-past week) — treat it as "about 53%," not a
 number to cite to the decimal.
 
+Follow-up check: does a bigger edge mean more confidence? No — checked
+directly, games where the model disagreed with the market by more than
+3 points hit at 52.0% (52/100), actually slightly WORSE than the 55.4%
+(31/56) for games within 3 points of the market. See
+backtest_roster_rating.py's summarize_by_edge() for the exact split.
+
 Known limitation, deliberately set aside for now per the project owner's
 own call ("we can worry about the depth charts later"): this backtest
 grades every week using the SAME current depth-chart snapshot described
