@@ -58,6 +58,42 @@ little wider than the realized-scoring spread above; 9 is a conservative
 pick given that, not an aggressive one.
 
 ------------------------------------------------------------------------
+Backtest: roster_rating against the closing spread
+------------------------------------------------------------------------
+The project owner asked how often roster_rating's implied margin lands
+on the side of the spread that actually covered. See
+pipeline/backtest_roster_rating.py for the runnable methodology; summary
+here so the finding is discoverable from this file too, not just that
+script.
+
+As of 2026-11-27 (season through week 11): 53.2% — 83 of 156 graded
+picks (163 played games had both a closing spread and ratings for both
+teams; 6 were actual pushes and 1 had a dead-even model/market edge,
+excluded from the graded count rather than counted as wrong). That's
+barely above a coin flip, and with only 156 games the gap from 50% isn't
+statistically meaningful — this is NOT evidence of real edge against the
+market, just a first read. Per-week accuracy ranged 35.7%-78.6% with no
+visible trend across the season, consistent with noise from small
+per-week samples (13-16 games) rather than a real pattern. This exact
+number will drift run to run as injury_reports.parquet keeps getting
+synced (confirmed directly: one week's graded count changed by a single
+game between two runs minutes apart, from a late injury-status
+correction on an already-past week) — treat it as "about 53%," not a
+number to cite to the decimal.
+
+Known limitation, deliberately set aside for now per the project owner's
+own call ("we can worry about the depth charts later"): this backtest
+grades every week using the SAME current depth-chart snapshot described
+above, not a true per-week historical one — only the Madden-ratings
+snapshot and that week's real injury-report substitutions are actually
+week-specific (see "Which Madden snapshot applies" below). So an
+early-season week in this backtest is graded against a roster that may
+not match what was actually fielded that far back. Worth revisiting once
+data/depth_chart.parquet has enough accumulated snapshots to pick
+"whichever snapshot was current as of that week" instead of always the
+latest one.
+
+------------------------------------------------------------------------
 Which players count, and how they're identified (data sources)
 ------------------------------------------------------------------------
 Starters come from data/depth_chart.parquet (ESPN's own stated depth
